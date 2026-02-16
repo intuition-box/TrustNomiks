@@ -600,7 +600,12 @@ export default function NewTokenPage() {
 
     const step3Data = step3Form.getValues()
     if (step3Data.segments.length >= 3) score += 10
-    if (totalPercentage === 100) score += 10
+    // Recalculate total percentage from form data
+    const calculatedTotal = step3Data.segments.reduce((total, segment) => {
+      const percentage = parseFloat(segment.percentage) || 0
+      return total + percentage
+    }, 0)
+    if (calculatedTotal === 100) score += 10
 
     return Math.min(score, 100)
   }
