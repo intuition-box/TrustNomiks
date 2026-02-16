@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -1370,7 +1370,7 @@ export default function NewTokenPage() {
                   <Accordion type="multiple" className="space-y-4">
                     {allocations.map((allocation, index) => {
                       const scheduleKey = `schedules.${allocation.id}`
-                      const currentFrequency = step4Form.watch(`${scheduleKey}.frequency`)
+                      const currentFrequency = step4Form.watch(`${scheduleKey}.frequency` as any)
                       const isImmediate = currentFrequency === 'immediate'
 
                       return (
@@ -1403,7 +1403,7 @@ export default function NewTokenPage() {
                               {/* Frequency */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.frequency`}
+                                name={`${scheduleKey}.frequency` as any}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Vesting Frequency</FormLabel>
@@ -1435,7 +1435,7 @@ export default function NewTokenPage() {
                               {/* Hatch Percentage */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.hatch_percentage`}
+                                name={`${scheduleKey}.hatch_percentage` as any}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>TGE Unlock (Hatch %)</FormLabel>
@@ -1461,7 +1461,7 @@ export default function NewTokenPage() {
                               {/* Cliff Months */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.cliff_months`}
+                                name={`${scheduleKey}.cliff_months` as any}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Cliff Period (months)</FormLabel>
@@ -1485,7 +1485,7 @@ export default function NewTokenPage() {
                               {/* Duration Months */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.duration_months`}
+                                name={`${scheduleKey}.duration_months` as any}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Vesting Duration (months)</FormLabel>
@@ -1509,7 +1509,7 @@ export default function NewTokenPage() {
                               {/* Start Date */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.start_date`}
+                                name={`${scheduleKey}.start_date` as any}
                                 render={({ field }) => (
                                   <FormItem className="flex flex-col">
                                     <FormLabel>Vesting Start Date</FormLabel>
@@ -1556,7 +1556,7 @@ export default function NewTokenPage() {
                               {/* Notes */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.notes`}
+                                name={`${scheduleKey}.notes` as any}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>Notes</FormLabel>
@@ -1577,9 +1577,9 @@ export default function NewTokenPage() {
                               <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm">
                                 <p className="font-medium mb-1">Vesting Summary:</p>
                                 <p className="text-muted-foreground">
-                                  {step4Form.watch(`${scheduleKey}.hatch_percentage`) || '0'}% unlocked at TGE,
-                                  then {step4Form.watch(`${scheduleKey}.cliff_months`) || '0'} month cliff
-                                  followed by {step4Form.watch(`${scheduleKey}.duration_months`) || '0'} months
+                                  {step4Form.watch(`${scheduleKey}.hatch_percentage` as any) || '0'}% unlocked at TGE,
+                                  then {step4Form.watch(`${scheduleKey}.cliff_months` as any) || '0'} month cliff
+                                  followed by {step4Form.watch(`${scheduleKey}.duration_months` as any) || '0'} months
                                   of {currentFrequency || 'monthly'} vesting
                                 </p>
                               </div>

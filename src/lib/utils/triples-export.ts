@@ -15,11 +15,11 @@ interface TokenData {
   id: string
   name: string
   ticker: string
-  chain?: string
-  contract_address?: string
-  tge_date?: string
-  category?: string
-  notes?: string
+  chain?: string | null
+  contract_address?: string | null
+  tge_date?: string | null
+  category?: string | null
+  notes?: string | null
   status: string
   completeness_score: number
   created_at: string
@@ -27,13 +27,13 @@ interface TokenData {
 }
 
 interface SupplyMetrics {
-  max_supply?: string
-  initial_supply?: string
-  tge_supply?: string
-  circulating_supply?: string
-  circulating_date?: string
-  source_url?: string
-  notes?: string
+  max_supply?: string | null
+  initial_supply?: string | null
+  tge_supply?: string | null
+  circulating_supply?: string | null
+  circulating_date?: string | null
+  source_url?: string | null
+  notes?: string | null
 }
 
 interface AllocationSegment {
@@ -41,34 +41,34 @@ interface AllocationSegment {
   segment_type: string
   label: string
   percentage: number
-  token_amount?: string
-  wallet_address?: string
+  token_amount?: string | null
+  wallet_address?: string | null
 }
 
 interface VestingSchedule {
   id: string
   allocation_id: string
-  cliff_months?: number
-  duration_months?: number
-  frequency?: string
-  hatch_percentage?: number
-  start_date?: string
-  notes?: string
+  cliff_months?: number | null
+  duration_months?: number | null
+  frequency?: string | null
+  hatch_percentage?: number | null
+  start_date?: string | null
+  notes?: string | null
   allocation?: {
     label: string
     segment_type: string
-  }
+  } | null
 }
 
 interface EmissionModel {
   type: string
-  annual_inflation_rate?: string
-  inflation_schedule?: Array<{ year: number; rate: number }>
-  has_burn?: boolean
-  burn_details?: string
-  has_buyback?: boolean
-  buyback_details?: string
-  notes?: string
+  annual_inflation_rate?: string | number | null
+  inflation_schedule?: Array<{ year: number; rate: number }> | null
+  has_burn?: boolean | null
+  burn_details?: string | null
+  has_buyback?: boolean | null
+  buyback_details?: string | null
+  notes?: string | null
 }
 
 interface DataSource {
@@ -76,8 +76,8 @@ interface DataSource {
   source_type: string
   document_name: string
   url: string
-  version?: string
-  verified_at?: string
+  version?: string | null
+  verified_at?: string | null
 }
 
 interface RiskFlag {
@@ -85,7 +85,7 @@ interface RiskFlag {
   flag_type: string
   severity: string
   is_flagged: boolean
-  justification?: string
+  justification?: string | null
 }
 
 interface CompleteTokenData {

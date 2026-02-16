@@ -141,7 +141,14 @@ export default function TokenDetailPage() {
       const { data: vestingData } = await supabase
         .from('vesting_schedules')
         .select(`
-          *,
+          id,
+          allocation_id,
+          cliff_months,
+          duration_months,
+          frequency,
+          hatch_percentage,
+          start_date,
+          notes,
           allocation:allocation_segments!vesting_schedules_allocation_id_fkey(label)
         `)
         .in('allocation_id', allocationIds)
@@ -187,11 +194,12 @@ export default function TokenDetailPage() {
   }
 
   const getStatusBadge = (status: string) => {
-    const config = {
+    const configs = {
       draft: { label: 'Draft', className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
       in_review: { label: 'In Review', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
       validated: { label: 'Validated', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
-    }[status] || config.draft
+    }
+    const config = configs[status as keyof typeof configs] || configs.draft
 
     return <Badge className={config.className}>{config.label}</Badge>
   }
@@ -256,15 +264,22 @@ export default function TokenDetailPage() {
         },
         supply: token.supply_metrics || undefined,
         allocations: token.allocation_segments,
-        vesting: token.vesting_schedules.map((v) => ({
-          ...v,
+        vesting: token.vesting_schedules.map((v: any) => ({
+          id: v.id,
+          allocation_id: v.allocation_id,
+          cliff_months: v.cliff_months,
+          duration_months: v.duration_months,
+          frequency: v.frequency,
+          hatch_percentage: v.hatch_percentage,
+          start_date: v.start_date,
+          notes: v.notes,
           allocation: {
             label: v.allocation.label,
             segment_type: token.allocation_segments.find((a) => a.id === v.allocation_id)?.segment_type || '',
           },
         })),
         emission: token.emission_models || undefined,
-        sources: token.data_sources,
+        sources: token.data_sources as any,
         risk_flags: [],
       }
 
