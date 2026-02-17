@@ -73,7 +73,7 @@ interface TokenData {
     duration_months: number
     frequency: string
     hatch_percentage: number
-    start_date: string | null
+    cliff_unlock_percentage: number
     allocation: {
       label: string
     }
@@ -147,7 +147,7 @@ export default function TokenDetailPage() {
           duration_months,
           frequency,
           hatch_percentage,
-          start_date,
+          cliff_unlock_percentage,
           notes,
           allocation:allocation_segments!vesting_schedules_allocation_id_fkey(label)
         `)
@@ -271,7 +271,7 @@ export default function TokenDetailPage() {
           duration_months: v.duration_months,
           frequency: v.frequency,
           hatch_percentage: v.hatch_percentage,
-          start_date: v.start_date,
+          cliff_unlock_percentage: v.cliff_unlock_percentage,
           notes: v.notes,
           allocation: {
             label: v.allocation.label,
@@ -518,10 +518,10 @@ export default function TokenDetailPage() {
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground mt-1">
-                      {schedule.hatch_percentage > 0 && `${schedule.hatch_percentage}% at TGE, then `}
-                      {schedule.cliff_months > 0 && `${schedule.cliff_months}m cliff → `}
-                      {schedule.duration_months}m {schedule.frequency} vesting
-                      {schedule.start_date && ` starting ${formatDate(schedule.start_date)}`}
+                      {schedule.hatch_percentage > 0 && `${schedule.hatch_percentage}% at TGE`}
+                      {schedule.cliff_months > 0 && `${schedule.hatch_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
+                      {schedule.cliff_unlock_percentage > 0 && ` (${schedule.cliff_unlock_percentage}% released at cliff end)`}
+                      {schedule.duration_months > 0 && ` → ${schedule.duration_months}m ${schedule.frequency} vesting`}
                     </p>
                   )}
                 </div>
