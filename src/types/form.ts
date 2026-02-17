@@ -34,7 +34,7 @@ export const allocationSegmentSchema = z.object({
   percentage: z.string().min(1, 'Percentage is required'),
   token_amount: z.string().optional(), // Calculated field
   wallet_address: z.string().optional(),
-})
+}).passthrough()
 
 export const allocationsSchema = z.object({
   segments: z.array(allocationSegmentSchema).min(1, 'At least one allocation segment is required'),
@@ -65,7 +65,7 @@ export const vestingScheduleSchema = z.object({
   duration_months: z.string().optional(),
   frequency: z.string().optional(),
   hatch_percentage: z.string().optional(),
-  start_date: z.string().optional(),
+  cliff_unlock_percentage: z.string().optional(),
   notes: z.string().optional(),
 })
 
