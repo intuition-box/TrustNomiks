@@ -452,13 +452,24 @@ export default function DashboardPage() {
                         {formatDate(token.created_at)}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => router.push(`/tokens/${token.id}`)}
-                        >
-                          View
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {token.completeness < 100 && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => router.push(`/tokens/new?id=${token.id}`)}
+                            >
+                              Continue
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/tokens/${token.id}`)}
+                          >
+                            View
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
