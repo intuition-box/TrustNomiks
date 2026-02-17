@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -69,13 +69,20 @@ interface AllocationWithId extends AllocationSegment {
 }
 
 export default function NewTokenPage() {
+  const searchParams = useSearchParams()
+  const editTokenId = searchParams.get('id')
+  const isEditMode = !!editTokenId
+
   const [currentStep, setCurrentStep] = useState(1)
-  const [tokenId, setTokenId] = useState<string | null>(null)
+  const [tokenId, setTokenId] = useState<string | null>(editTokenId)
   const [maxSupply, setMaxSupply] = useState<string>('')
   const [tgeDate, setTgeDate] = useState<string | undefined>(undefined)
   const [allocations, setAllocations] = useState<AllocationWithId[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingTokenData, setLoadingTokenData] = useState(isEditMode)
   const [finalScore, setFinalScore] = useState<number | null>(null)
+  const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
+  const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const router = useRouter()
   const supabase = createClient()
 
@@ -201,8 +208,8 @@ export default function NewTokenPage() {
           frequency: isImmediate ? 'immediate' : 'monthly',
           cliff_months: isImmediate ? '0' : '',
           duration_months: isImmediate ? '0' : '',
-          hatch_percentage: isImmediate ? '100' : '0',
-          start_date: tgeDate || undefined,
+          hatch_percentage: isImmediate ? '100' : '',
+          cliff_unlock_percentage: '',
           notes: '',
         }
       })
@@ -216,7 +223,219 @@ export default function NewTokenPage() {
     }
   }
 
-  // Load allocations when reaching step 4
+  // Load existing token data for editing
+  const loadTokenData = async (id: string) => {
+    try {
+      setLoadingTokenData(true)
+
+      // Fetch token with all related data
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (tokenError) throw tokenError
+      if (!tokenData) {
+        toast.error('Token not found')
+        router.push('/dashboard')
+        return
+      }
+
+      // Store initial updated_at for optimistic locking
+      setInitialUpdatedAt(tokenData.updated_at)
+
+      // Pre-fill Step 1 - Token Identity
+      step1Form.reset({
+        name: tokenData.name,
+        ticker: tokenData.ticker,
+        chain: tokenData.chain || undefined,
+        contract_address: tokenData.contract_address || '',
+        tge_date: tokenData.tge_date || undefined,
+        category: tokenData.category || undefined,
+        notes: tokenData.notes || '',
+      })
+
+      if (tokenData.tge_date) {
+        setTgeDate(tokenData.tge_date)
+      }
+
+      // Fetch and pre-fill Step 2 - Supply Metrics
+      const { data: supplyData } = await supabase
+        .from('supply_metrics')
+        .select('*')
+        .eq('token_id', id)
+        .single()
+
+      if (supplyData) {
+        step2Form.reset({
+          max_supply: supplyData.max_supply || '',
+          initial_supply: supplyData.initial_supply || '',
+          tge_supply: supplyData.tge_supply || '',
+          circulating_supply: supplyData.circulating_supply || '',
+          circulating_date: supplyData.circulating_date || undefined,
+          source_url: supplyData.source_url || '',
+          notes: supplyData.notes || '',
+        })
+        if (supplyData.max_supply) {
+          setMaxSupply(supplyData.max_supply)
+        }
+      }
+
+      // Fetch and pre-fill Step 3 - Allocations
+      const { data: allocData } = await supabase
+        .from('allocation_segments')
+        .select('*')
+        .eq('token_id', id)
+        .order('percentage', { ascending: false })
+
+      if (allocData && allocData.length > 0) {
+        const allocationsWithIds = allocData.map((alloc) => ({
+          id: alloc.id,
+          segment_type: alloc.segment_type,
+          label: alloc.label,
+          percentage: alloc.percentage.toString(),
+          token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
+          wallet_address: alloc.wallet_address || '',
+        }))
+
+        setAllocations(allocationsWithIds)
+        step3Form.reset({ segments: allocationsWithIds })
+      }
+
+      // Fetch and pre-fill Step 4 - Vesting Schedules
+      if (allocData && allocData.length > 0) {
+        const allocationIds = allocData.map(a => a.id)
+        const { data: vestingData } = await supabase
+          .from('vesting_schedules')
+          .select('*')
+          .in('allocation_id', allocationIds)
+
+        const schedules: Record<string, any> = {}
+
+        allocData.forEach((alloc) => {
+          const vestingSchedule = vestingData?.find(v => v.allocation_id === alloc.id)
+          const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
+
+          schedules[alloc.id] = vestingSchedule ? {
+            allocation_id: alloc.id,
+            frequency: vestingSchedule.frequency || (isImmediate ? 'immediate' : 'monthly'),
+            cliff_months: vestingSchedule.cliff_months?.toString() || (isImmediate ? '0' : ''),
+            duration_months: vestingSchedule.duration_months?.toString() || (isImmediate ? '0' : ''),
+            hatch_percentage: vestingSchedule.hatch_percentage?.toString() || (isImmediate ? '100' : ''),
+            cliff_unlock_percentage: vestingSchedule.cliff_unlock_percentage?.toString() || '',
+            notes: vestingSchedule.notes || '',
+          } : {
+            allocation_id: alloc.id,
+            frequency: isImmediate ? 'immediate' : 'monthly',
+            cliff_months: isImmediate ? '0' : '',
+            duration_months: isImmediate ? '0' : '',
+            hatch_percentage: isImmediate ? '100' : '',
+            cliff_unlock_percentage: '',
+            notes: '',
+          }
+        })
+
+        step4Form.reset({ schedules })
+      }
+
+      // Fetch and pre-fill Step 5 - Emission Model
+      const { data: emissionData } = await supabase
+        .from('emission_models')
+        .select('*')
+        .eq('token_id', id)
+        .single()
+
+      if (emissionData) {
+        step5Form.reset({
+          type: emissionData.type,
+          annual_inflation_rate: emissionData.annual_inflation_rate?.toString() || '',
+          has_burn: emissionData.has_burn || false,
+          burn_details: emissionData.burn_details || '',
+          has_buyback: emissionData.has_buyback || false,
+          buyback_details: emissionData.buyback_details || '',
+          notes: emissionData.notes || '',
+        })
+      }
+
+      // Fetch and pre-fill Step 6 - Data Sources
+      const { data: sourcesData } = await supabase
+        .from('data_sources')
+        .select('*')
+        .eq('token_id', id)
+
+      if (sourcesData && sourcesData.length > 0) {
+        step6Form.reset({
+          sources: sourcesData.map(source => ({
+            id: source.id,
+            source_type: source.source_type,
+            document_name: source.document_name,
+            url: source.url,
+            version: source.version || '',
+            verified_at: source.verified_at || undefined,
+          }))
+        })
+      }
+
+      toast.success('Token data loaded successfully')
+
+      // Calculate completed steps after loading
+      calculateCompletedSteps()
+    } catch (error: any) {
+      console.error('Error loading token data:', error)
+      toast.error('Failed to load token data')
+      router.push('/dashboard')
+    } finally {
+      setLoadingTokenData(false)
+    }
+  }
+
+  // Calculate which steps have been completed
+  const calculateCompletedSteps = () => {
+    const completed: number[] = []
+
+    // Step 1: Always completed if we have a token
+    if (tokenId) completed.push(1)
+
+    // Step 2: Check if supply metrics exist
+    const step2Data = step2Form.getValues()
+    if (step2Data.max_supply) completed.push(2)
+
+    // Step 3: Check if allocations exist
+    const step3Data = step3Form.getValues()
+    if (step3Data.segments.length > 0) completed.push(3)
+
+    // Step 4: Check if vesting schedules exist
+    const step4Data = step4Form.getValues()
+    if (Object.keys(step4Data.schedules).length > 0) completed.push(4)
+
+    // Step 5: Check if emission model exists
+    const step5Data = step5Form.getValues()
+    if (step5Data.type) completed.push(5)
+
+    // Step 6: Check if data sources exist
+    const step6Data = step6Form.getValues()
+    if (step6Data.sources.length > 0) completed.push(6)
+
+    setCompletedSteps(completed)
+  }
+
+  // Handle step navigation
+  const handleStepNavigation = (targetStep: number) => {
+    // Only allow navigation to current step or completed steps
+    if (targetStep <= currentStep || completedSteps.includes(targetStep)) {
+      setCurrentStep(targetStep)
+    }
+  }
+
+  // Load token data on mount if editing
+  useEffect(() => {
+    if (isEditMode && editTokenId) {
+      loadTokenData(editTokenId)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load allocations when reaching step 4 (fallback if not already loaded by onSubmitStep3)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (currentStep === 4 && tokenId && allocations.length === 0) {
@@ -235,10 +454,26 @@ export default function NewTokenPage() {
   const calculateTokenAmount = (percentage: string): string => {
     if (!percentage || !maxSupply) return '0'
     const percentNum = parseFloat(percentage)
-    const supplyNum = parseFloat(maxSupply.replace(/,/g, ''))
+    // Handle both string and number for maxSupply
+    const supplyStr = String(maxSupply).replace(/,/g, '')
+    const supplyNum = parseFloat(supplyStr)
     if (isNaN(percentNum) || isNaN(supplyNum)) return '0'
     const amount = (supplyNum * percentNum) / 100
     return formatNumber(Math.floor(amount).toString())
+  }
+
+  // Calculate percentage from token amount (reverse calculation)
+  const calculatePercentage = (tokenAmount: string): string => {
+    if (!tokenAmount || !maxSupply) return ''
+    // Handle both string and number for tokenAmount
+    const amountStr = String(tokenAmount).replace(/,/g, '')
+    const amountNum = parseFloat(amountStr)
+    // Handle both string and number for maxSupply
+    const supplyStr = String(maxSupply).replace(/,/g, '')
+    const supplyNum = parseFloat(supplyStr)
+    if (isNaN(amountNum) || isNaN(supplyNum) || supplyNum === 0) return ''
+    const percentage = (amountNum / supplyNum) * 100
+    return percentage.toFixed(2)
   }
 
   // Calculate total percentage
@@ -254,7 +489,7 @@ export default function NewTokenPage() {
   const delta = 100 - totalPercentage
   const isComplete = totalPercentage === 100
 
-  // Save Step 1 and create token
+  // Save Step 1 and create/update token
   const onSubmitStep1 = async (data: TokenIdentityFormData) => {
     try {
       setLoading(true)
@@ -265,28 +500,69 @@ export default function NewTokenPage() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Create token in database
-      const { data: tokenData, error } = await supabase
-        .from('tokens')
-        .insert({
-          name: data.name,
-          ticker: data.ticker.toUpperCase(),
-          chain: data.chain || null,
-          contract_address: data.contract_address || null,
-          tge_date: data.tge_date || null,
-          category: data.category || null,
-          notes: data.notes || null,
-          status: 'draft',
-          completeness: 10,
-          created_by: user.id,
-        })
-        .select()
-        .single()
+      if (isEditMode && tokenId) {
+        // Update existing token - check for concurrent modifications
+        const { data: currentToken } = await supabase
+          .from('tokens')
+          .select('updated_at')
+          .eq('id', tokenId)
+          .single()
 
-      if (error) throw error
+        if (currentToken && initialUpdatedAt && currentToken.updated_at !== initialUpdatedAt) {
+          toast.error('This token was modified by someone else. Please refresh and try again.')
+          return
+        }
 
-      setTokenId(tokenData.id)
+        const { error } = await supabase
+          .from('tokens')
+          .update({
+            name: data.name,
+            ticker: data.ticker.toUpperCase(),
+            chain: data.chain || null,
+            contract_address: data.contract_address || null,
+            tge_date: data.tge_date || null,
+            category: data.category || null,
+            notes: data.notes || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', tokenId)
+
+        if (error) throw error
+
+        // Update initial timestamp for next save
+        const { data: updatedToken } = await supabase
+          .from('tokens')
+          .select('updated_at')
+          .eq('id', tokenId)
+          .single()
+        if (updatedToken) setInitialUpdatedAt(updatedToken.updated_at)
+      } else {
+        // Create new token
+        const { data: tokenData, error } = await supabase
+          .from('tokens')
+          .insert({
+            name: data.name,
+            ticker: data.ticker.toUpperCase(),
+            chain: data.chain || null,
+            contract_address: data.contract_address || null,
+            tge_date: data.tge_date || null,
+            category: data.category || null,
+            notes: data.notes || null,
+            status: 'draft',
+            completeness: 10,
+            created_by: user.id,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        setTokenId(tokenData.id)
+        setInitialUpdatedAt(tokenData.updated_at)
+      }
+
       setTgeDate(data.tge_date)
+      calculateCompletedSteps()
       setCurrentStep(2)
     } catch (error: any) {
       console.error('Error saving token:', error)
@@ -331,6 +607,7 @@ export default function NewTokenPage() {
 
       if (error) throw error
 
+      calculateCompletedSteps()
       setCurrentStep(3)
     } catch (error: any) {
       console.error('Error saving supply metrics:', error)
@@ -350,28 +627,59 @@ export default function NewTokenPage() {
     try {
       setLoading(true)
 
-      // Delete existing allocations first
+      // Delete existing allocations first (also cascades to vesting_schedules)
       await supabase.from('allocation_segments').delete().eq('token_id', tokenId)
 
-      // Save new allocations
+      // Save new allocations and get back the DB-generated IDs
       const allocationsToSave = data.segments.map((segment) => ({
         token_id: tokenId,
         segment_type: segment.segment_type,
         label: segment.label,
         percentage: parseFloat(segment.percentage),
-        token_amount: segment.token_amount ? BigInt(segment.token_amount.replace(/,/g, '')).toString() : null,
+        token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
         wallet_address: segment.wallet_address || null,
       }))
 
-      const { error } = await supabase.from('allocation_segments').insert(allocationsToSave)
+      const { data: insertedAllocations, error } = await supabase
+        .from('allocation_segments')
+        .insert(allocationsToSave)
+        .select()
 
       if (error) throw error
+
+      // Refresh allocations state with the real DB IDs
+      const allocationsWithIds = (insertedAllocations || []).map((alloc) => ({
+        id: alloc.id,
+        segment_type: alloc.segment_type,
+        label: alloc.label,
+        percentage: alloc.percentage.toString(),
+        token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
+        wallet_address: alloc.wallet_address || '',
+      }))
+      setAllocations(allocationsWithIds)
+
+      // Pre-fill vesting schedules with defaults using the real DB IDs
+      const defaultSchedules: Record<string, any> = {}
+      allocationsWithIds.forEach((alloc) => {
+        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
+        defaultSchedules[alloc.id] = {
+          allocation_id: alloc.id,
+          frequency: isImmediate ? 'immediate' : 'monthly',
+          cliff_months: isImmediate ? '0' : '',
+          duration_months: isImmediate ? '0' : '',
+          hatch_percentage: isImmediate ? '100' : '',
+          cliff_unlock_percentage: '',
+          notes: '',
+        }
+      })
+      step4Form.reset({ schedules: defaultSchedules })
 
       // Update token completeness
       const completeness = calculateCompleteness()
       await supabase.from('tokens').update({ completeness }).eq('id', tokenId)
 
       // Move to Step 4: Vesting
+      calculateCompletedSteps()
       setCurrentStep(4)
     } catch (error: any) {
       console.error('Error saving allocations:', error)
@@ -402,7 +710,7 @@ export default function NewTokenPage() {
         duration_months: schedule.duration_months ? parseInt(schedule.duration_months) : 0,
         frequency: schedule.frequency || 'monthly',
         hatch_percentage: schedule.hatch_percentage ? parseFloat(schedule.hatch_percentage) : 0,
-        start_date: schedule.start_date || null,
+        cliff_unlock_percentage: schedule.cliff_unlock_percentage ? parseFloat(schedule.cliff_unlock_percentage) : 0,
         notes: schedule.notes || null,
       }))
 
@@ -415,6 +723,7 @@ export default function NewTokenPage() {
       await supabase.from('tokens').update({ completeness }).eq('id', tokenId)
 
       // Move to Step 5: Emission Model
+      calculateCompletedSteps()
       setCurrentStep(5)
     } catch (error: any) {
       console.error('Error saving vesting schedules:', error)
@@ -458,6 +767,7 @@ export default function NewTokenPage() {
       if (error) throw error
 
       // Move to Step 6: Sources
+      calculateCompletedSteps()
       setCurrentStep(6)
     } catch (error: any) {
       console.error('Error saving emission model:', error)
@@ -629,15 +939,21 @@ export default function NewTokenPage() {
     }
   }
 
+  // Prevent scroll from changing number input values
+  const preventScrollChange = (e: React.WheelEvent<HTMLInputElement>) => {
+    e.currentTarget.blur()
+  }
+
   // Handle frequency change - auto-fill for immediate vesting
   const handleFrequencyChange = (allocationId: string, frequency: string) => {
     if (frequency === 'immediate') {
       step4Form.setValue(`schedules.${allocationId}.cliff_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.duration_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.hatch_percentage`, '100')
+      step4Form.setValue(`schedules.${allocationId}.cliff_unlock_percentage`, '')
     } else if (step4Form.getValues(`schedules.${allocationId}.hatch_percentage`) === '100') {
       // Reset if switching away from immediate
-      step4Form.setValue(`schedules.${allocationId}.hatch_percentage`, '0')
+      step4Form.setValue(`schedules.${allocationId}.hatch_percentage`, '')
     }
   }
 
@@ -659,18 +975,36 @@ export default function NewTokenPage() {
     })
   }
 
+  // Show loading state while loading token data
+  if (loadingTokenData) {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto pb-12">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-3 text-lg">Loading token data...</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-12">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Add New Token</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {isEditMode ? 'Edit Token' : 'Add New Token'}
+        </h1>
         <p className="text-muted-foreground mt-2">
           Fill in the tokenomics data step by step
         </p>
       </div>
 
       {/* Stepper */}
-      <TokenFormStepper currentStep={currentStep} />
+      <TokenFormStepper
+        currentStep={currentStep}
+        completedSteps={completedSteps}
+        onStepClick={handleStepNavigation}
+      />
 
       {/* Step 1: Token Identity */}
       {currentStep === 1 && (
@@ -831,6 +1165,9 @@ export default function NewTokenPage() {
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
                             onSelect={(date) => field.onChange(date?.toISOString())}
+                            captionLayout="dropdown"
+                            fromYear={2000}
+                            toYear={2030}
                             initialFocus
                           />
                         </PopoverContent>
@@ -1034,6 +1371,9 @@ export default function NewTokenPage() {
                               mode="single"
                               selected={field.value ? new Date(field.value) : undefined}
                               onSelect={(date) => field.onChange(date?.toISOString())}
+                              captionLayout="dropdown"
+                              fromYear={2000}
+                              toYear={2030}
                               initialFocus
                             />
                           </PopoverContent>
@@ -1227,13 +1567,14 @@ export default function NewTokenPage() {
                                     step="0.01"
                                     min="0"
                                     max="100"
+                                    onWheel={preventScrollChange}
                                     placeholder="e.g. 15.5"
                                     {...field}
                                     onChange={(e) => {
                                       field.onChange(e.target.value)
                                       // Update token amount when percentage changes
                                       const tokenAmount = calculateTokenAmount(e.target.value)
-                                      step3Form.setValue(`segments.${index}.token_amount`, tokenAmount)
+                                      step3Form.setValue(`segments.${index}.token_amount`, tokenAmount, { shouldValidate: false })
                                     }}
                                   />
                                 </FormControl>
@@ -1242,23 +1583,29 @@ export default function NewTokenPage() {
                             )}
                           />
 
-                          {/* Token Amount (Read-only, calculated) */}
+                          {/* Token Amount (editable, auto-calculated) */}
                           <FormField
                             control={step3Form.control}
                             name={`segments.${index}.token_amount`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Token Amount</FormLabel>
+                                <FormLabel>Token Amount (optional)</FormLabel>
                                 <FormControl>
                                   <Input
                                     {...field}
-                                    readOnly
-                                    className="bg-muted"
-                                    placeholder="Calculated automatically"
+                                    placeholder="Auto-calculated or enter manually"
+                                    onChange={(e) => {
+                                      field.onChange(e.target.value)
+                                      // Update percentage when token amount changes
+                                      const percentage = calculatePercentage(e.target.value)
+                                      if (percentage) {
+                                        step3Form.setValue(`segments.${index}.percentage`, percentage, { shouldValidate: false })
+                                      }
+                                    }}
                                   />
                                 </FormControl>
                                 <FormDescription className="text-xs">
-                                  Automatically calculated from percentage
+                                  Auto-calculated from percentage, or edit manually
                                 </FormDescription>
                                 <FormMessage />
                               </FormItem>
@@ -1437,20 +1784,21 @@ export default function NewTokenPage() {
                                 )}
                               />
 
-                              {/* Hatch Percentage */}
+                              {/* Hatch Percentage (TGE Unlock) */}
                               <FormField
                                 control={step4Form.control}
                                 name={`${scheduleKey}.hatch_percentage` as any}
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>TGE Unlock (Hatch %)</FormLabel>
+                                    <FormLabel>TGE Unlock (%)</FormLabel>
                                     <FormControl>
                                       <Input
                                         type="number"
                                         step="0.01"
                                         min="0"
                                         max="100"
-                                        placeholder="0"
+                                        placeholder="e.g. 10"
+                                        onWheel={preventScrollChange}
                                         {...field}
                                         disabled={isImmediate}
                                       />
@@ -1474,13 +1822,41 @@ export default function NewTokenPage() {
                                       <Input
                                         type="number"
                                         min="0"
-                                        placeholder="0"
+                                        placeholder="e.g. 6"
+                                        onWheel={preventScrollChange}
                                         {...field}
                                         disabled={isImmediate}
                                       />
                                     </FormControl>
                                     <FormDescription className="text-xs">
                                       Lock period before vesting starts
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {/* Cliff Unlock Percentage */}
+                              <FormField
+                                control={step4Form.control}
+                                name={`${scheduleKey}.cliff_unlock_percentage` as any}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Cliff Unlock (%)</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        placeholder="e.g. 15"
+                                        onWheel={preventScrollChange}
+                                        {...field}
+                                        disabled={isImmediate}
+                                      />
+                                    </FormControl>
+                                    <FormDescription className="text-xs">
+                                      Percentage released when cliff ends
                                     </FormDescription>
                                     <FormMessage />
                                   </FormItem>
@@ -1498,7 +1874,8 @@ export default function NewTokenPage() {
                                       <Input
                                         type="number"
                                         min="0"
-                                        placeholder="0"
+                                        placeholder="e.g. 24"
+                                        onWheel={preventScrollChange}
                                         {...field}
                                         disabled={isImmediate}
                                       />
@@ -1511,59 +1888,12 @@ export default function NewTokenPage() {
                                 )}
                               />
 
-                              {/* Start Date */}
-                              <FormField
-                                control={step4Form.control}
-                                name={`${scheduleKey}.start_date` as any}
-                                render={({ field }) => (
-                                  <FormItem className="flex flex-col">
-                                    <FormLabel>Vesting Start Date</FormLabel>
-                                    <Popover>
-                                      <PopoverTrigger asChild>
-                                        <FormControl>
-                                          <Button
-                                            variant="outline"
-                                            className={cn(
-                                              'w-full pl-3 text-left font-normal',
-                                              !field.value && 'text-muted-foreground'
-                                            )}
-                                          >
-                                            {field.value ? (
-                                              format(new Date(field.value), 'PPP')
-                                            ) : tgeDate ? (
-                                              <span className="text-muted-foreground">
-                                                {format(new Date(tgeDate), 'PPP')} (TGE)
-                                              </span>
-                                            ) : (
-                                              <span>Pick a date</span>
-                                            )}
-                                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                          </Button>
-                                        </FormControl>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                          mode="single"
-                                          selected={field.value ? new Date(field.value) : undefined}
-                                          onSelect={(date) => field.onChange(date?.toISOString())}
-                                          initialFocus
-                                        />
-                                      </PopoverContent>
-                                    </Popover>
-                                    <FormDescription className="text-xs">
-                                      Defaults to TGE date if not specified
-                                    </FormDescription>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
                               {/* Notes */}
                               <FormField
                                 control={step4Form.control}
                                 name={`${scheduleKey}.notes` as any}
                                 render={({ field }) => (
-                                  <FormItem>
+                                  <FormItem className="md:col-span-2">
                                     <FormLabel>Notes</FormLabel>
                                     <FormControl>
                                       <Input
@@ -1582,10 +1912,10 @@ export default function NewTokenPage() {
                               <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm">
                                 <p className="font-medium mb-1">Vesting Summary:</p>
                                 <p className="text-muted-foreground">
-                                  {step4Form.watch(`${scheduleKey}.hatch_percentage` as any) || '0'}% unlocked at TGE,
-                                  then {step4Form.watch(`${scheduleKey}.cliff_months` as any) || '0'} month cliff
-                                  followed by {step4Form.watch(`${scheduleKey}.duration_months` as any) || '0'} months
-                                  of {currentFrequency || 'monthly'} vesting
+                                  {step4Form.watch(`${scheduleKey}.hatch_percentage` as any) || '0'}% unlocked at TGE
+                                  {step4Form.watch(`${scheduleKey}.cliff_months` as any) ? `, then ${step4Form.watch(`${scheduleKey}.cliff_months` as any)} month cliff` : ''}
+                                  {step4Form.watch(`${scheduleKey}.cliff_unlock_percentage` as any) ? ` (${step4Form.watch(`${scheduleKey}.cliff_unlock_percentage` as any)}% released at cliff end)` : ''}
+                                  {step4Form.watch(`${scheduleKey}.duration_months` as any) ? `, followed by ${step4Form.watch(`${scheduleKey}.duration_months` as any)} months of ${currentFrequency || 'monthly'} vesting` : ''}
                                 </p>
                               </div>
                             )}
@@ -1675,6 +2005,7 @@ export default function NewTokenPage() {
                           type="number"
                           step="0.01"
                           placeholder="e.g. 2.5"
+                          onWheel={preventScrollChange}
                           {...field}
                           disabled={step5Form.watch('type') === 'fixed_cap'}
                         />
@@ -1969,6 +2300,9 @@ export default function NewTokenPage() {
                                         mode="single"
                                         selected={field.value ? new Date(field.value) : undefined}
                                         onSelect={(date) => field.onChange(date?.toISOString())}
+                                        captionLayout="dropdown"
+                                        fromYear={2000}
+                                        toYear={2030}
                                         initialFocus
                                       />
                                     </PopoverContent>
