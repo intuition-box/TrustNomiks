@@ -593,7 +593,7 @@ export default function NewTokenPage() {
         ? BigInt(data.circulating_supply.replace(/,/g, ''))
         : null
 
-      // Save supply metrics
+      // Save supply metrics (upsert with explicit onConflict)
       const { error } = await supabase.from('supply_metrics').upsert({
         token_id: tokenId,
         max_supply: maxSupplyNum ? maxSupplyNum.toString() : null,
@@ -603,7 +603,7 @@ export default function NewTokenPage() {
         circulating_date: data.circulating_date || null,
         source_url: data.source_url || null,
         notes: data.notes || null,
-      })
+      }, { onConflict: 'token_id' })
 
       if (error) throw error
 
@@ -751,7 +751,7 @@ export default function NewTokenPage() {
           }))
         : null
 
-      // Save emission model
+      // Save emission model (upsert with explicit onConflict)
       const { error } = await supabase.from('emission_models').upsert({
         token_id: tokenId,
         type: data.type,
@@ -762,7 +762,7 @@ export default function NewTokenPage() {
         has_buyback: data.has_buyback || false,
         buyback_details: data.buyback_details || null,
         notes: data.notes || null,
-      })
+      }, { onConflict: 'token_id' })
 
       if (error) throw error
 
