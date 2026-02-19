@@ -6,6 +6,7 @@ export interface Token {
   contract_address: string | null
   tge_date: string | null
   category: string | null
+  sector: string | null
   status: TokenStatus
   completeness: number
   notes: string | null

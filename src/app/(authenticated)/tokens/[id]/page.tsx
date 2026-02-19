@@ -37,7 +37,12 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { convertTokenToTriples, downloadTriplesAsJSON } from '@/lib/utils/triples-export'
-import { normalizeVestingFrequency } from '@/types/form'
+import {
+  formatCategoryLabel,
+  formatSectorLabel,
+  formatSegmentTypeLabel,
+  normalizeVestingFrequency,
+} from '@/types/form'
 import { toast } from 'sonner'
 
 interface TokenData {
@@ -48,6 +53,7 @@ interface TokenData {
   contract_address: string | null
   tge_date: string | null
   category: string | null
+  sector: string | null
   status: string
   completeness: number
   notes: string | null
@@ -260,6 +266,7 @@ export default function TokenDetailPage() {
           contract_address: token.contract_address || undefined,
           tge_date: token.tge_date || undefined,
           category: token.category || undefined,
+          sector: token.sector || undefined,
           notes: token.notes || undefined,
           status: token.status,
           completeness_score: token.completeness,
@@ -402,9 +409,15 @@ export default function TokenDetailPage() {
               <p className="text-sm mt-1">{formatDate(token.tge_date)}</p>
             </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Category</p>
-            <p className="text-sm mt-1 capitalize">{token.category?.replace('_', ' ') || '—'}</p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Category</p>
+              <p className="text-sm mt-1">{token.category ? formatCategoryLabel(token.category) : '—'}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Sector</p>
+              <p className="text-sm mt-1">{token.sector ? formatSectorLabel(token.sector) : '—'}</p>
+            </div>
           </div>
           {token.notes && (
             <div>
@@ -481,7 +494,7 @@ export default function TokenDetailPage() {
                     <div>
                       <p className="font-medium">{segment.label}</p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {segment.segment_type.replace('_', ' ')}
+                        {formatSegmentTypeLabel(segment.segment_type)}
                       </p>
                     </div>
                   </div>
