@@ -12,14 +12,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 
 interface UserMenuProps {
   user: User
+  collapsed?: boolean
 }
 
-export function UserMenu({ user }: UserMenuProps) {
+export function UserMenu({ user, collapsed = false }: UserMenuProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -38,19 +40,31 @@ export function UserMenu({ user }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg">
-        <div className="flex items-center gap-3 rounded-lg p-2 hover:bg-accent transition-colors">
+      <DropdownMenuTrigger
+        className={cn(
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg',
+          collapsed ? 'w-auto' : 'w-full'
+        )}
+      >
+        <div
+          className={cn(
+            'rounded-lg p-2 hover:bg-accent transition-colors',
+            collapsed ? 'flex items-center justify-center' : 'flex items-center gap-3'
+          )}
+        >
           <Avatar className="h-8 w-8">
             <AvatarFallback className="text-sm">{initials}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col items-start text-sm flex-1 min-w-0">
-            <span className="font-medium truncate w-full" title={user.email || ''}>
-              {user.email}
-            </span>
-          </div>
+          {!collapsed && (
+            <div className="flex min-w-0 flex-1 flex-col items-start text-sm">
+              <span className="w-full truncate font-medium" title={user.email || ''}>
+                {user.email}
+              </span>
+            </div>
+          )}
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align={collapsed ? 'start' : 'end'} className="w-56">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">

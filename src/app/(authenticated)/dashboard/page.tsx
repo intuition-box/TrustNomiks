@@ -245,14 +245,14 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-2">
             Manage and track tokenomics data for your projects
           </p>
         </div>
-        <Button onClick={() => router.push('/tokens/new')} size="lg">
+        <Button onClick={() => router.push('/tokens/new')} size="lg" className="w-full sm:w-auto">
           <Plus className="mr-2 h-5 w-5" />
           Add Token
         </Button>
@@ -335,7 +335,7 @@ export default function DashboardPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={filters.status === 'all' ? 'default' : 'outline'}
                 onClick={() => setFilters({ ...filters, status: 'all' })}
@@ -478,12 +478,12 @@ export default function DashboardPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground sm:order-1">
                     Showing {startIndex + 1} to {Math.min(endIndex, filteredTokens.length)}{' '}
                     of {filteredTokens.length} tokens
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:order-2 sm:justify-end">
                     <Button
                       variant="outline"
                       size="sm"
