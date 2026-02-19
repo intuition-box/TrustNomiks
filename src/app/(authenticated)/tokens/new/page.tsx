@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import {
   Accordion,
   AccordionContent,
@@ -47,9 +48,17 @@ import {
   dataSourcesSchema,
   BLOCKCHAIN_OPTIONS,
   CATEGORY_OPTIONS,
+  getCategoryOption,
+  getSectorOption,
+  getSectorOptionsByCategory,
+  isSectorCompatibleWithCategory,
+  toSupportedCategory,
+  toSupportedSector,
   SEGMENT_TYPE_OPTIONS,
   VESTING_FREQUENCY_OPTIONS,
   normalizeVestingFrequency,
+  toSupportedSegmentType,
+  formatSegmentTypeLabel,
   IMMEDIATE_SEGMENT_TYPES,
   EMISSION_TYPE_OPTIONS,
   SOURCE_TYPE_OPTIONS,
@@ -84,6 +93,8 @@ export default function NewTokenPage() {
   const [finalScore, setFinalScore] = useState<number | null>(null)
   const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
+  const [identityGuideTarget, setIdentityGuideTarget] = useState<'category' | 'sector' | null>(null)
+  const [segmentGuideRowIndex, setSegmentGuideRowIndex] = useState<number | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -97,6 +108,7 @@ export default function NewTokenPage() {
       contract_address: '',
       tge_date: undefined,
       category: undefined,
+      sector: undefined,
       notes: '',
     },
   })
@@ -173,6 +185,10 @@ export default function NewTokenPage() {
     name: 'sources',
   })
 
+  const selectedCategory = step1Form.watch('category')
+  const selectedCategoryOption = getCategoryOption(selectedCategory)
+  const sectorOptions = getSectorOptionsByCategory(selectedCategory)
+
   // Load allocations when entering Step 4
   const loadAllocationsForVesting = async () => {
     if (!tokenId) return
@@ -191,7 +207,7 @@ export default function NewTokenPage() {
 
       const allocationsWithIds = (allocationData || []).map((alloc) => ({
         id: alloc.id,
-        segment_type: alloc.segment_type,
+        segment_type: toSupportedSegmentType(alloc.segment_type),
         label: alloc.label,
         percentage: alloc.percentage.toString(),
         token_amount: alloc.token_amount || '0',
@@ -203,7 +219,7 @@ export default function NewTokenPage() {
       // Pre-fill vesting schedules with defaults
       const defaultSchedules: Record<string, any> = {}
       allocationsWithIds.forEach((alloc) => {
-        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
+        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(toSupportedSegmentType(alloc.segment_type))
         defaultSchedules[alloc.id] = {
           allocation_id: alloc.id,
           frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
@@ -253,7 +269,13 @@ export default function NewTokenPage() {
         chain: tokenData.chain || undefined,
         contract_address: tokenData.contract_address || '',
         tge_date: tokenData.tge_date || undefined,
-        category: tokenData.category || undefined,
+        category: toSupportedCategory(tokenData.category) || undefined,
+        sector:
+          toSupportedCategory(tokenData.category) &&
+          toSupportedSector(tokenData.sector) &&
+          isSectorCompatibleWithCategory(tokenData.category, tokenData.sector)
+            ? toSupportedSector(tokenData.sector) || undefined
+            : undefined,
         notes: tokenData.notes || '',
       })
 
@@ -293,7 +315,7 @@ export default function NewTokenPage() {
       if (allocData && allocData.length > 0) {
         const allocationsWithIds = allocData.map((alloc) => ({
           id: alloc.id,
-          segment_type: alloc.segment_type,
+          segment_type: toSupportedSegmentType(alloc.segment_type),
           label: alloc.label,
           percentage: alloc.percentage.toString(),
           token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
@@ -316,7 +338,8 @@ export default function NewTokenPage() {
 
         allocData.forEach((alloc) => {
           const vestingSchedule = vestingData?.find(v => v.allocation_id === alloc.id)
-          const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
+          const segmentType = toSupportedSegmentType(alloc.segment_type)
+          const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(segmentType)
 
           schedules[alloc.id] = vestingSchedule ? {
             allocation_id: alloc.id,
@@ -503,6 +526,12 @@ export default function NewTokenPage() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
+      const normalizedCategory = toSupportedCategory(data.category)
+      const normalizedSector = toSupportedSector(data.sector)
+      const safeSector = normalizedCategory && normalizedSector && isSectorCompatibleWithCategory(normalizedCategory, normalizedSector)
+        ? normalizedSector
+        : null
+
       if (isEditMode && tokenId) {
         // Update existing token - check for concurrent modifications
         const { data: currentToken } = await supabase
@@ -524,7 +553,8 @@ export default function NewTokenPage() {
             chain: data.chain || null,
             contract_address: data.contract_address || null,
             tge_date: data.tge_date || null,
-            category: data.category || null,
+            category: normalizedCategory || null,
+            sector: safeSector,
             notes: data.notes || null,
             updated_at: new Date().toISOString(),
           })
@@ -549,7 +579,8 @@ export default function NewTokenPage() {
             chain: data.chain || null,
             contract_address: data.contract_address || null,
             tge_date: data.tge_date || null,
-            category: data.category || null,
+            category: normalizedCategory || null,
+            sector: safeSector,
             notes: data.notes || null,
             status: 'draft',
             completeness: 10,
@@ -636,7 +667,7 @@ export default function NewTokenPage() {
       // Save new allocations and get back the DB-generated IDs
       const allocationsToSave = data.segments.map((segment) => ({
         token_id: tokenId,
-        segment_type: segment.segment_type,
+        segment_type: toSupportedSegmentType(segment.segment_type),
         label: segment.label,
         percentage: parseFloat(segment.percentage),
         token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
@@ -653,7 +684,7 @@ export default function NewTokenPage() {
       // Refresh allocations state with the real DB IDs
       const allocationsWithIds = (insertedAllocations || []).map((alloc) => ({
         id: alloc.id,
-        segment_type: alloc.segment_type,
+        segment_type: toSupportedSegmentType(alloc.segment_type),
         label: alloc.label,
         percentage: alloc.percentage.toString(),
         token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
@@ -664,7 +695,7 @@ export default function NewTokenPage() {
       // Pre-fill vesting schedules with defaults using the real DB IDs
       const defaultSchedules: Record<string, any> = {}
       allocationsWithIds.forEach((alloc) => {
-        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
+        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(toSupportedSegmentType(alloc.segment_type))
         defaultSchedules[alloc.id] = {
           allocation_id: alloc.id,
           frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
@@ -930,6 +961,52 @@ export default function NewTokenPage() {
     return Math.min(score, 100)
   }
 
+  const openIdentityGuide = (target: 'category' | 'sector') => {
+    setIdentityGuideTarget(target)
+  }
+
+  const closeIdentityGuide = () => {
+    setIdentityGuideTarget(null)
+  }
+
+  const applyCategoryFromGuide = (category: string, closeGuide = true) => {
+    step1Form.setValue('category', category, {
+      shouldDirty: true,
+      shouldValidate: true,
+      shouldTouch: true,
+    })
+
+    const currentSector = step1Form.getValues('sector')
+    if (currentSector && !isSectorCompatibleWithCategory(category, currentSector)) {
+      step1Form.setValue('sector', undefined, {
+        shouldDirty: true,
+        shouldValidate: true,
+        shouldTouch: true,
+      })
+    }
+
+    if (closeGuide) {
+      closeIdentityGuide()
+    }
+  }
+
+  const applySectorFromGuide = (sector: string) => {
+    const sectorOption = getSectorOption(sector)
+    if (!sectorOption) return
+
+    step1Form.setValue('category', sectorOption.category, {
+      shouldDirty: true,
+      shouldValidate: true,
+      shouldTouch: true,
+    })
+    step1Form.setValue('sector', sectorOption.value, {
+      shouldDirty: true,
+      shouldValidate: true,
+      shouldTouch: true,
+    })
+    closeIdentityGuide()
+  }
+
   // Add new allocation segment
   const addSegment = () => {
     append({
@@ -940,6 +1017,25 @@ export default function NewTokenPage() {
       token_amount: '',
       wallet_address: '',
     })
+  }
+
+  const openSegmentGuide = (index: number) => {
+    setSegmentGuideRowIndex(index)
+  }
+
+  const closeSegmentGuide = () => {
+    setSegmentGuideRowIndex(null)
+  }
+
+  const applySegmentTypeFromGuide = (segmentType: string) => {
+    if (segmentGuideRowIndex === null) return
+
+    step3Form.setValue(`segments.${segmentGuideRowIndex}.segment_type`, segmentType, {
+      shouldDirty: true,
+      shouldValidate: true,
+      shouldTouch: true,
+    })
+    closeSegmentGuide()
   }
 
   // Go back to previous step
@@ -1074,7 +1170,7 @@ export default function NewTokenPage() {
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Blockchain */}
                   <FormField
                     control={step1Form.control}
@@ -1101,32 +1197,199 @@ export default function NewTokenPage() {
                     )}
                   />
 
-                  {/* Category */}
-                  <FormField
-                    control={step1Form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {CATEGORY_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    {/* Category */}
+                    <FormField
+                      control={step1Form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <FormLabel className="mb-0">Category</FormLabel>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => openIdentityGuide('category')}
+                            >
+                              <CircleHelp className="mr-1 h-3.5 w-3.5" />
+                              Guide
+                            </Button>
+                          </div>
+                          <Select
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value)
+                              const currentSector = step1Form.getValues('sector')
+                              if (currentSector && !isSectorCompatibleWithCategory(value, currentSector)) {
+                                step1Form.setValue('sector', undefined, {
+                                  shouldDirty: true,
+                                  shouldValidate: true,
+                                  shouldTouch: true,
+                                })
+                              }
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {CATEGORY_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Sector */}
+                    <FormField
+                      control={step1Form.control}
+                      name="sector"
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <FormLabel className="mb-0">Sector</FormLabel>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => openIdentityGuide('sector')}
+                            >
+                              <CircleHelp className="mr-1 h-3.5 w-3.5" />
+                              Guide
+                            </Button>
+                          </div>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={!selectedCategoryOption}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select sector" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {sectorOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {!selectedCategoryOption && (
+                            <FormDescription className="text-xs">
+                              Select a category first.
+                            </FormDescription>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
+
+                <Sheet
+                  open={identityGuideTarget !== null}
+                  onOpenChange={(open) => {
+                    if (!open) closeIdentityGuide()
+                  }}
+                >
+                  <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+                    <SheetHeader>
+                      <SheetTitle>
+                        {identityGuideTarget === 'sector' ? 'Sector Guide' : 'Category Guide'}
+                      </SheetTitle>
+                      <SheetDescription>
+                        {identityGuideTarget === 'sector'
+                          ? 'Choose a sector linked to the right parent category.'
+                          : 'Choose the category that best describes this project.'}
+                      </SheetDescription>
+                    </SheetHeader>
+
+                    {identityGuideTarget === 'category' && (
+                      <div className="mt-6 space-y-3">
+                        {CATEGORY_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted"
+                            onClick={() => applyCategoryFromGuide(option.value)}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-semibold">{option.label}</p>
+                              <Badge variant="outline" className="font-mono text-[11px]">
+                                {option.value}
+                              </Badge>
+                            </div>
+                            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                              {option.description}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {identityGuideTarget === 'sector' && (
+                      <div className="mt-6 space-y-4">
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Parent Category
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {CATEGORY_OPTIONS.map((option) => (
+                              <Button
+                                key={option.value}
+                                type="button"
+                                size="sm"
+                                variant={selectedCategoryOption?.value === option.value ? 'default' : 'outline'}
+                                onClick={() => applyCategoryFromGuide(option.value, false)}
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {!selectedCategoryOption ? (
+                          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                            Select a parent category to see the available sectors.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {sectorOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted"
+                                onClick={() => applySectorFromGuide(option.value)}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-semibold">{option.label}</p>
+                                  <Badge variant="outline" className="font-mono text-[11px]">
+                                    {option.value}
+                                  </Badge>
+                                </div>
+                                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                                  {option.description}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </SheetContent>
+                </Sheet>
 
                 {/* Contract Address */}
                 <FormField
@@ -1537,7 +1800,14 @@ export default function NewTokenPage() {
                             variant="ghost"
                             size="sm"
                             className="absolute top-2 right-2"
-                            onClick={() => remove(index)}
+                            onClick={() => {
+                              if (segmentGuideRowIndex === index) {
+                                closeSegmentGuide()
+                              } else if (segmentGuideRowIndex !== null && segmentGuideRowIndex > index) {
+                                setSegmentGuideRowIndex(segmentGuideRowIndex - 1)
+                              }
+                              remove(index)
+                            }}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -1550,8 +1820,20 @@ export default function NewTokenPage() {
                             name={`segments.${index}.segment_type`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Segment Type *</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                  <FormLabel className="mb-0">Segment Type *</FormLabel>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => openSegmentGuide(index)}
+                                  >
+                                    <CircleHelp className="mr-1 h-3.5 w-3.5" />
+                                    Guide
+                                  </Button>
+                                </div>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                   <FormControl>
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select type" />
@@ -1668,6 +1950,43 @@ export default function NewTokenPage() {
                   ))}
                 </div>
 
+                <Sheet
+                  open={segmentGuideRowIndex !== null}
+                  onOpenChange={(open) => {
+                    if (!open) closeSegmentGuide()
+                  }}
+                >
+                  <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+                    <SheetHeader>
+                      <SheetTitle>Allocation Segment Guide</SheetTitle>
+                      <SheetDescription>
+                        Pick the segment type that best matches this allocation.
+                        {segmentGuideRowIndex !== null ? ` Applying to segment #${segmentGuideRowIndex + 1}.` : ''}
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="mt-6 space-y-3">
+                      {SEGMENT_TYPE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted"
+                          onClick={() => applySegmentTypeFromGuide(option.value)}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-semibold">{option.label}</p>
+                            <Badge variant="outline" className="font-mono text-[11px]">
+                              {option.value}
+                            </Badge>
+                          </div>
+                          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                            {option.description}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </SheetContent>
+                </Sheet>
+
                 {/* Add Segment Button */}
                 <Button
                   type="button"
@@ -1744,7 +2063,7 @@ export default function NewTokenPage() {
                     <div className="text-sm space-y-1">
                       <p className="font-medium">Configure vesting for {allocations.length} segments</p>
                       <p className="text-muted-foreground">
-                        Segments like liquidity and community are pre-filled with immediate vesting (100% at TGE).
+                        Liquidity, Airdrop, and Funding Public segments are pre-filled with immediate vesting (100% at TGE).
                         Adjust as needed for your tokenomics.
                       </p>
                     </div>
@@ -1752,7 +2071,7 @@ export default function NewTokenPage() {
 
                   {/* Vesting Schedules Accordion */}
                   <Accordion type="multiple" className="space-y-4">
-                    {allocations.map((allocation, index) => {
+                    {allocations.map((allocation) => {
                       const scheduleKey = `schedules.${allocation.id}`
                       const currentFrequency = step4Form.watch(`${scheduleKey}.frequency` as any)
                       const isImmediate = currentFrequency === 'immediate'
@@ -1767,7 +2086,7 @@ export default function NewTokenPage() {
                             <div className="flex w-full flex-col gap-3 pr-4 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex flex-wrap items-center gap-3">
                                 <Badge variant="outline" className="font-mono">
-                                  {allocation.segment_type.replace('_', ' ').toUpperCase()}
+                                  {formatSegmentTypeLabel(allocation.segment_type)}
                                 </Badge>
                                 <span className="font-medium">{allocation.label}</span>
                               </div>

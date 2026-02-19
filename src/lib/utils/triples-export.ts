@@ -19,6 +19,7 @@ interface TokenData {
   contract_address?: string | null
   tge_date?: string | null
   category?: string | null
+  sector?: string | null
   notes?: string | null
   status: string
   completeness_score: number
@@ -157,6 +158,14 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       subject: ticker,
       predicate: 'has Category',
       object: token.category,
+    })
+  }
+
+  if (token.sector) {
+    triples.push({
+      subject: ticker,
+      predicate: 'has Sector',
+      object: token.sector,
     })
   }
 
