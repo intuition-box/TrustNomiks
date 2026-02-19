@@ -13,8 +13,8 @@ export function TokenFormStepper({ currentStep, completedSteps = [], onStepClick
   const isStepAccessible = (stepId: number) => stepId <= currentStep || isStepCompleted(stepId)
 
   return (
-    <nav aria-label="Progress">
-      <ol className="flex items-center justify-between">
+    <nav aria-label="Progress" className="overflow-x-auto pb-2">
+      <ol className="flex min-w-[680px] items-center justify-between sm:min-w-0">
         {FORM_STEPS.map((step, stepIdx) => {
           const completed = isStepCompleted(step.id)
           const accessible = isStepAccessible(step.id)
@@ -84,7 +84,7 @@ export function TokenFormStepper({ currentStep, completedSteps = [], onStepClick
                 <span className="mt-2 flex flex-col items-center">
                   <span
                     className={cn(
-                      'text-sm font-medium transition-colors',
+                      'text-center text-xs font-medium transition-colors sm:text-sm',
                       completed
                         ? 'text-green-500'
                         : currentStep === step.id

@@ -49,6 +49,7 @@ import {
   CATEGORY_OPTIONS,
   SEGMENT_TYPE_OPTIONS,
   VESTING_FREQUENCY_OPTIONS,
+  normalizeVestingFrequency,
   IMMEDIATE_SEGMENT_TYPES,
   EMISSION_TYPE_OPTIONS,
   SOURCE_TYPE_OPTIONS,
@@ -205,7 +206,7 @@ export default function NewTokenPage() {
         const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
         defaultSchedules[alloc.id] = {
           allocation_id: alloc.id,
-          frequency: isImmediate ? 'immediate' : 'monthly',
+          frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
           cliff_months: isImmediate ? '0' : '',
           duration_months: isImmediate ? '0' : '',
           hatch_percentage: isImmediate ? '100' : '',
@@ -269,16 +270,16 @@ export default function NewTokenPage() {
 
       if (supplyData) {
         step2Form.reset({
-          max_supply: supplyData.max_supply || '',
-          initial_supply: supplyData.initial_supply || '',
-          tge_supply: supplyData.tge_supply || '',
-          circulating_supply: supplyData.circulating_supply || '',
+          max_supply: supplyData.max_supply ? formatNumber(String(supplyData.max_supply)) : '',
+          initial_supply: supplyData.initial_supply ? formatNumber(String(supplyData.initial_supply)) : '',
+          tge_supply: supplyData.tge_supply ? formatNumber(String(supplyData.tge_supply)) : '',
+          circulating_supply: supplyData.circulating_supply ? formatNumber(String(supplyData.circulating_supply)) : '',
           circulating_date: supplyData.circulating_date || undefined,
           source_url: supplyData.source_url || '',
           notes: supplyData.notes || '',
         })
         if (supplyData.max_supply) {
-          setMaxSupply(supplyData.max_supply)
+          setMaxSupply(formatNumber(String(supplyData.max_supply)))
         }
       }
 
@@ -319,7 +320,9 @@ export default function NewTokenPage() {
 
           schedules[alloc.id] = vestingSchedule ? {
             allocation_id: alloc.id,
-            frequency: vestingSchedule.frequency || (isImmediate ? 'immediate' : 'monthly'),
+            frequency: normalizeVestingFrequency(
+              vestingSchedule.frequency || (isImmediate ? 'immediate' : 'monthly')
+            ),
             cliff_months: vestingSchedule.cliff_months?.toString() || (isImmediate ? '0' : ''),
             duration_months: vestingSchedule.duration_months?.toString() || (isImmediate ? '0' : ''),
             hatch_percentage: vestingSchedule.hatch_percentage?.toString() || (isImmediate ? '100' : ''),
@@ -327,7 +330,7 @@ export default function NewTokenPage() {
             notes: vestingSchedule.notes || '',
           } : {
             allocation_id: alloc.id,
-            frequency: isImmediate ? 'immediate' : 'monthly',
+            frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
             cliff_months: isImmediate ? '0' : '',
             duration_months: isImmediate ? '0' : '',
             hatch_percentage: isImmediate ? '100' : '',
@@ -445,9 +448,9 @@ export default function NewTokenPage() {
 
   // Format number with commas
   const formatNumber = (value: string) => {
-    const num = value.replace(/,/g, '')
-    if (!/^\d*$/.test(num)) return value
-    return num.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    const digitsOnly = value.replace(/[^\d]/g, '')
+    if (!digitsOnly) return ''
+    return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   }
 
   // Calculate token amount from percentage
@@ -664,7 +667,7 @@ export default function NewTokenPage() {
         const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(alloc.segment_type)
         defaultSchedules[alloc.id] = {
           allocation_id: alloc.id,
-          frequency: isImmediate ? 'immediate' : 'monthly',
+          frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
           cliff_months: isImmediate ? '0' : '',
           duration_months: isImmediate ? '0' : '',
           hatch_percentage: isImmediate ? '100' : '',
@@ -708,7 +711,7 @@ export default function NewTokenPage() {
         allocation_id: allocationId,
         cliff_months: schedule.cliff_months ? parseInt(schedule.cliff_months) : 0,
         duration_months: schedule.duration_months ? parseInt(schedule.duration_months) : 0,
-        frequency: schedule.frequency || 'monthly',
+        frequency: normalizeVestingFrequency(schedule.frequency),
         hatch_percentage: schedule.hatch_percentage ? parseFloat(schedule.hatch_percentage) : 0,
         cliff_unlock_percentage: schedule.cliff_unlock_percentage ? parseFloat(schedule.cliff_unlock_percentage) : 0,
         notes: schedule.notes || null,
@@ -727,7 +730,14 @@ export default function NewTokenPage() {
       setCurrentStep(5)
     } catch (error: any) {
       console.error('Error saving vesting schedules:', error)
-      toast.error(error.message || 'Failed to save vesting schedules')
+      if (
+        error?.code === '23514' &&
+        String(error?.message || '').includes('vesting_schedules_frequency_check')
+      ) {
+        toast.error('Database schema is outdated: apply the vesting frequency migration (yearly).')
+      } else {
+        toast.error(error.message || 'Failed to save vesting schedules')
+      }
     } finally {
       setLoading(false)
     }
@@ -944,9 +954,15 @@ export default function NewTokenPage() {
     e.currentTarget.blur()
   }
 
+  const selectInputValue = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.currentTarget.select()
+  }
+
   // Handle frequency change - auto-fill for immediate vesting
   const handleFrequencyChange = (allocationId: string, frequency: string) => {
-    if (frequency === 'immediate') {
+    const normalizedFrequency = normalizeVestingFrequency(frequency)
+
+    if (normalizedFrequency === 'immediate') {
       step4Form.setValue(`schedules.${allocationId}.cliff_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.duration_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.hatch_percentage`, '100')
@@ -978,7 +994,7 @@ export default function NewTokenPage() {
   // Show loading state while loading token data
   if (loadingTokenData) {
     return (
-      <div className="space-y-8 max-w-4xl mx-auto pb-12">
+      <div className="mx-auto max-w-4xl space-y-8 pb-12">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <span className="ml-3 text-lg">Loading token data...</span>
@@ -988,7 +1004,7 @@ export default function NewTokenPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-12">
+    <div className="mx-auto max-w-4xl space-y-8 pb-12">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
@@ -1160,7 +1176,12 @@ export default function NewTokenPage() {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent
+                          className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+                          align="start"
+                          sideOffset={10}
+                          collisionPadding={16}
+                        >
                           <Calendar
                             mode="single"
                             selected={field.value ? new Date(field.value) : undefined}
@@ -1200,16 +1221,17 @@ export default function NewTokenPage() {
                 />
 
                 {/* Actions */}
-                <div className="flex justify-between pt-4">
+                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => router.push('/dashboard')}
+                    className="w-full sm:w-auto"
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1252,6 +1274,7 @@ export default function NewTokenPage() {
                         <Input
                           placeholder="e.g. 1,000,000,000"
                           {...field}
+                          onDoubleClick={selectInputValue}
                           onChange={(e) => {
                             const formatted = formatNumber(e.target.value)
                             field.onChange(formatted)
@@ -1277,6 +1300,7 @@ export default function NewTokenPage() {
                         <Input
                           placeholder="e.g. 500,000,000"
                           {...field}
+                          onDoubleClick={selectInputValue}
                           onChange={(e) => {
                             const formatted = formatNumber(e.target.value)
                             field.onChange(formatted)
@@ -1302,6 +1326,7 @@ export default function NewTokenPage() {
                         <Input
                           placeholder="e.g. 100,000,000"
                           {...field}
+                          onDoubleClick={selectInputValue}
                           onChange={(e) => {
                             const formatted = formatNumber(e.target.value)
                             field.onChange(formatted)
@@ -1328,6 +1353,7 @@ export default function NewTokenPage() {
                           <Input
                             placeholder="e.g. 250,000,000"
                             {...field}
+                            onDoubleClick={selectInputValue}
                             onChange={(e) => {
                               const formatted = formatNumber(e.target.value)
                               field.onChange(formatted)
@@ -1366,7 +1392,12 @@ export default function NewTokenPage() {
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
+                          <PopoverContent
+                            className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+                            align="start"
+                            sideOffset={10}
+                            collisionPadding={16}
+                          >
                             <Calendar
                               mode="single"
                               selected={field.value ? new Date(field.value) : undefined}
@@ -1427,12 +1458,12 @@ export default function NewTokenPage() {
                 />
 
                 {/* Actions */}
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
+                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1465,8 +1496,8 @@ export default function NewTokenPage() {
             <Form {...step3Form}>
               <form onSubmit={step3Form.handleSubmit(onSubmitStep3)} className="space-y-6">
                 {/* Total Percentage Badge */}
-                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-3 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">Total Allocation:</span>
                     <Badge
                       variant={isComplete ? 'default' : 'secondary'}
@@ -1568,6 +1599,7 @@ export default function NewTokenPage() {
                                     min="0"
                                     max="100"
                                     onWheel={preventScrollChange}
+                                    onDoubleClick={selectInputValue}
                                     placeholder="e.g. 15.5"
                                     {...field}
                                     onChange={(e) => {
@@ -1663,12 +1695,12 @@ export default function NewTokenPage() {
                 )}
 
                 {/* Actions */}
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
+                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1732,14 +1764,14 @@ export default function NewTokenPage() {
                           className="border rounded-lg px-4"
                         >
                           <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center justify-between w-full pr-4">
-                              <div className="flex items-center gap-3">
+                            <div className="flex w-full flex-col gap-3 pr-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex flex-wrap items-center gap-3">
                                 <Badge variant="outline" className="font-mono">
                                   {allocation.segment_type.replace('_', ' ').toUpperCase()}
                                 </Badge>
                                 <span className="font-medium">{allocation.label}</span>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                                 <span>{allocation.percentage}%</span>
                                 <span className="font-mono">{formatTokenAmount(allocation.token_amount)}</span>
                                 {isImmediate && (
@@ -1799,6 +1831,7 @@ export default function NewTokenPage() {
                                         max="100"
                                         placeholder="e.g. 10"
                                         onWheel={preventScrollChange}
+                                        onDoubleClick={selectInputValue}
                                         {...field}
                                         disabled={isImmediate}
                                       />
@@ -1824,6 +1857,7 @@ export default function NewTokenPage() {
                                         min="0"
                                         placeholder="e.g. 6"
                                         onWheel={preventScrollChange}
+                                        onDoubleClick={selectInputValue}
                                         {...field}
                                         disabled={isImmediate}
                                       />
@@ -1851,6 +1885,7 @@ export default function NewTokenPage() {
                                         max="100"
                                         placeholder="e.g. 15"
                                         onWheel={preventScrollChange}
+                                        onDoubleClick={selectInputValue}
                                         {...field}
                                         disabled={isImmediate}
                                       />
@@ -1876,6 +1911,7 @@ export default function NewTokenPage() {
                                         min="0"
                                         placeholder="e.g. 24"
                                         onWheel={preventScrollChange}
+                                        onDoubleClick={selectInputValue}
                                         {...field}
                                         disabled={isImmediate}
                                       />
@@ -1926,12 +1962,12 @@ export default function NewTokenPage() {
                   </Accordion>
 
                   {/* Actions */}
-                  <div className="flex justify-between pt-4">
-                    <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                  <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
+                    <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back
                     </Button>
-                    <Button type="submit" disabled={loading}>
+                    <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                       {loading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2006,6 +2042,7 @@ export default function NewTokenPage() {
                           step="0.01"
                           placeholder="e.g. 2.5"
                           onWheel={preventScrollChange}
+                          onDoubleClick={selectInputValue}
                           {...field}
                           disabled={step5Form.watch('type') === 'fixed_cap'}
                         />
@@ -2024,7 +2061,7 @@ export default function NewTokenPage() {
                     control={step5Form.control}
                     name="has_burn"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between">
+                      <FormItem className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Burn Mechanism</FormLabel>
                           <FormDescription>
@@ -2068,7 +2105,7 @@ export default function NewTokenPage() {
                     control={step5Form.control}
                     name="has_buyback"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between">
+                      <FormItem className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">Buyback Program</FormLabel>
                           <FormDescription>
@@ -2126,12 +2163,12 @@ export default function NewTokenPage() {
                 />
 
                 {/* Actions */}
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
+                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2295,7 +2332,13 @@ export default function NewTokenPage() {
                                         </Button>
                                       </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <PopoverContent
+                                      className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+                                      align="end"
+                                      side="top"
+                                      sideOffset={10}
+                                      collisionPadding={16}
+                                    >
                                       <Calendar
                                         mode="single"
                                         selected={field.value ? new Date(field.value) : undefined}
@@ -2333,12 +2376,12 @@ export default function NewTokenPage() {
                 </Button>
 
                 {/* Actions */}
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading}>
+                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
+                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2373,15 +2416,15 @@ export default function NewTokenPage() {
           <CardContent className="space-y-6">
             {/* Completion Summary */}
             <div className="grid gap-4">
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex flex-col gap-2 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">Token Name</span>
-                <span className="font-semibold">{step1Form.watch('name')}</span>
+                <span className="break-all font-semibold sm:text-right">{step1Form.watch('name')}</span>
               </div>
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex flex-col gap-2 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">Ticker</span>
                 <span className="font-mono font-bold text-primary">{step1Form.watch('ticker')}</span>
               </div>
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex flex-col gap-2 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">Completeness Score</span>
                 <Badge className="text-lg px-3 py-1 bg-primary">
                   {finalScore !== null ? `${finalScore}%` : 'Calculating...'}

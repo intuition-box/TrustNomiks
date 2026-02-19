@@ -59,11 +59,32 @@ export const SEGMENT_TYPE_OPTIONS = [
 ]
 
 // Step 4: Vesting Schedules
+export const VESTING_FREQUENCIES = [
+  'immediate',
+  'daily',
+  'monthly',
+  'yearly',
+  'custom',
+] as const
+
+export type VestingFrequency = (typeof VESTING_FREQUENCIES)[number]
+
+export const normalizeVestingFrequency = (
+  frequency: string | null | undefined
+): VestingFrequency => {
+  if (frequency === 'quarterly') return 'yearly'
+  if (!frequency) return 'monthly'
+
+  return (VESTING_FREQUENCIES as readonly string[]).includes(frequency)
+    ? (frequency as VestingFrequency)
+    : 'monthly'
+}
+
 export const vestingScheduleSchema = z.object({
   allocation_id: z.string().optional(),
   cliff_months: z.string().optional(),
   duration_months: z.string().optional(),
-  frequency: z.string().optional(),
+  frequency: z.enum(VESTING_FREQUENCIES).optional(),
   hatch_percentage: z.string().optional(),
   cliff_unlock_percentage: z.string().optional(),
   notes: z.string().optional(),
@@ -81,7 +102,7 @@ export const VESTING_FREQUENCY_OPTIONS = [
   { value: 'immediate', label: 'Immediate (100% at TGE)' },
   { value: 'daily', label: 'Daily' },
   { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
   { value: 'custom', label: 'Custom' },
 ]
 

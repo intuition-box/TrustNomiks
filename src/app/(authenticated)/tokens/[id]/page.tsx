@@ -37,6 +37,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { convertTokenToTriples, downloadTriplesAsJSON } from '@/lib/utils/triples-export'
+import { normalizeVestingFrequency } from '@/types/form'
 import { toast } from 'sonner'
 
 interface TokenData {
@@ -170,7 +171,10 @@ export default function TokenDetailPage() {
         ...tokenData,
         supply_metrics: supplyData || null,
         allocation_segments: allocData || [],
-        vesting_schedules: vestingData || [],
+        vesting_schedules: (vestingData || []).map((schedule) => ({
+          ...schedule,
+          frequency: normalizeVestingFrequency(schedule.frequency),
+        })),
         emission_models: emissionData || null,
         data_sources: sourcesData || [],
       })
@@ -341,22 +345,22 @@ export default function TokenDetailPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="mx-auto max-w-6xl space-y-6 pb-12">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
             <span className="text-2xl font-mono text-primary">{token.ticker}</span>
             {getStatusBadge(token.status)}
           </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             {token.chain && <span>Chain: {token.chain}</span>}
-            <span>•</span>
+            {token.chain && <span>•</span>}
             <span>Created {formatDate(token.created_at)}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => router.push('/dashboard')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -388,7 +392,7 @@ export default function TokenDetailPage() {
           <CardDescription>Basic information about the token</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Contract Address</p>
               <p className="text-sm font-mono mt-1">{token.contract_address || '—'}</p>
@@ -418,7 +422,7 @@ export default function TokenDetailPage() {
             <CardTitle>Supply Metrics</CardTitle>
             <CardDescription>Token supply and circulation data</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-6">
+          <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Max Supply</p>
               <p className="text-2xl font-bold mt-1">{formatNumber(token.supply_metrics.max_supply)}</p>
@@ -471,7 +475,7 @@ export default function TokenDetailPage() {
             {/* Segments List */}
             <div className="space-y-3">
               {token.allocation_segments.map((segment, index) => (
-                <div key={segment.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div key={segment.id} className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded ${getSegmentColor(index)}`} />
                     <div>
