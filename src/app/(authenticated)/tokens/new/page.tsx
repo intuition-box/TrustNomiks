@@ -189,6 +189,52 @@ export default function NewTokenPage() {
   const selectedCategoryOption = getCategoryOption(selectedCategory)
   const sectorOptions = getSectorOptionsByCategory(selectedCategory)
 
+  const buildStep4Schedules = (
+    allocationData: Array<{
+      id: string
+      segment_type: string
+    }>,
+    vestingData?: Array<{
+      allocation_id: string
+      frequency?: string | null
+      cliff_months?: number | null
+      duration_months?: number | null
+      hatch_percentage?: number | null
+      cliff_unlock_percentage?: number | null
+      notes?: string | null
+    }>
+  ) => {
+    const schedules: Record<string, any> = {}
+
+    allocationData.forEach((alloc) => {
+      const vestingSchedule = vestingData?.find((v) => v.allocation_id === alloc.id)
+      const segmentType = toSupportedSegmentType(alloc.segment_type)
+      const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(segmentType)
+
+      schedules[alloc.id] = vestingSchedule ? {
+        allocation_id: alloc.id,
+        frequency: normalizeVestingFrequency(
+          vestingSchedule.frequency || (isImmediate ? 'immediate' : 'monthly')
+        ),
+        cliff_months: vestingSchedule.cliff_months?.toString() || (isImmediate ? '0' : ''),
+        duration_months: vestingSchedule.duration_months?.toString() || (isImmediate ? '0' : ''),
+        hatch_percentage: vestingSchedule.hatch_percentage?.toString() || (isImmediate ? '100' : ''),
+        cliff_unlock_percentage: vestingSchedule.cliff_unlock_percentage?.toString() || '',
+        notes: vestingSchedule.notes || '',
+      } : {
+        allocation_id: alloc.id,
+        frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
+        cliff_months: isImmediate ? '0' : '',
+        duration_months: isImmediate ? '0' : '',
+        hatch_percentage: isImmediate ? '100' : '',
+        cliff_unlock_percentage: '',
+        notes: '',
+      }
+    })
+
+    return schedules
+  }
+
   // Load allocations when entering Step 4
   const loadAllocationsForVesting = async () => {
     if (!tokenId) return
@@ -216,22 +262,18 @@ export default function NewTokenPage() {
 
       setAllocations(allocationsWithIds)
 
-      // Pre-fill vesting schedules with defaults
-      const defaultSchedules: Record<string, any> = {}
-      allocationsWithIds.forEach((alloc) => {
-        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(toSupportedSegmentType(alloc.segment_type))
-        defaultSchedules[alloc.id] = {
-          allocation_id: alloc.id,
-          frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
-          cliff_months: isImmediate ? '0' : '',
-          duration_months: isImmediate ? '0' : '',
-          hatch_percentage: isImmediate ? '100' : '',
-          cliff_unlock_percentage: '',
-          notes: '',
-        }
-      })
+      const allocationIds = (allocationData || []).map((alloc) => alloc.id)
+      const { data: vestingData } = await supabase
+        .from('vesting_schedules')
+        .select('*')
+        .in('allocation_id', allocationIds.length > 0 ? allocationIds : [''])
 
-      step4Form.reset({ schedules: defaultSchedules })
+      step4Form.reset({
+        schedules: buildStep4Schedules(
+          (allocationData || []).map((alloc) => ({ id: alloc.id, segment_type: alloc.segment_type })),
+          vestingData || []
+        ),
+      })
     } catch (error: any) {
       console.error('Error loading allocations:', error)
       toast.error('Failed to load allocations')
@@ -334,35 +376,12 @@ export default function NewTokenPage() {
           .select('*')
           .in('allocation_id', allocationIds)
 
-        const schedules: Record<string, any> = {}
-
-        allocData.forEach((alloc) => {
-          const vestingSchedule = vestingData?.find(v => v.allocation_id === alloc.id)
-          const segmentType = toSupportedSegmentType(alloc.segment_type)
-          const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(segmentType)
-
-          schedules[alloc.id] = vestingSchedule ? {
-            allocation_id: alloc.id,
-            frequency: normalizeVestingFrequency(
-              vestingSchedule.frequency || (isImmediate ? 'immediate' : 'monthly')
-            ),
-            cliff_months: vestingSchedule.cliff_months?.toString() || (isImmediate ? '0' : ''),
-            duration_months: vestingSchedule.duration_months?.toString() || (isImmediate ? '0' : ''),
-            hatch_percentage: vestingSchedule.hatch_percentage?.toString() || (isImmediate ? '100' : ''),
-            cliff_unlock_percentage: vestingSchedule.cliff_unlock_percentage?.toString() || '',
-            notes: vestingSchedule.notes || '',
-          } : {
-            allocation_id: alloc.id,
-            frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
-            cliff_months: isImmediate ? '0' : '',
-            duration_months: isImmediate ? '0' : '',
-            hatch_percentage: isImmediate ? '100' : '',
-            cliff_unlock_percentage: '',
-            notes: '',
-          }
+        step4Form.reset({
+          schedules: buildStep4Schedules(
+            allocData.map((alloc) => ({ id: alloc.id, segment_type: alloc.segment_type })),
+            vestingData || []
+          ),
         })
-
-        step4Form.reset({ schedules })
       }
 
       // Fetch and pre-fill Step 5 - Emission Model
@@ -661,28 +680,83 @@ export default function NewTokenPage() {
     try {
       setLoading(true)
 
-      // Delete existing allocations first (also cascades to vesting_schedules)
-      await supabase.from('allocation_segments').delete().eq('token_id', tokenId)
-
-      // Save new allocations and get back the DB-generated IDs
-      const allocationsToSave = data.segments.map((segment) => ({
-        token_id: tokenId,
-        segment_type: toSupportedSegmentType(segment.segment_type),
-        label: segment.label,
-        percentage: parseFloat(segment.percentage),
-        token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
-        wallet_address: segment.wallet_address || null,
-      }))
-
-      const { data: insertedAllocations, error } = await supabase
+      // Load current allocations to compute a diff and preserve existing allocation IDs.
+      const { data: existingAllocations, error: existingAllocationsError } = await supabase
         .from('allocation_segments')
-        .insert(allocationsToSave)
-        .select()
+        .select('id')
+        .eq('token_id', tokenId)
 
-      if (error) throw error
+      if (existingAllocationsError) throw existingAllocationsError
 
-      // Refresh allocations state with the real DB IDs
-      const allocationsWithIds = (insertedAllocations || []).map((alloc) => ({
+      const existingIdSet = new Set((existingAllocations || []).map((alloc) => alloc.id))
+
+      // Existing rows that should be updated.
+      const segmentsToUpdate = data.segments
+        .filter((segment) => segment.id && existingIdSet.has(segment.id))
+        .map((segment) => ({
+          id: segment.id!,
+          token_id: tokenId,
+          segment_type: toSupportedSegmentType(segment.segment_type),
+          label: segment.label,
+          percentage: parseFloat(segment.percentage),
+          token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
+          wallet_address: segment.wallet_address || null,
+        }))
+
+      if (segmentsToUpdate.length > 0) {
+        const { error } = await supabase
+          .from('allocation_segments')
+          .upsert(segmentsToUpdate, { onConflict: 'id' })
+        if (error) throw error
+      }
+
+      // New rows that should be inserted.
+      const segmentsToInsert = data.segments
+        .filter((segment) => !segment.id || !existingIdSet.has(segment.id))
+        .map((segment) => ({
+          token_id: tokenId,
+          segment_type: toSupportedSegmentType(segment.segment_type),
+          label: segment.label,
+          percentage: parseFloat(segment.percentage),
+          token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
+          wallet_address: segment.wallet_address || null,
+        }))
+
+      if (segmentsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('allocation_segments')
+          .insert(segmentsToInsert)
+        if (error) throw error
+      }
+
+      // Delete rows removed by the user (this is the only case where vesting should be deleted).
+      const submittedExistingIds = new Set(
+        data.segments
+          .filter((segment) => segment.id && existingIdSet.has(segment.id))
+          .map((segment) => segment.id as string)
+      )
+      const allocationIdsToDelete = (existingAllocations || [])
+        .map((alloc) => alloc.id)
+        .filter((id) => !submittedExistingIds.has(id))
+
+      if (allocationIdsToDelete.length > 0) {
+        const { error } = await supabase
+          .from('allocation_segments')
+          .delete()
+          .in('id', allocationIdsToDelete)
+        if (error) throw error
+      }
+
+      // Refresh allocations state with DB rows (keeping stable IDs for preserved allocations).
+      const { data: savedAllocations, error: savedAllocationsError } = await supabase
+        .from('allocation_segments')
+        .select('*')
+        .eq('token_id', tokenId)
+        .order('percentage', { ascending: false })
+
+      if (savedAllocationsError) throw savedAllocationsError
+
+      const allocationsWithIds = (savedAllocations || []).map((alloc) => ({
         id: alloc.id,
         segment_type: toSupportedSegmentType(alloc.segment_type),
         label: alloc.label,
@@ -692,21 +766,19 @@ export default function NewTokenPage() {
       }))
       setAllocations(allocationsWithIds)
 
-      // Pre-fill vesting schedules with defaults using the real DB IDs
-      const defaultSchedules: Record<string, any> = {}
-      allocationsWithIds.forEach((alloc) => {
-        const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(toSupportedSegmentType(alloc.segment_type))
-        defaultSchedules[alloc.id] = {
-          allocation_id: alloc.id,
-          frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
-          cliff_months: isImmediate ? '0' : '',
-          duration_months: isImmediate ? '0' : '',
-          hatch_percentage: isImmediate ? '100' : '',
-          cliff_unlock_percentage: '',
-          notes: '',
-        }
+      // Rebuild Step 4 form with existing vesting values for preserved allocations.
+      const allocationIds = (savedAllocations || []).map((alloc) => alloc.id)
+      const { data: vestingData } = await supabase
+        .from('vesting_schedules')
+        .select('*')
+        .in('allocation_id', allocationIds.length > 0 ? allocationIds : [''])
+
+      step4Form.reset({
+        schedules: buildStep4Schedules(
+          (savedAllocations || []).map((alloc) => ({ id: alloc.id, segment_type: alloc.segment_type })),
+          vestingData || []
+        ),
       })
-      step4Form.reset({ schedules: defaultSchedules })
 
       // Update token completeness
       const completeness = calculateCompleteness()
