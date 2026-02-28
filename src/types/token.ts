@@ -9,6 +9,7 @@ export interface Token {
   sector: string | null
   status: TokenStatus
   completeness: number
+  cluster_scores: { identity: number; supply: number; allocation: number; vesting: number } | null
   notes: string | null
   created_at: string
   updated_at: string
