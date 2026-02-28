@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, Home, Coins, Download, Settings, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -54,8 +55,18 @@ export function MobileNav({ user }: MobileNavProps) {
       <SheetContent side="left" className="w-64 p-0">
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-primary">TrustNomiks</h1>
+          <div className="px-4 py-5">
+            <Link href="/dashboard" onClick={() => setOpen(false)}>
+              <Image
+                src="/trustnomiks_logo_final.png"
+                alt="TrustNomiks"
+                width={0}
+                height={0}
+                sizes="180px"
+                className="h-10 w-auto max-w-[170px] object-contain"
+                priority
+              />
+            </Link>
           </div>
 
           <Separator />

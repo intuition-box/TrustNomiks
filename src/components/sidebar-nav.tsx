@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Home, Coins, Download, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
@@ -27,8 +28,40 @@ export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn('flex items-center p-4', collapsed ? 'justify-center' : 'justify-between p-6')}>
-        {!collapsed && <h1 className="text-2xl font-bold text-primary">TrustNomiks</h1>}
+      <div className={cn('flex items-center p-4', collapsed ? 'justify-center' : 'justify-between pl-0 pr-2 py-3')}>
+        {!collapsed && (
+          <Link href="/dashboard" className="relative flex items-center rounded-xl px-2 py-1 overflow-hidden">
+            {/* Smoke blob A — left, slow drift */}
+            <div
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-16 h-10 rounded-full bg-white/[0.13] blur-xl"
+              style={{ animation: 'smoke-a 4.2s ease-in-out infinite' }}
+            />
+            {/* Smoke blob B — center-right, faster */}
+            <div
+              className="absolute right-2 top-0 w-12 h-8 rounded-full bg-white/[0.10] blur-2xl"
+              style={{ animation: 'smoke-b 3.1s ease-in-out infinite 0.8s' }}
+            />
+            {/* Smoke blob C — bottom-left, medium */}
+            <div
+              className="absolute left-6 bottom-0 w-10 h-6 rounded-full bg-white/[0.08] blur-xl"
+              style={{ animation: 'smoke-c 5s ease-in-out infinite 1.6s' }}
+            />
+            {/* Smoke blob D — top-right, small wisp */}
+            <div
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-5 rounded-full bg-white/[0.07] blur-lg"
+              style={{ animation: 'smoke-a 3.7s ease-in-out infinite 2.3s' }}
+            />
+            <Image
+              src="/trustnomiks_logo_final.png"
+              alt="TrustNomiks"
+              width={0}
+              height={0}
+              sizes="160px"
+              className="relative h-[55px] w-auto max-w-[205px] object-contain"
+              priority
+            />
+          </Link>
+        )}
         <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Toggle sidebar width">
           {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
