@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
 import { SidebarNav } from '@/components/sidebar-nav'
 import { MobileNav } from '@/components/mobile-nav'
 import type { User } from '@supabase/supabase-js'
@@ -13,12 +15,14 @@ interface AuthenticatedShellProps {
 const SIDEBAR_STORAGE_KEY = 'trustnomiks:sidebar-collapsed'
 
 export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false
+  const [collapsed, setCollapsed] = useState(false)
+
+  // Read localStorage after hydration to avoid SSR/client mismatch
+  useEffect(() => {
+    if (localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true') {
+      setCollapsed(true)
     }
-    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
-  })
+  }, [])
 
   const toggleSidebar = () => {
     setCollapsed((previous) => {
@@ -38,7 +42,17 @@ export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) 
 
       <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center border-b border-border bg-card px-4 lg:hidden">
         <MobileNav user={user} />
-        <h1 className="ml-3 text-lg font-bold text-primary">TrustNomiks</h1>
+        <Link href="/dashboard" className="ml-2 flex items-center">
+          <Image
+            src="/trustnomiks_logo_final.png"
+            alt="TrustNomiks"
+            width={0}
+            height={0}
+            sizes="140px"
+            className="h-8 w-auto max-w-[130px] object-contain"
+            priority
+          />
+        </Link>
       </div>
 
       <main

@@ -40,12 +40,16 @@ export function UserMenu({ user, collapsed = false }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg',
-          collapsed ? 'w-auto' : 'w-full'
-        )}
-      >
+      {/* asChild + suppressHydrationWarning: prevents Radix useId() mismatch between SSR and client */}
+      <DropdownMenuTrigger asChild>
+        <button
+          suppressHydrationWarning
+          type="button"
+          className={cn(
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg',
+            collapsed ? 'w-auto' : 'w-full'
+          )}
+        >
         <div
           className={cn(
             'rounded-lg p-2 hover:bg-accent transition-colors',
@@ -63,6 +67,7 @@ export function UserMenu({ user, collapsed = false }: UserMenuProps) {
             </div>
           )}
         </div>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={collapsed ? 'start' : 'end'} className="w-56">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
