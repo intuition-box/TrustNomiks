@@ -11,7 +11,13 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
-  Clock
+  Clock,
+  Tag,
+  BarChart2,
+  PieChart,
+  TrendingUp,
+  Database,
+  Settings2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -37,6 +43,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { convertTokenToTriples, downloadTriplesAsJSON } from '@/lib/utils/triples-export'
+import { CLUSTER_LABELS, CLUSTER_MAX } from '@/lib/utils/completeness'
+import type { ClusterScores } from '@/lib/utils/completeness'
+import { cn } from '@/lib/utils'
 import {
   formatCategoryLabel,
   formatSectorLabel,
@@ -56,6 +65,7 @@ interface TokenData {
   sector: string | null
   status: string
   completeness: number
+  cluster_scores: { identity: number; supply: number; allocation: number; vesting: number } | null
   notes: string | null
   created_at: string
   supply_metrics: {
@@ -79,7 +89,7 @@ interface TokenData {
     cliff_months: number
     duration_months: number
     frequency: string
-    hatch_percentage: number
+    tge_percentage: number
     cliff_unlock_percentage: number
     allocation: {
       label: string
@@ -95,17 +105,30 @@ interface TokenData {
     notes: string | null
   } | null
   data_sources: Array<{
+    id: string
     source_type: string
     document_name: string
     url: string
     version: string | null
     verified_at: string | null
   }>
+  claim_sources: Array<{
+    claim_type: string
+    claim_id: string | null
+    data_source_id: string
+    // Supabase returns joined rows as an array even for many-to-one FK joins
+    data_source: Array<{
+      document_name: string
+      source_type: string
+      url: string
+    }>
+  }>
 }
 
 export default function TokenDetailPage() {
   const [token, setToken] = useState<TokenData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<number | null>(null)
   const router = useRouter()
   const params = useParams()
   const supabase = createClient()
@@ -153,7 +176,7 @@ export default function TokenDetailPage() {
           cliff_months,
           duration_months,
           frequency,
-          hatch_percentage,
+          tge_percentage,
           cliff_unlock_percentage,
           notes,
           allocation:allocation_segments!vesting_schedules_allocation_id_fkey(label)
@@ -173,6 +196,17 @@ export default function TokenDetailPage() {
         .select('*')
         .eq('token_id', tokenId)
 
+      // Fetch claim_sources (source → claim attribution)
+      const { data: claimSourcesData } = await supabase
+        .from('claim_sources')
+        .select(`
+          claim_type,
+          claim_id,
+          data_source_id,
+          data_source:data_sources!claim_sources_data_source_id_fkey(document_name, source_type, url)
+        `)
+        .eq('token_id', tokenId)
+
       setToken({
         ...tokenData,
         supply_metrics: supplyData || null,
@@ -183,6 +217,7 @@ export default function TokenDetailPage() {
         })),
         emission_models: emissionData || null,
         data_sources: sourcesData || [],
+        claim_sources: (claimSourcesData || []) as TokenData['claim_sources'],
       })
     } catch (error: any) {
       console.error('Error fetching token:', error)
@@ -281,7 +316,7 @@ export default function TokenDetailPage() {
           cliff_months: v.cliff_months,
           duration_months: v.duration_months,
           frequency: v.frequency,
-          hatch_percentage: v.hatch_percentage,
+          tge_percentage: v.tge_percentage,
           cliff_unlock_percentage: v.cliff_unlock_percentage,
           notes: v.notes,
           allocation: {
@@ -309,6 +344,62 @@ export default function TokenDetailPage() {
     }
   }
 
+  // Returns the sources attributed to a specific claim
+  const getClaimSources = (claimType: string, claimId: string | null) =>
+    (token?.claim_sources ?? []).filter(
+      cs => cs.claim_type === claimType && cs.claim_id === claimId
+    )
+
+  // Returns all claims attributed to a specific source (by source id)
+  const getSourceClaims = (sourceId: string) =>
+    (token?.claim_sources ?? []).filter(cs => cs.data_source_id === sourceId)
+
+  // Returns a human-readable label for a claim
+  const getClaimLabel = (claimType: string, claimId: string | null): string => {
+    switch (claimType) {
+      case 'token_identity': return 'Token Identity'
+      case 'supply_metrics':  return 'Supply Metrics'
+      case 'emission_model':  return 'Emission Model'
+      case 'allocation_segment': {
+        const alloc = token?.allocation_segments.find(a => a.id === claimId)
+        return alloc ? alloc.label : 'Allocation'
+      }
+      case 'vesting_schedule': {
+        const alloc = token?.allocation_segments.find(a => a.id === claimId)
+        return alloc ? `Vesting — ${alloc.label}` : 'Vesting'
+      }
+      default: return claimType
+    }
+  }
+
+  // Small inline badge listing attributed sources for a claim
+  const ClaimSourceBadges = ({ claimType, claimId }: { claimType: string; claimId?: string | null }) => {
+    const sources = getClaimSources(claimType, claimId ?? null)
+    if (sources.length === 0) return null
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {sources.map((cs, i) => {
+          // Supabase returns the joined row as a single-element array
+          const ds = Array.isArray(cs.data_source) ? cs.data_source[0] : cs.data_source
+          if (!ds) return null
+          return (
+            <a
+              key={i}
+              href={ds.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={ds.document_name}
+              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+            >
+              {ds.document_name}
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          )
+        })}
+      </div>
+    )
+  }
+
   const getSegmentColor = (index: number) => {
     const colors = [
       'bg-blue-500',
@@ -321,6 +412,22 @@ export default function TokenDetailPage() {
       'bg-red-500',
       'bg-yellow-500',
       'bg-cyan-500',
+    ]
+    return colors[index % colors.length]
+  }
+
+  const getSegmentTextColor = (index: number) => {
+    const colors = [
+      'text-blue-400',
+      'text-purple-400',
+      'text-pink-400',
+      'text-orange-400',
+      'text-green-400',
+      'text-teal-400',
+      'text-indigo-400',
+      'text-red-400',
+      'text-yellow-400',
+      'text-cyan-400',
     ]
     return colors[index % colors.length]
   }
@@ -354,51 +461,104 @@ export default function TokenDetailPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
-            <span className="text-2xl font-mono text-primary">{token.ticker}</span>
-            {getStatusBadge(token.status)}
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            {token.chain && <span>Chain: {token.chain}</span>}
-            {token.chain && <span>•</span>}
-            <span>Created {formatDate(token.created_at)}</span>
+      <Card className="overflow-hidden border-border/70">
+        <div className="bg-gradient-to-br from-muted/50 via-muted/20 to-transparent px-6 py-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
+                <span className="text-2xl font-mono text-primary">{token.ticker}</span>
+                {getStatusBadge(token.status)}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                {token.chain && <span>Chain: {token.chain}</span>}
+                {token.chain && <span>•</span>}
+                <span>Created {formatDate(token.created_at)}</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => router.push('/dashboard')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <Button onClick={() => router.push(`/tokens/${token.id}/edit`)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
-        </div>
-      </div>
+      </Card>
 
       {/* Completeness Score */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Completeness Score</span>
-              <span className="text-sm text-muted-foreground">{token.completeness}%</span>
+      <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.15)]">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-500/5 to-transparent">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
+                <BarChart2 className="h-4 w-4 text-indigo-400" />
+              </span>
+              <CardTitle className="text-base">Completeness Score</CardTitle>
             </div>
+            <span className="text-2xl font-bold text-indigo-400">{token.completeness}%</span>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="space-y-3">
             <Progress value={token.completeness} className="h-2" />
+            {/* Cluster badges */}
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              {(Object.keys(CLUSTER_LABELS) as Array<keyof ClusterScores>).map((key) => {
+                const scores = token.cluster_scores
+                const score = scores?.[key] ?? 0
+                const max = CLUSTER_MAX[key]
+                const complete = key === 'identity'
+                  ? !!(token.name && token.ticker)
+                  : score >= max
+                const colorMap: Record<keyof ClusterScores, { active: string; dot: string }> = {
+                  identity:   { active: 'border-violet-500/50 bg-violet-500/10 text-violet-400',  dot: 'bg-violet-400' },
+                  supply:     { active: 'border-sky-500/50 bg-sky-500/10 text-sky-400',           dot: 'bg-sky-400' },
+                  allocation: { active: 'border-amber-500/50 bg-amber-500/10 text-amber-400',     dot: 'bg-amber-400' },
+                  vesting:    { active: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400', dot: 'bg-emerald-400' },
+                }
+                const colors = colorMap[key]
+                return (
+                  <div key={key} className="relative group/cluster">
+                    <span className={cn(
+                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium cursor-default select-none transition-colors',
+                      complete ? colors.active : 'border-border/30 text-muted-foreground/50'
+                    )}>
+                      <span className={cn('w-1.5 h-1.5 rounded-full', complete ? colors.dot : 'bg-muted-foreground/30')} />
+                      {CLUSTER_LABELS[key]}
+                    </span>
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/cluster:opacity-100 transition-opacity duration-150">
+                      <div className="bg-popover border border-border/60 rounded-md px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg whitespace-nowrap">
+                        <span className="font-semibold">{CLUSTER_LABELS[key]}</span>
+                        <span className="text-muted-foreground ml-1.5">— {score}/{max} pts</span>
+                      </div>
+                      <div className="w-2 h-2 bg-popover border-b border-r border-border/60 rotate-45 mx-auto -mt-1" />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Identity Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Token Identity</CardTitle>
+      <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_30px_rgba(139,92,246,0.15)]">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-violet-500/5 to-transparent">
+          <CardTitle className="flex items-center gap-2.5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-500/10">
+              <Tag className="h-4 w-4 text-violet-400" />
+            </span>
+            Token Identity
+          </CardTitle>
           <CardDescription>Basic information about the token</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
+        <CardContent className="grid gap-4 pt-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Contract Address</p>
@@ -425,17 +585,24 @@ export default function TokenDetailPage() {
               <p className="text-sm mt-1 text-muted-foreground">{token.notes}</p>
             </div>
           )}
+          <ClaimSourceBadges claimType="token_identity" />
         </CardContent>
       </Card>
 
       {/* Supply Metrics */}
       {token.supply_metrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Supply Metrics</CardTitle>
+        <Card className="border border-sky-500/30 overflow-hidden shadow-[0_0_30px_rgba(14,165,233,0.15)]">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-sky-500/5 to-transparent">
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-500/10">
+                <BarChart2 className="h-4 w-4 text-sky-400" />
+              </span>
+              Supply Metrics
+            </CardTitle>
             <CardDescription>Token supply and circulation data</CardDescription>
+            <ClaimSourceBadges claimType="supply_metrics" />
           </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 pt-6">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Max Supply</p>
               <p className="text-2xl font-bold mt-1">{formatNumber(token.supply_metrics.max_supply)}</p>
@@ -463,39 +630,100 @@ export default function TokenDetailPage() {
 
       {/* Allocations */}
       {token.allocation_segments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Token Allocations</CardTitle>
+        <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.15)]">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-500/5 to-transparent">
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
+                <PieChart className="h-4 w-4 text-indigo-400" />
+              </span>
+              Token Allocations
+            </CardTitle>
             <CardDescription>Distribution breakdown across segments</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Stacked Bar */}
-            <div className="space-y-2">
-              <div className="flex h-8 w-full overflow-hidden rounded-lg border">
+          <CardContent className="space-y-6 pt-6">
+            {/* Stacked Bar + Labels + Info strip */}
+            <div className="space-y-1">
+              {/* Bar */}
+              <div className="flex h-6 w-full overflow-hidden rounded-lg border">
                 {token.allocation_segments.map((segment, index) => (
                   <div
                     key={segment.id}
-                    className={`${getSegmentColor(index)} flex items-center justify-center text-xs font-medium text-white`}
+                    className={cn(
+                      getSegmentColor(index),
+                      'cursor-pointer transition-opacity duration-75',
+                      hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
+                        ? 'opacity-25'
+                        : 'opacity-100'
+                    )}
                     style={{ width: `${segment.percentage}%` }}
-                    title={`${segment.label}: ${segment.percentage}%`}
+                    onMouseEnter={() => setHoveredAllocationIndex(index)}
+                    onMouseLeave={() => setHoveredAllocationIndex(null)}
+                  />
+                ))}
+              </div>
+
+              {/* Percentage labels below bar — one per segment, same widths */}
+              <div className="flex w-full">
+                {token.allocation_segments.map((segment, index) => (
+                  <div
+                    key={segment.id}
+                    style={{ width: `${segment.percentage}%` }}
+                    className={cn(
+                      'text-center cursor-pointer transition-opacity duration-75',
+                      hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
+                        ? 'opacity-25'
+                        : 'opacity-100'
+                    )}
+                    onMouseEnter={() => setHoveredAllocationIndex(index)}
+                    onMouseLeave={() => setHoveredAllocationIndex(null)}
                   >
-                    {segment.percentage > 5 && `${segment.percentage}%`}
+                    {segment.percentage >= 4 && (
+                      <span className={cn('text-xs font-semibold tabular-nums', getSegmentTextColor(index))}>
+                        {segment.percentage}%
+                      </span>
+                    )}
                   </div>
                 ))}
+              </div>
+
+              {/* Info strip — fixed height to avoid layout shift */}
+              <div className="h-6 flex items-center pl-0.5">
+                {hoveredAllocationIndex !== null && (
+                  <div className="flex items-center gap-2">
+                    <div className={cn('w-2 h-2 rounded-full shrink-0', getSegmentColor(hoveredAllocationIndex))} />
+                    <span className="text-sm font-medium">
+                      {token.allocation_segments[hoveredAllocationIndex].label}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {token.allocation_segments[hoveredAllocationIndex].percentage}%
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Segments List */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {token.allocation_segments.map((segment, index) => (
-                <div key={segment.id} className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div
+                  key={segment.id}
+                  className={cn(
+                    'flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between',
+                    'cursor-default transition-all duration-75',
+                    hoveredAllocationIndex === index && 'ring-1 ring-border',
+                    hoveredAllocationIndex !== null && hoveredAllocationIndex !== index && 'opacity-40'
+                  )}
+                  onMouseEnter={() => setHoveredAllocationIndex(index)}
+                  onMouseLeave={() => setHoveredAllocationIndex(null)}
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded ${getSegmentColor(index)}`} />
+                    <div className={cn('w-3 h-3 rounded-full shrink-0', getSegmentColor(index))} />
                     <div>
                       <p className="font-medium">{segment.label}</p>
                       <p className="text-xs text-muted-foreground capitalize">
                         {formatSegmentTypeLabel(segment.segment_type)}
                       </p>
+                      <ClaimSourceBadges claimType="allocation_segment" claimId={segment.id} />
                     </div>
                   </div>
                   <div className="text-right">
@@ -518,25 +746,31 @@ export default function TokenDetailPage() {
 
       {/* Vesting Schedules */}
       {token.vesting_schedules.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Vesting Schedules</CardTitle>
+        <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-amber-500/5 to-transparent">
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10">
+                <Clock className="h-4 w-4 text-amber-400" />
+              </span>
+              Vesting Schedules
+            </CardTitle>
             <CardDescription>Unlock schedules for each allocation</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-6">
             {token.vesting_schedules.map((schedule, index) => (
               <div key={index} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
                 <Clock className="h-5 w-5 text-primary mt-0.5" />
                 <div className="flex-1">
                   <p className="font-medium">{schedule.allocation.label}</p>
+                  <ClaimSourceBadges claimType="vesting_schedule" claimId={schedule.allocation_id} />
                   {schedule.frequency === 'immediate' ? (
                     <p className="text-sm text-muted-foreground mt-1">
                       100% unlocked immediately at TGE
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground mt-1">
-                      {schedule.hatch_percentage > 0 && `${schedule.hatch_percentage}% at TGE`}
-                      {schedule.cliff_months > 0 && `${schedule.hatch_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
+                      {schedule.tge_percentage > 0 && `${schedule.tge_percentage}% at TGE`}
+                      {schedule.cliff_months > 0 && `${schedule.tge_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
                       {schedule.cliff_unlock_percentage > 0 && ` (${schedule.cliff_unlock_percentage}% released at cliff end)`}
                       {schedule.duration_months > 0 && ` → ${schedule.duration_months}m ${schedule.frequency} vesting`}
                     </p>
@@ -550,12 +784,18 @@ export default function TokenDetailPage() {
 
       {/* Emission Model */}
       {token.emission_models && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Emission Model</CardTitle>
+        <Card className="border border-emerald-500/30 overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-emerald-500/5 to-transparent">
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-500/10">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+              </span>
+              Emission Model
+            </CardTitle>
             <CardDescription>Token economics and inflation mechanics</CardDescription>
+            <ClaimSourceBadges claimType="emission_model" />
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Emission Type</p>
               <p className="text-lg font-semibold mt-1 capitalize">
@@ -607,17 +847,24 @@ export default function TokenDetailPage() {
 
       {/* Data Sources */}
       {token.data_sources.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Sources</CardTitle>
+        <Card className="border border-cyan-500/30 overflow-hidden shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-cyan-500/5 to-transparent">
+            <CardTitle className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-cyan-500/10">
+                <Database className="h-4 w-4 text-cyan-400" />
+              </span>
+              Data Sources
+            </CardTitle>
             <CardDescription>References and documentation</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {token.data_sources.map((source, index) => (
-              <div key={index} className="flex items-start justify-between p-3 bg-muted rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">
+          <CardContent className="space-y-3 pt-6">
+            {token.data_sources.map((source, index) => {
+              const claims = getSourceClaims(source.id)
+              return (
+                <div key={index} className="p-3 bg-muted rounded-lg space-y-2">
+                  {/* Source header */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="capitalize shrink-0">
                       {source.source_type.replace('_', ' ')}
                     </Badge>
                     <p className="font-medium">{source.document_name}</p>
@@ -625,34 +872,60 @@ export default function TokenDetailPage() {
                       <span className="text-xs text-muted-foreground">v{source.version}</span>
                     )}
                   </div>
+
+                  {/* URL */}
                   <a
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
                   >
                     {source.url.length > 60 ? `${source.url.slice(0, 60)}...` : source.url}
-                    <ExternalLink className="h-3 w-3" />
+                    <ExternalLink className="h-3 w-3 shrink-0" />
                   </a>
-                  {source.verified_at && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Verified {formatDate(source.verified_at)}
-                    </p>
+
+                  {/* Footer: verified date + claim chips */}
+                  {(source.verified_at || claims.length > 0) && (
+                    <div className="pt-2 border-t border-border/40 space-y-2">
+                      {source.verified_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Verified {formatDate(source.verified_at)}
+                        </p>
+                      )}
+                      {claims.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground shrink-0">Used for:</span>
+                          {claims.map((cs, i) => (
+                            <span
+                              key={i}
+                              className="text-xs rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-primary"
+                            >
+                              {getClaimLabel(cs.claim_type, cs.claim_id)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </CardContent>
         </Card>
       )}
 
       {/* Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Actions</CardTitle>
+      <Card className="border border-rose-500/30 overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.15)]">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-rose-500/5 to-transparent">
+          <CardTitle className="flex items-center gap-2.5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-rose-500/10">
+              <Settings2 className="h-4 w-4 text-rose-400" />
+            </span>
+            Actions
+          </CardTitle>
           <CardDescription>Manage token status and data</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
+        <CardContent className="flex flex-wrap gap-3 pt-6">
           {/* Change Status */}
           <Select onValueChange={handleStatusChange} defaultValue={token.status}>
             <SelectTrigger className="w-[200px]">
