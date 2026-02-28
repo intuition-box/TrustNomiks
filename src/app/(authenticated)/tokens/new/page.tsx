@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp } from 'lucide-react'
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { computeScores } from '@/lib/utils/completeness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -30,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Calendar } from '@/components/ui/calendar'
+import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import {
@@ -59,6 +61,8 @@ import {
   normalizeVestingFrequency,
   toSupportedSegmentType,
   formatSegmentTypeLabel,
+  formatCategoryLabel,
+  formatSectorLabel,
   IMMEDIATE_SEGMENT_TYPES,
   EMISSION_TYPE_OPTIONS,
   SOURCE_TYPE_OPTIONS,
@@ -69,6 +73,7 @@ import {
   type EmissionModelFormData,
   type DataSourcesFormData,
   type AllocationSegment,
+  type ClaimAttribution,
 } from '@/types/form'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -185,6 +190,50 @@ export default function NewTokenPage() {
     name: 'sources',
   })
 
+  // Build the default attribution rows.
+  // Uses allocation.id as claim_id for both allocation_segment and vesting_schedule.
+  // Pass overrideAllocations when calling from within an async function where React
+  // state may not yet reflect freshly loaded data (e.g. loadTokenData).
+  const buildDefaultAttributions = (
+    existingAttributions?: ClaimAttribution[],
+    overrideAllocations?: AllocationWithId[]
+  ): ClaimAttribution[] => {
+    const allocs = overrideAllocations ?? allocations
+    const rows: ClaimAttribution[] = [
+      { claim_type: 'token_identity',   claim_id: null, label: 'Token Identity',  data_source_ids: [] },
+      { claim_type: 'supply_metrics',   claim_id: null, label: 'Supply Metrics',  data_source_ids: [] },
+      ...allocs.map(a => ({
+        claim_type: 'allocation_segment' as const,
+        claim_id: a.id,
+        label: `${a.label} (${formatSegmentTypeLabel(a.segment_type)})`,
+        data_source_ids: [] as string[],
+      })),
+      ...allocs.map(a => ({
+        claim_type: 'vesting_schedule' as const,
+        claim_id: a.id,
+        label: `Vesting — ${a.label}`,
+        data_source_ids: [] as string[],
+      })),
+      { claim_type: 'emission_model',   claim_id: null, label: 'Emission Model',  data_source_ids: [] },
+    ]
+    if (!existingAttributions || existingAttributions.length === 0) return rows
+    // Merge existing selections into the default rows
+    return rows.map(row => {
+      const key = `${row.claim_type}:${row.claim_id ?? 'null'}`
+      const existing = existingAttributions.find(
+        a => `${a.claim_type}:${a.claim_id ?? 'null'}` === key
+      )
+      return existing ? { ...row, data_source_ids: existing.data_source_ids } : row
+    })
+  }
+
+  // Initialise attribution rows when the user reaches Step 6
+  useEffect(() => {
+    if (currentStep !== 6) return
+    const current = step6Form.getValues('attributions')
+    step6Form.setValue('attributions', buildDefaultAttributions(current))
+  }, [currentStep])
+
   const selectedCategory = step1Form.watch('category')
   const selectedCategoryOption = getCategoryOption(selectedCategory)
   const sectorOptions = getSectorOptionsByCategory(selectedCategory)
@@ -199,7 +248,7 @@ export default function NewTokenPage() {
       frequency?: string | null
       cliff_months?: number | null
       duration_months?: number | null
-      hatch_percentage?: number | null
+      tge_percentage?: number | null
       cliff_unlock_percentage?: number | null
       notes?: string | null
     }>
@@ -218,7 +267,7 @@ export default function NewTokenPage() {
         ),
         cliff_months: vestingSchedule.cliff_months?.toString() || (isImmediate ? '0' : ''),
         duration_months: vestingSchedule.duration_months?.toString() || (isImmediate ? '0' : ''),
-        hatch_percentage: vestingSchedule.hatch_percentage?.toString() || (isImmediate ? '100' : ''),
+        tge_percentage: vestingSchedule.tge_percentage?.toString() || (isImmediate ? '100' : ''),
         cliff_unlock_percentage: vestingSchedule.cliff_unlock_percentage?.toString() || '',
         notes: vestingSchedule.notes || '',
       } : {
@@ -226,7 +275,7 @@ export default function NewTokenPage() {
         frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
         cliff_months: isImmediate ? '0' : '',
         duration_months: isImmediate ? '0' : '',
-        hatch_percentage: isImmediate ? '100' : '',
+        tge_percentage: isImmediate ? '100' : '',
         cliff_unlock_percentage: '',
         notes: '',
       }
@@ -354,16 +403,16 @@ export default function NewTokenPage() {
         .eq('token_id', id)
         .order('percentage', { ascending: false })
 
-      if (allocData && allocData.length > 0) {
-        const allocationsWithIds = allocData.map((alloc) => ({
-          id: alloc.id,
-          segment_type: toSupportedSegmentType(alloc.segment_type),
-          label: alloc.label,
-          percentage: alloc.percentage.toString(),
-          token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
-          wallet_address: alloc.wallet_address || '',
-        }))
+      const allocationsWithIds: AllocationWithId[] = allocData?.map((alloc) => ({
+        id: alloc.id,
+        segment_type: toSupportedSegmentType(alloc.segment_type),
+        label: alloc.label,
+        percentage: alloc.percentage.toString(),
+        token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
+        wallet_address: alloc.wallet_address || '',
+      })) ?? []
 
+      if (allocationsWithIds.length > 0) {
         setAllocations(allocationsWithIds)
         step3Form.reset({ segments: allocationsWithIds })
       }
@@ -410,6 +459,28 @@ export default function NewTokenPage() {
         .eq('token_id', id)
 
       if (sourcesData && sourcesData.length > 0) {
+        // Also fetch existing claim_sources to pre-fill attributions
+        const { data: claimSourcesData } = await supabase
+          .from('claim_sources')
+          .select('claim_type, claim_id, data_source_id')
+          .eq('token_id', id)
+
+        // Build attribution index map: key → list of source indices (as strings)
+        const attrMap = new Map<string, string[]>()
+        claimSourcesData?.forEach(cs => {
+          const key = `${cs.claim_type}:${cs.claim_id ?? 'null'}`
+          const srcIdx = sourcesData.findIndex(s => s.id === cs.data_source_id)
+          if (srcIdx < 0) return
+          if (!attrMap.has(key)) attrMap.set(key, [])
+          attrMap.get(key)!.push(srcIdx.toString())
+        })
+
+        // Build attribution rows from the locally-loaded allocations (not stale state)
+        const prefilledAttributions = buildDefaultAttributions(undefined, allocationsWithIds).map(row => {
+          const key = `${row.claim_type}:${row.claim_id ?? 'null'}`
+          return { ...row, data_source_ids: attrMap.get(key) ?? [] }
+        })
+
         step6Form.reset({
           sources: sourcesData.map(source => ({
             id: source.id,
@@ -418,7 +489,8 @@ export default function NewTokenPage() {
             url: source.url,
             version: source.version || '',
             verified_at: source.verified_at || undefined,
-          }))
+          })),
+          attributions: prefilledAttributions,
         })
       }
 
@@ -780,9 +852,19 @@ export default function NewTokenPage() {
         ),
       })
 
-      // Update token completeness
+      // Update token completeness + cluster scores
+      const s1 = step1Form.getValues()
+      const s2 = step2Form.getValues()
+      const s3 = step3Form.getValues()
+      const s3Total = s3.segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+      const clusterScoresStep3 = {
+        identity: 10 + (s1.contract_address ? 5 : 0) + (s1.tge_date ? 5 : 0),
+        supply: s2.max_supply ? 10 + ((s2.initial_supply || s2.tge_supply) ? 5 : 0) : 0,
+        allocation: (s3.segments.length >= 3 ? 10 : 0) + (Math.abs(s3Total - 100) < 0.01 ? 10 : 0),
+        vesting: 0,
+      }
       const completeness = calculateCompleteness()
-      await supabase.from('tokens').update({ completeness }).eq('id', tokenId)
+      await supabase.from('tokens').update({ completeness, cluster_scores: clusterScoresStep3 }).eq('id', tokenId)
 
       // Move to Step 4: Vesting
       calculateCompletedSteps()
@@ -815,7 +897,7 @@ export default function NewTokenPage() {
         cliff_months: schedule.cliff_months ? parseInt(schedule.cliff_months) : 0,
         duration_months: schedule.duration_months ? parseInt(schedule.duration_months) : 0,
         frequency: normalizeVestingFrequency(schedule.frequency),
-        hatch_percentage: schedule.hatch_percentage ? parseFloat(schedule.hatch_percentage) : 0,
+        tge_percentage: schedule.tge_percentage ? parseFloat(schedule.tge_percentage) : 0,
         cliff_unlock_percentage: schedule.cliff_unlock_percentage ? parseFloat(schedule.cliff_unlock_percentage) : 0,
         notes: schedule.notes || null,
       }))
@@ -824,9 +906,19 @@ export default function NewTokenPage() {
 
       if (error) throw error
 
-      // Update token completeness
+      // Update token completeness + cluster scores (vesting now complete)
+      const s1v = step1Form.getValues()
+      const s2v = step2Form.getValues()
+      const s3v = step3Form.getValues()
+      const s3TotalV = s3v.segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+      const clusterScoresStep4 = {
+        identity: 10 + (s1v.contract_address ? 5 : 0) + (s1v.tge_date ? 5 : 0),
+        supply: s2v.max_supply ? 10 + ((s2v.initial_supply || s2v.tge_supply) ? 5 : 0) : 0,
+        allocation: (s3v.segments.length >= 3 ? 10 : 0) + (Math.abs(s3TotalV - 100) < 0.01 ? 10 : 0),
+        vesting: 20,
+      }
       const completeness = calculateCompleteness() + 20 // Add vesting score
-      await supabase.from('tokens').update({ completeness }).eq('id', tokenId)
+      await supabase.from('tokens').update({ completeness, cluster_scores: clusterScoresStep4 }).eq('id', tokenId)
 
       // Move to Step 5: Emission Model
       calculateCompletedSteps()
@@ -900,10 +992,11 @@ export default function NewTokenPage() {
     try {
       setLoading(true)
 
-      // Delete existing sources first
+      // Delete existing sources — claim_sources rows are auto-deleted via ON DELETE CASCADE
       await supabase.from('data_sources').delete().eq('token_id', tokenId)
 
-      // Save new sources
+      // Save new sources and retrieve their new DB-assigned UUIDs (indexed by position)
+      let newSourceIds: string[] = []
       if (data.sources.length > 0) {
         const sourcesToSave = data.sources.map((source) => ({
           token_id: tokenId,
@@ -914,13 +1007,40 @@ export default function NewTokenPage() {
           verified_at: source.verified_at || null,
         }))
 
-        const { error } = await supabase.from('data_sources').insert(sourcesToSave)
+        const { data: insertedSources, error } = await supabase
+          .from('data_sources')
+          .insert(sourcesToSave)
+          .select('id')
         if (error) throw error
+        newSourceIds = (insertedSources || []).map(s => s.id)
+      }
+
+      // Save claim_sources: map form source-index → new DB UUID
+      if (data.attributions && data.attributions.length > 0 && newSourceIds.length > 0) {
+        const claimsToSave = data.attributions
+          .flatMap(attr =>
+            attr.data_source_ids
+              .map(idx => {
+                const dbId = newSourceIds[parseInt(idx)]
+                if (!dbId) return null
+                return {
+                  token_id: tokenId,
+                  data_source_id: dbId,
+                  claim_type: attr.claim_type,
+                  claim_id: attr.claim_id || null,
+                }
+              })
+              .filter((r): r is NonNullable<typeof r> => r !== null)
+          )
+        if (claimsToSave.length > 0) {
+          const { error } = await supabase.from('claim_sources').insert(claimsToSave)
+          if (error) throw error
+        }
       }
 
       // Calculate final completeness score
-      const finalCompleteness = await calculateFinalCompleteness()
-      await supabase.from('tokens').update({ completeness: finalCompleteness }).eq('id', tokenId)
+      const { totalScore: finalCompleteness, clusterScores } = await calculateFinalCompleteness()
+      await supabase.from('tokens').update({ completeness: finalCompleteness, cluster_scores: clusterScores }).eq('id', tokenId)
       setFinalScore(finalCompleteness)
 
       // Move to completion page (step 7)
@@ -934,78 +1054,54 @@ export default function NewTokenPage() {
   }
 
   // Calculate final completeness score based on all data
-  const calculateFinalCompleteness = async () => {
-    let score = 0
-
+  const calculateFinalCompleteness = async (): Promise<{ totalScore: number; clusterScores: { identity: number; supply: number; allocation: number; vesting: number } }> => {
     try {
-      // Fetch token data
       const { data: tokenData } = await supabase
         .from('tokens')
         .select('*')
         .eq('id', tokenId)
         .single()
 
-      if (!tokenData) return 0
+      if (!tokenData) return { totalScore: 0, clusterScores: { identity: 0, supply: 0, allocation: 0, vesting: 0 } }
 
-      // Step 1: Identity (20 points max)
-      if (tokenData.name && tokenData.ticker && tokenData.chain) score += 10
-      if (tokenData.contract_address) score += 5
-      if (tokenData.tge_date) score += 5
-
-      // Step 2: Supply (15 points max)
       const { data: supplyData } = await supabase
         .from('supply_metrics')
         .select('*')
         .eq('token_id', tokenId)
         .single()
 
-      if (supplyData?.max_supply) score += 10
-      if (supplyData?.max_supply && (supplyData?.initial_supply || supplyData?.tge_supply)) score += 5
-
-      // Step 3: Allocations (20 points max)
       const { data: allocData } = await supabase
         .from('allocation_segments')
         .select('*')
         .eq('token_id', tokenId)
 
-      if (allocData && allocData.length >= 3) score += 10
-      const totalPercentage = allocData?.reduce((sum, seg) => sum + (seg.percentage || 0), 0) || 0
-      if (Math.abs(totalPercentage - 100) < 0.01) score += 10
-
-      // Step 4: Vesting (20 points max)
       const { data: vestingData } = await supabase
         .from('vesting_schedules')
         .select('*')
         .in('allocation_id', allocData?.map(a => a.id) || [])
 
-      if (vestingData && vestingData.length > 0) score += 20
-
-      // Step 5: Emission (10 points max)
       const { data: emissionData } = await supabase
         .from('emission_models')
         .select('*')
         .eq('token_id', tokenId)
         .single()
 
-      if (emissionData?.type) {
-        score += 5
-        if (emissionData.annual_inflation_rate || emissionData.has_burn || emissionData.has_buyback) {
-          score += 5
-        }
-      }
-
-      // Step 6: Sources (10 points max)
       const { data: sourcesData } = await supabase
         .from('data_sources')
         .select('*')
         .eq('token_id', tokenId)
 
-      if (sourcesData && sourcesData.length >= 1) score += 10
-
-      return Math.min(score, 100)
+      return computeScores({
+        token: tokenData,
+        supply: supplyData,
+        allocations: allocData || [],
+        vestingCount: vestingData?.length ?? 0,
+        emission: emissionData,
+        sourcesCount: sourcesData?.length ?? 0,
+      })
     } catch (error) {
       console.error('Error calculating completeness:', error)
-      return 0
+      return { totalScore: 0, clusterScores: { identity: 0, supply: 0, allocation: 0, vesting: 0 } }
     }
   }
 
@@ -1133,11 +1229,11 @@ export default function NewTokenPage() {
     if (normalizedFrequency === 'immediate') {
       step4Form.setValue(`schedules.${allocationId}.cliff_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.duration_months`, '0')
-      step4Form.setValue(`schedules.${allocationId}.hatch_percentage`, '100')
+      step4Form.setValue(`schedules.${allocationId}.tge_percentage`, '100')
       step4Form.setValue(`schedules.${allocationId}.cliff_unlock_percentage`, '')
-    } else if (step4Form.getValues(`schedules.${allocationId}.hatch_percentage`) === '100') {
+    } else if (step4Form.getValues(`schedules.${allocationId}.tge_percentage`) === '100') {
       // Reset if switching away from immediate
-      step4Form.setValue(`schedules.${allocationId}.hatch_percentage`, '')
+      step4Form.setValue(`schedules.${allocationId}.tge_percentage`, '')
     }
   }
 
@@ -1159,6 +1255,14 @@ export default function NewTokenPage() {
     })
   }
 
+  // Live token identity values for the page header
+  const liveTokenName   = step1Form.watch('name')
+  const liveTokenTicker = step1Form.watch('ticker')
+  const liveChain       = step1Form.watch('chain')
+  const liveCategory    = step1Form.watch('category')
+  const liveSector      = step1Form.watch('sector')
+  const chainLabel      = BLOCKCHAIN_OPTIONS.find(b => b.value === liveChain)?.label ?? liveChain
+
   // Show loading state while loading token data
   if (loadingTokenData) {
     return (
@@ -1174,13 +1278,47 @@ export default function NewTokenPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-12">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          {isEditMode ? 'Edit Token' : 'Add New Token'}
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Fill in the tokenomics data step by step
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {isEditMode ? 'Editing token' : 'New token'}
         </p>
+
+        {liveTokenName ? (
+          <>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl font-bold tracking-tight">{liveTokenName}</h1>
+              {liveTokenTicker && (
+                <Badge variant="secondary" className="font-mono text-base px-3 py-0.5 h-auto">
+                  {liveTokenTicker}
+                </Badge>
+              )}
+            </div>
+            {(liveChain || liveCategory) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {liveChain && chainLabel && (
+                  <Badge variant="outline" className="font-normal text-muted-foreground capitalize">
+                    {chainLabel}
+                  </Badge>
+                )}
+                {liveCategory && (
+                  <span className="text-sm text-muted-foreground">
+                    {formatCategoryLabel(liveCategory)}
+                    {liveSector && ` · ${formatSectorLabel(liveSector)}`}
+                  </span>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {isEditMode ? 'Edit Token' : 'Add New Token'}
+            </h1>
+            <p className="text-muted-foreground">
+              Fill in the tokenomics data step by step
+            </p>
+          </>
+        )}
       </div>
 
       {/* Stepper */}
@@ -2207,10 +2345,10 @@ export default function NewTokenPage() {
                                 )}
                               />
 
-                              {/* Hatch Percentage (TGE Unlock) */}
+                              {/* TGE Unlock */}
                               <FormField
                                 control={step4Form.control}
-                                name={`${scheduleKey}.hatch_percentage` as any}
+                                name={`${scheduleKey}.tge_percentage` as any}
                                 render={({ field }) => (
                                   <FormItem>
                                     <FormLabel>TGE Unlock (%)</FormLabel>
@@ -2339,7 +2477,7 @@ export default function NewTokenPage() {
                               <div className="mt-4 p-3 bg-muted/50 rounded-md text-sm">
                                 <p className="font-medium mb-1">Vesting Summary:</p>
                                 <p className="text-muted-foreground">
-                                  {step4Form.watch(`${scheduleKey}.hatch_percentage` as any) || '0'}% unlocked at TGE
+                                  {step4Form.watch(`${scheduleKey}.tge_percentage` as any) || '0'}% unlocked at TGE
                                   {step4Form.watch(`${scheduleKey}.cliff_months` as any) ? `, then ${step4Form.watch(`${scheduleKey}.cliff_months` as any)} month cliff` : ''}
                                   {step4Form.watch(`${scheduleKey}.cliff_unlock_percentage` as any) ? ` (${step4Form.watch(`${scheduleKey}.cliff_unlock_percentage` as any)}% released at cliff end)` : ''}
                                   {step4Form.watch(`${scheduleKey}.duration_months` as any) ? `, followed by ${step4Form.watch(`${scheduleKey}.duration_months` as any)} months of ${currentFrequency || 'monthly'} vesting` : ''}
@@ -2765,6 +2903,154 @@ export default function NewTokenPage() {
                   <Plus className="mr-2 h-4 w-4" />
                   Add Source
                 </Button>
+
+                {/* Source Attribution — visible once at least one source has been added */}
+                {sourceFields.length > 0 && (() => {
+                  const attributions = step6Form.watch('attributions') ?? []
+
+                  const findIdx = (type: string, claimId: string | null) =>
+                    attributions.findIndex(a => a.claim_type === type && (a.claim_id ?? null) === claimId)
+
+                  const allocAttrs = attributions
+                    .map((a, i) => ({ attr: a, idx: i }))
+                    .filter(({ attr }) => attr.claim_type === 'allocation_segment')
+
+                  const vestingAttrs = attributions
+                    .map((a, i) => ({ attr: a, idx: i }))
+                    .filter(({ attr }) => attr.claim_type === 'vesting_schedule')
+
+                  const tokenIdentityIdx = findIdx('token_identity', null)
+                  const supplyIdx = findIdx('supply_metrics', null)
+                  const emissionIdx = findIdx('emission_model', null)
+
+                  const renderPills = (attrIdx: number) => {
+                    if (attrIdx < 0 || !attributions[attrIdx]) return null
+                    const attr = attributions[attrIdx]
+                    return (
+                      <div className="flex flex-wrap gap-1.5">
+                        {sourceFields.map((sf, srcIdx) => {
+                          const srcLabel = step6Form.watch(`sources.${srcIdx}.document_name`) || `Source ${srcIdx + 1}`
+                          const isSelected = attr.data_source_ids.includes(srcIdx.toString())
+                          return (
+                            <button
+                              key={sf.id}
+                              type="button"
+                              onClick={() => {
+                                const current = step6Form.getValues('attributions') ?? []
+                                const updated = current.map((a, i) => {
+                                  if (i !== attrIdx) return a
+                                  const ids = a.data_source_ids.includes(srcIdx.toString())
+                                    ? a.data_source_ids.filter(id => id !== srcIdx.toString())
+                                    : [...a.data_source_ids, srcIdx.toString()]
+                                  return { ...a, data_source_ids: ids }
+                                })
+                                step6Form.setValue('attributions', updated)
+                              }}
+                              className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+                                isSelected
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-border text-muted-foreground hover:border-primary/50'
+                              }`}
+                            >
+                              {srcLabel}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="rounded-lg border p-4 space-y-5">
+                      {/* Header */}
+                      <div>
+                        <p className="font-medium text-sm">Source Attribution</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Map each piece of data to its source(s). All optional.
+                        </p>
+                      </div>
+
+                      {/* Token Identity */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Token Identity</span>
+                        </div>
+                        <div className="rounded-md border border-border/40 bg-muted/20 p-3 space-y-2">
+                          <p className="text-xs text-muted-foreground">Name, ticker, chain, category, contract address</p>
+                          {renderPills(tokenIdentityIdx)}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Supply Metrics */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <BarChart2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Supply Metrics</span>
+                        </div>
+                        <div className="rounded-md border border-border/40 bg-muted/20 p-3 space-y-2">
+                          <p className="text-xs text-muted-foreground">Max supply, circulating supply, TGE supply</p>
+                          {renderPills(supplyIdx)}
+                        </div>
+                      </div>
+
+                      {allocAttrs.length > 0 && (
+                        <>
+                          <Separator />
+
+                          {/* Allocations & Vesting */}
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-1.5">
+                              <PieChart className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Allocations & Vesting</span>
+                            </div>
+                            <div className="pl-5 space-y-3">
+                              {allocAttrs.map(({ attr, idx }) => {
+                                const vestingEntry = vestingAttrs.find(v => v.attr.claim_id === attr.claim_id)
+                                return (
+                                  <div key={attr.claim_id} className="rounded-md border border-border/40 bg-muted/20 p-3 space-y-3">
+                                    {/* Group header: allocation name */}
+                                    <p className="text-sm font-semibold">{attr.label}</p>
+
+                                    {/* Allocation segment sub-row */}
+                                    <div className="space-y-2">
+                                      <p className="text-xs font-medium text-muted-foreground">Allocation segment</p>
+                                      {renderPills(idx)}
+                                    </div>
+
+                                    {/* Vesting schedule sub-row */}
+                                    {vestingEntry && (
+                                      <div className="space-y-2">
+                                        <p className="text-xs font-medium text-muted-foreground">Vesting schedule</p>
+                                        {renderPills(vestingEntry.idx)}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <Separator />
+
+                      {/* Emission Model */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Emission Model</span>
+                        </div>
+                        <div className="rounded-md border border-border/40 bg-muted/20 p-3 space-y-2">
+                          <p className="text-xs text-muted-foreground">Inflation type, burn & buyback mechanisms</p>
+                          {renderPills(emissionIdx)}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Actions */}
                 <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
