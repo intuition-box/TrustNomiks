@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp } from 'lucide-react'
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { computeScores } from '@/lib/utils/completeness'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -40,7 +40,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { TokenFormStepper } from '@/components/token-form-stepper'
 import {
   tokenIdentitySchema,
   supplyMetricsSchema,
@@ -100,6 +99,10 @@ export default function NewTokenPage() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [identityGuideTarget, setIdentityGuideTarget] = useState<'category' | 'sector' | null>(null)
   const [segmentGuideRowIndex, setSegmentGuideRowIndex] = useState<number | null>(null)
+  const prevScoreRef = useRef(0)
+  const [flashPts, setFlashPts] = useState(0)
+  const [flashKey, setFlashKey] = useState(0)
+  const [showFlash, setShowFlash] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -227,12 +230,14 @@ export default function NewTokenPage() {
     })
   }
 
-  // Initialise attribution rows when the user reaches Step 6
+  // Initialise attribution rows once allocations are available (replaces step 6 trigger)
   useEffect(() => {
-    if (currentStep !== 6) return
+    if (!tokenId || allocations.length === 0) return
     const current = step6Form.getValues('attributions')
-    step6Form.setValue('attributions', buildDefaultAttributions(current))
-  }, [currentStep])
+    if (!current || current.length === 0) {
+      step6Form.setValue('attributions', buildDefaultAttributions(current))
+    }
+  }, [tokenId, allocations.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedCategory = step1Form.watch('category')
   const selectedCategoryOption = getCategoryOption(selectedCategory)
@@ -552,13 +557,12 @@ export default function NewTokenPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load allocations when reaching step 4 (fallback if not already loaded by onSubmitStep3)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Load allocations for vesting once step 3 is completed
   useEffect(() => {
-    if (currentStep === 4 && tokenId && allocations.length === 0) {
+    if (completedSteps.includes(3) && tokenId && allocations.length === 0) {
       loadAllocationsForVesting()
     }
-  }, [currentStep, tokenId])
+  }, [completedSteps, tokenId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Format number with commas
   const formatNumber = (value: string) => {
@@ -688,7 +692,7 @@ export default function NewTokenPage() {
 
       setTgeDate(data.tge_date)
       calculateCompletedSteps()
-      setCurrentStep(2)
+      toast.success(isEditMode ? 'Identity updated' : 'Token created — continue filling in the sections below')
     } catch (error: any) {
       console.error('Error saving token:', error)
       toast.error(error.message || 'Failed to save token')
@@ -733,7 +737,7 @@ export default function NewTokenPage() {
       if (error) throw error
 
       calculateCompletedSteps()
-      setCurrentStep(3)
+      toast.success('Supply metrics saved')
     } catch (error: any) {
       console.error('Error saving supply metrics:', error)
       toast.error(error.message || 'Failed to save supply metrics')
@@ -866,9 +870,8 @@ export default function NewTokenPage() {
       const completeness = calculateCompleteness()
       await supabase.from('tokens').update({ completeness, cluster_scores: clusterScoresStep3 }).eq('id', tokenId)
 
-      // Move to Step 4: Vesting
       calculateCompletedSteps()
-      setCurrentStep(4)
+      toast.success('Allocations saved — vesting section is now unlocked')
     } catch (error: any) {
       console.error('Error saving allocations:', error)
       toast.error(error.message || 'Failed to save allocations')
@@ -920,9 +923,8 @@ export default function NewTokenPage() {
       const completeness = calculateCompleteness() + 20 // Add vesting score
       await supabase.from('tokens').update({ completeness, cluster_scores: clusterScoresStep4 }).eq('id', tokenId)
 
-      // Move to Step 5: Emission Model
       calculateCompletedSteps()
-      setCurrentStep(5)
+      toast.success('Vesting schedules saved')
     } catch (error: any) {
       console.error('Error saving vesting schedules:', error)
       if (
@@ -971,9 +973,8 @@ export default function NewTokenPage() {
 
       if (error) throw error
 
-      // Move to Step 6: Sources
       calculateCompletedSteps()
-      setCurrentStep(6)
+      toast.success('Emission model saved')
     } catch (error: any) {
       console.error('Error saving emission model:', error)
       toast.error(error.message || 'Failed to save emission model')
@@ -1263,6 +1264,45 @@ export default function NewTokenPage() {
   const liveSector      = step1Form.watch('sector')
   const chainLabel      = BLOCKCHAIN_OPTIONS.find(b => b.value === liveChain)?.label ?? liveChain
 
+  // ── Live score (client-side, mirrors computeScores logic) ──────────────────
+  const _lw1name   = step1Form.watch('name')
+  const _lw1ticker = step1Form.watch('ticker')
+  const _lw1chain  = step1Form.watch('chain')
+  const _lw1addr   = step1Form.watch('contract_address')
+  const _lw1tge    = step1Form.watch('tge_date')
+  const _lw2max    = step2Form.watch('max_supply')
+  const _lw2init   = step2Form.watch('initial_supply')
+  const _lw2tge    = step2Form.watch('tge_supply')
+  const _lw3segs   = step3Form.watch('segments') || []
+  const _lw5type   = step5Form.watch('type')
+  const _lw5infl   = step5Form.watch('annual_inflation_rate')
+  const _lw5burn   = step5Form.watch('has_burn')
+  const _lw5buy    = step5Form.watch('has_buyback')
+  const _lw6srcs   = step6Form.watch('sources') || []
+
+  const liveIdentityScore   = (_lw1name && _lw1ticker && _lw1chain ? 10 : 0) + (_lw1addr ? 5 : 0) + (_lw1tge ? 5 : 0)
+  const liveSupplyScore     = _lw2max ? 10 + ((_lw2init || _lw2tge) ? 5 : 0) : 0
+  const _lw3total           = _lw3segs.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+  const liveAllocationScore = (_lw3segs.length >= 3 ? 10 : 0) + (Math.abs(_lw3total - 100) < 0.01 ? 10 : 0)
+  const liveVestingScore    = completedSteps.includes(4) ? 20 : 0
+  const liveEmissionScore   = _lw5type ? 5 + ((_lw5infl || _lw5burn || _lw5buy) ? 5 : 0) : 0
+  const liveSourcesScore    = _lw6srcs.length >= 1 ? 10 : 0
+  const liveTotalScore      = Math.min(100, liveIdentityScore + liveSupplyScore + liveAllocationScore + liveVestingScore + liveEmissionScore + liveSourcesScore)
+
+  // Flash animation when score increases
+  useEffect(() => {
+    const diff = liveTotalScore - prevScoreRef.current
+    if (diff > 0) {
+      setFlashPts(diff)
+      setFlashKey(k => k + 1)
+      setShowFlash(true)
+      const t = setTimeout(() => setShowFlash(false), 1400)
+      prevScoreRef.current = liveTotalScore
+      return () => clearTimeout(t)
+    }
+    prevScoreRef.current = liveTotalScore
+  }, [liveTotalScore])
+
   // Show loading state while loading token data
   if (loadingTokenData) {
     return (
@@ -1275,69 +1315,278 @@ export default function NewTokenPage() {
     )
   }
 
-  return (
-    <div className="mx-auto max-w-4xl space-y-8 pb-12">
-      {/* Header */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          {isEditMode ? 'Editing token' : 'New token'}
-        </p>
+  // ── Helpers for section rendering ──────────────────────────────────────────
+  const sectionHeader = (
+    dot: string,
+    label: string,
+    desc: string,
+    liveScore: number,
+    maxScore: number,
+    textColor: string,
+    saved: boolean,
+  ) => (
+    <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div className="flex items-center gap-3">
+        <div className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+        <div>
+          <span className={`text-xs font-bold uppercase tracking-widest ${textColor}`}>{label}</span>
+          <span className="ml-2 text-xs text-muted-foreground">{desc}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {saved && <CheckCircle2 className={`h-3.5 w-3.5 ${textColor} opacity-70`} />}
+        <span className={`text-xs font-mono font-semibold ${liveScore > 0 ? textColor : 'text-muted-foreground/40'}`}>
+          {liveScore}&thinsp;/&thinsp;{maxScore} pts
+        </span>
+      </div>
+    </div>
+  )
 
-        {liveTokenName ? (
-          <>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-3xl font-bold tracking-tight">{liveTokenName}</h1>
-              {liveTokenTicker && (
-                <Badge variant="secondary" className="font-mono text-base px-3 py-0.5 h-auto">
-                  {liveTokenTicker}
-                </Badge>
-              )}
+  const lockedSection = (message: string) => (
+    <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-3">
+      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+        <Lock className="h-4 w-4 text-muted-foreground/50" />
+      </div>
+      <p className="text-sm text-muted-foreground">{message}</p>
+    </div>
+  )
+
+  // Sidebar cluster data
+  const sidebarClusters = [
+    { key: 'identity',   label: 'Identity',   bar: 'bg-violet-500', text: 'text-violet-400', live: liveIdentityScore,   max: 20 },
+    { key: 'supply',     label: 'Supply',     bar: 'bg-sky-500',    text: 'text-sky-400',    live: liveSupplyScore,     max: 15 },
+    { key: 'allocation', label: 'Allocation', bar: 'bg-amber-500',  text: 'text-amber-400',  live: liveAllocationScore, max: 20 },
+    { key: 'vesting',    label: 'Vesting',    bar: 'bg-emerald-500',text: 'text-emerald-400',live: liveVestingScore,    max: 20 },
+  ]
+
+  // ── Completion screen (after sources saved) ────────────────────────────────
+  if (currentStep === 7) {
+    return (
+      <div className="mx-auto max-w-2xl pb-16 pt-8">
+        <div className="rounded-xl border border-primary/20 bg-card overflow-hidden">
+          <div className="px-8 py-10 text-center space-y-4">
+            <div className="mx-auto h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
             </div>
-            {(liveChain || liveCategory) && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {liveChain && chainLabel && (
-                  <Badge variant="outline" className="font-normal text-muted-foreground capitalize">
-                    {chainLabel}
+            <h1 className="text-2xl font-bold">Token {isEditMode ? 'Updated' : 'Created'} Successfully!</h1>
+            <p className="text-muted-foreground text-sm">Your tokenomics data has been saved and is ready for review.</p>
+          </div>
+
+          <div className="px-8 pb-8 space-y-4">
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+                <span className="text-sm font-medium">Token</span>
+                <span className="font-semibold">{step1Form.getValues('name')} <span className="font-mono text-primary">{step1Form.getValues('ticker')}</span></span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+                <span className="text-sm font-medium">Completeness Score</span>
+                <Badge className="text-base px-3 py-0.5 bg-primary">
+                  {finalScore !== null ? `${finalScore} pts` : 'Calculating…'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              {tokenId && (
+                <Button className="flex-1" size="lg" onClick={() => router.push(`/tokens/${tokenId}`)}>
+                  View Token Details
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+              <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens')}>
+                Back to Tokens
+              </Button>
+              <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Another
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl pb-16">
+
+      {/* ── Page header ──────────────────────────────────────────────────────── */}
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => router.push('/tokens')}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Tokens
+          </button>
+
+          {liveTokenName ? (
+            <>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-3xl font-bold tracking-tight">{liveTokenName}</h1>
+                {liveTokenTicker && (
+                  <Badge variant="secondary" className="font-mono text-base px-3 py-0.5 h-auto">
+                    {liveTokenTicker}
                   </Badge>
                 )}
-                {liveCategory && (
-                  <span className="text-sm text-muted-foreground">
-                    {formatCategoryLabel(liveCategory)}
-                    {liveSector && ` · ${formatSectorLabel(liveSector)}`}
+              </div>
+              {(liveChain || liveCategory) && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {liveChain && chainLabel && (
+                    <Badge variant="outline" className="font-normal text-muted-foreground capitalize">
+                      {chainLabel}
+                    </Badge>
+                  )}
+                  {liveCategory && (
+                    <span className="text-sm text-muted-foreground">
+                      {formatCategoryLabel(liveCategory)}
+                      {liveSector && ` · ${formatSectorLabel(liveSector)}`}
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {isEditMode ? 'Edit Token' : 'Add New Token'}
+              </h1>
+              <p className="text-muted-foreground text-sm">Fill in each cluster section — your score updates live</p>
+            </>
+          )}
+        </div>
+
+        {/* Mobile score pill (visible only on small screens) */}
+        <div className="lg:hidden flex-shrink-0 rounded-xl border bg-card px-4 py-3 text-center min-w-[80px]">
+          <div className="relative inline-block">
+            <span className="text-2xl font-bold tabular-nums">{liveTotalScore}</span>
+            {showFlash && (
+              <span
+                key={flashKey}
+                className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-bold text-emerald-400 whitespace-nowrap select-none"
+                style={{ animation: 'score-flash 1.4s ease-out forwards' }}
+              >
+                +{flashPts}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">/ 100 pts</p>
+          {/* Cluster dots */}
+          <div className="mt-2 flex items-center justify-center gap-1">
+            {sidebarClusters.map(c => (
+              <div
+                key={c.key}
+                className={`h-1.5 w-1.5 rounded-full transition-all duration-500 ${c.live === c.max ? c.bar : 'bg-muted-foreground/20'}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Two-column layout ────────────────────────────────────────────────── */}
+      <div className="flex gap-8 items-start">
+
+        {/* ── Sidebar (desktop only) ──────────────────────────────────────────── */}
+        <aside className="hidden lg:block w-64 xl:w-72 shrink-0 sticky top-4">
+
+          {/* Score panel */}
+          <div className="rounded-xl border bg-card p-5 space-y-5">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Completeness</p>
+
+              {/* Big score + flash */}
+              <div className="relative flex items-end gap-2 mb-3">
+                <span className="text-5xl font-bold tabular-nums transition-all duration-300">{liveTotalScore}</span>
+                <span className="text-sm text-muted-foreground mb-1.5">/ 100 pts</span>
+                {showFlash && (
+                  <span
+                    key={flashKey}
+                    className="absolute -top-7 left-0 text-sm font-bold text-emerald-400 whitespace-nowrap select-none"
+                    style={{ animation: 'score-flash 1.4s ease-out forwards' }}
+                  >
+                    +{flashPts} pts
                   </span>
                 )}
               </div>
-            )}
-          </>
-        ) : (
-          <>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {isEditMode ? 'Edit Token' : 'Add New Token'}
-            </h1>
-            <p className="text-muted-foreground">
-              Fill in the tokenomics data step by step
-            </p>
-          </>
-        )}
-      </div>
 
-      {/* Stepper */}
-      <TokenFormStepper
-        currentStep={currentStep}
-        completedSteps={completedSteps}
-        onStepClick={handleStepNavigation}
-      />
+              {/* Global progress bar */}
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-[width] duration-700 ease-out"
+                  style={{ width: `${liveTotalScore}%` }}
+                />
+              </div>
+            </div>
 
-      {/* Step 1: Token Identity */}
-      {currentStep === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Token Identity</CardTitle>
-            <CardDescription>
-              Basic information about the token project
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            {/* Cluster mini-bars */}
+            <div className="space-y-3">
+              {sidebarClusters.map(c => (
+                <div key={c.key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-xs font-medium ${c.text}`}>{c.label}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{c.live}&thinsp;/&thinsp;{c.max}</span>
+                  </div>
+                  <div className="h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full ${c.bar} rounded-full transition-[width] duration-700 ease-out`}
+                      style={{ width: `${(c.live / c.max) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Extras */}
+            <div className="pt-4 border-t border-border space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Emission</span>
+                <span className={`font-mono ${liveEmissionScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
+                  {liveEmissionScore}&thinsp;/&thinsp;10
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Sources</span>
+                <span className={`font-mono ${liveSourcesScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
+                  {liveSourcesScore}&thinsp;/&thinsp;10
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section nav */}
+          <nav className="mt-3 rounded-xl border bg-card p-3 space-y-0.5">
+            {[
+              { id: 'section-identity',   label: 'Identity',   icon: '◆', color: 'text-violet-400',  done: completedSteps.includes(1) },
+              { id: 'section-supply',     label: 'Supply',     icon: '◆', color: 'text-sky-400',     done: completedSteps.includes(2) },
+              { id: 'section-allocation', label: 'Allocation', icon: '◆', color: 'text-amber-400',   done: completedSteps.includes(3) },
+              { id: 'section-vesting',    label: 'Vesting',    icon: '◆', color: 'text-emerald-400', done: completedSteps.includes(4) },
+              { id: 'section-emission',   label: 'Emission',   icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(5) },
+              { id: 'section-sources',    label: 'Sources',    icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(6) },
+            ].map(item => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className="flex items-center justify-between rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors group"
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`${item.color} group-hover:opacity-100`}>{item.icon}</span>
+                  {item.label}
+                </span>
+                {item.done && <CheckCircle2 className="h-3 w-3 text-muted-foreground/50" />}
+              </a>
+            ))}
+          </nav>
+        </aside>
+
+        {/* ── Main content ────────────────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-5">
+
+          {/* ── Section 1: Identity (violet) ──────────────────────────────────── */}
+          <div id="section-identity" className="rounded-xl border border-l-4 border-l-violet-500 bg-card overflow-hidden">
+            {sectionHeader('bg-violet-500', 'Identity', '· Token identification', liveIdentityScore, 20, 'text-violet-400', completedSteps.includes(1))}
+            <div className="px-6 py-6">
             <Form {...step1Form}>
               <form onSubmit={step1Form.handleSubmit(onSubmitStep1)} className="space-y-6">
                 {/* Project Name */}
@@ -1694,46 +1943,21 @@ export default function NewTokenPage() {
                 />
 
                 {/* Actions */}
-                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push('/dashboard')}
-                    className="w-full sm:w-auto"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Next: Supply Metrics
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Identity'}
                   </Button>
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+          </div>
 
-      {/* Step 2: Supply Metrics */}
-      {currentStep === 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Supply Metrics</CardTitle>
-            <CardDescription>
-              Token supply information and circulation data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* ── Section 2: Supply (sky) ───────────────────────────────────────── */}
+          <div id="section-supply" className="rounded-xl border border-l-4 border-l-sky-500 bg-card overflow-hidden">
+            {sectionHeader('bg-sky-500', 'Supply', '· Token supply metrics', liveSupplyScore, 15, 'text-sky-400', completedSteps.includes(2))}
+            {!tokenId ? lockedSection('Save Identity first to unlock Supply Metrics.') : (
+            <div className="px-6 py-6">
             <Form {...step2Form}>
               <form onSubmit={step2Form.handleSubmit(onSubmitStep2)} className="space-y-6">
                 {/* Max Supply */}
@@ -1931,41 +2155,22 @@ export default function NewTokenPage() {
                 />
 
                 {/* Actions */}
-                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Next: Allocations
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Supply'}
                   </Button>
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            )}
+          </div>
 
-      {/* Step 3: Allocations */}
-      {currentStep === 3 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Token Allocations</CardTitle>
-            <CardDescription>
-              Distribution breakdown across different segments
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* ── Section 3: Allocation (amber) ────────────────────────────────── */}
+          <div id="section-allocation" className="rounded-xl border border-l-4 border-l-amber-500 bg-card overflow-hidden">
+            {sectionHeader('bg-amber-500', 'Allocation', '· Token distribution', liveAllocationScore, 20, 'text-amber-400', completedSteps.includes(3))}
+            {!tokenId ? lockedSection('Save Identity first to unlock Allocations.') : (
+            <div className="px-6 py-6">
             <Form {...step3Form}>
               <form onSubmit={step3Form.handleSubmit(onSubmitStep3)} className="space-y-6">
                 {/* Total Percentage Badge */}
@@ -2224,41 +2429,23 @@ export default function NewTokenPage() {
                 )}
 
                 {/* Actions */}
-                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Next: Vesting
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Allocations'}
                   </Button>
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            )}
+          </div>
 
-      {/* Step 4: Vesting Schedules */}
-      {currentStep === 4 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Vesting Schedules</CardTitle>
-            <CardDescription>
-              Configure unlock schedules for each allocation segment
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* ── Section 4: Vesting (emerald) ─────────────────────────────────── */}
+          <div id="section-vesting" className="rounded-xl border border-l-4 border-l-emerald-500 bg-card overflow-hidden">
+            {sectionHeader('bg-emerald-500', 'Vesting', '· Unlock schedules', liveVestingScore, 20, 'text-emerald-400', completedSteps.includes(4))}
+            {!tokenId ? lockedSection('Save Identity first to unlock Vesting.') :
+             !completedSteps.includes(3) ? lockedSection('Save Allocations first — vesting schedules are built from your allocation segments.') : (
+            <div className="px-6 py-6">
             {allocations.length === 0 ? (
               <div className="text-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -2491,42 +2678,37 @@ export default function NewTokenPage() {
                   </Accordion>
 
                   {/* Actions */}
-                  <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
-                    <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
-                    </Button>
-                    <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                      {loading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          Next: Emission
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
+                  <div className="flex justify-end pt-4">
+                    <Button type="submit" disabled={loading}>
+                      {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Vesting'}
                     </Button>
                   </div>
                 </form>
               </Form>
             )}
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            )}
+          </div>
 
-      {/* Step 5: Emission Model */}
-      {currentStep === 5 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Emission Model</CardTitle>
-            <CardDescription>
-              Token inflation, deflation, and economic mechanisms
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* ── Section 5: Emission (extra, gray) ────────────────────────────── */}
+          <div id="section-emission" className="rounded-xl border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Emission</span>
+                  <span className="ml-2 text-xs text-muted-foreground">· Inflation &amp; economic mechanisms</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {completedSteps.includes(5) && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/50" />}
+                <span className={`text-xs font-mono font-semibold ${liveEmissionScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
+                  {liveEmissionScore}&thinsp;/&thinsp;10 pts
+                </span>
+              </div>
+            </div>
+            {!tokenId ? lockedSection('Save Identity first to unlock Emission.') : (
+            <div className="px-6 py-6">
             <Form {...step5Form}>
               <form onSubmit={step5Form.handleSubmit(onSubmitStep5)} className="space-y-6">
                 {/* Emission Type */}
@@ -2692,41 +2874,36 @@ export default function NewTokenPage() {
                 />
 
                 {/* Actions */}
-                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Next: Sources
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Emission'}
                   </Button>
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            )}
+          </div>
 
-      {/* Step 6: Data Sources */}
-      {currentStep === 6 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Data Sources</CardTitle>
-            <CardDescription>
-              References and documentation for this tokenomics data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          {/* ── Section 6: Sources (extra, gray) ─────────────────────────────── */}
+          <div id="section-sources" className="rounded-xl border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Sources</span>
+                  <span className="ml-2 text-xs text-muted-foreground">· Data references &amp; attribution</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {completedSteps.includes(6) && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/50" />}
+                <span className={`text-xs font-mono font-semibold ${liveSourcesScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
+                  {liveSourcesScore}&thinsp;/&thinsp;10 pts
+                </span>
+              </div>
+            </div>
+            {!tokenId ? lockedSection('Save Identity first to unlock Sources.') : (
+            <div className="px-6 py-6">
             <Form {...step6Form}>
               <form onSubmit={step6Form.handleSubmit(onSubmitStep6)} className="space-y-6">
                 {/* Info Banner */}
@@ -3053,107 +3230,19 @@ export default function NewTokenPage() {
                 })()}
 
                 {/* Actions */}
-                <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
-                  <Button type="button" variant="outline" onClick={handleBack} disabled={loading} className="w-full sm:w-auto">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Complete & Review
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Complete & Review'}
                   </Button>
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+            )}
+          </div>
 
-      {/* Step 7: Completion Page */}
-      {currentStep === 7 && (
-        <Card className="border-primary/20">
-          <CardHeader className="text-center pb-4">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
-            </div>
-            <CardTitle className="text-2xl">Token Created Successfully!</CardTitle>
-            <CardDescription>
-              Your tokenomics data has been saved and is ready for review
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Completion Summary */}
-            <div className="grid gap-4">
-              <div className="flex flex-col gap-2 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-sm font-medium">Token Name</span>
-                <span className="break-all font-semibold sm:text-right">{step1Form.watch('name')}</span>
-              </div>
-              <div className="flex flex-col gap-2 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-sm font-medium">Ticker</span>
-                <span className="font-mono font-bold text-primary">{step1Form.watch('ticker')}</span>
-              </div>
-              <div className="flex flex-col gap-2 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-sm font-medium">Completeness Score</span>
-                <Badge className="text-lg px-3 py-1 bg-primary">
-                  {finalScore !== null ? `${finalScore}%` : 'Calculating...'}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Info Message */}
-            <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-              <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium">What's next?</p>
-                <p className="text-muted-foreground mt-1">
-                  You can view the detailed token page, add more tokens, or return to the dashboard to manage your data.
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              {tokenId && (
-                <Button
-                  className="flex-1"
-                  size="lg"
-                  onClick={() => router.push(`/tokens/${tokenId}`)}
-                >
-                  View Token Details
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="flex-1"
-                size="lg"
-                onClick={() => router.push(`/dashboard`)}
-              >
-                <CheckCircle2 className="mr-2 h-5 w-5" />
-                Go to Dashboard
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                size="lg"
-                onClick={() => router.push('/tokens/new')}
-              >
-                <Plus className="mr-2 h-5 w-5" />
-                Add Another Token
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        </div>{/* end main content */}
+      </div>{/* end two-column layout */}
     </div>
   )
 }
