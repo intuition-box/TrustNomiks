@@ -506,7 +506,7 @@ export const vestingScheduleSchema = z.object({
   cliff_months: z.string().optional(),
   duration_months: z.string().optional(),
   frequency: z.enum(VESTING_FREQUENCIES).optional(),
-  hatch_percentage: z.string().optional(),
+  tge_percentage: z.string().optional(),
   cliff_unlock_percentage: z.string().optional(),
   notes: z.string().optional(),
 })
@@ -567,11 +567,30 @@ export const dataSourceSchema = z.object({
   verified_at: z.string().optional(),
 })
 
+export const CLAIM_TYPES = [
+  'token_identity',
+  'supply_metrics',
+  'allocation_segment',
+  'vesting_schedule',
+  'emission_model',
+] as const
+
+export type ClaimType = (typeof CLAIM_TYPES)[number]
+
+export const claimAttributionSchema = z.object({
+  claim_type: z.enum(CLAIM_TYPES),
+  claim_id: z.string().nullable(), // null for token_identity
+  label: z.string(), // display label shown in UI
+  data_source_ids: z.array(z.string()), // UUIDs of attributed sources
+})
+
 export const dataSourcesSchema = z.object({
   sources: z.array(dataSourceSchema).min(0),
+  attributions: z.array(claimAttributionSchema).optional(),
 })
 
 export type DataSource = z.infer<typeof dataSourceSchema>
+export type ClaimAttribution = z.infer<typeof claimAttributionSchema>
 export type DataSourcesFormData = z.infer<typeof dataSourcesSchema>
 
 // Source type options

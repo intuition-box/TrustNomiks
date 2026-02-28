@@ -52,7 +52,7 @@ interface VestingSchedule {
   cliff_months?: number | null
   duration_months?: number | null
   frequency?: string | null
-  hatch_percentage?: number | null
+  tge_percentage?: number | null
   start_date?: string | null
   notes?: string | null
   allocation?: {
@@ -317,11 +317,11 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       })
     }
 
-    if (schedule.hatch_percentage !== null && schedule.hatch_percentage !== undefined) {
+    if (schedule.tge_percentage !== null && schedule.tge_percentage !== undefined) {
       triples.push({
         subject: vestingId,
-        predicate: 'hatch Percentage',
-        object: schedule.hatch_percentage,
+        predicate: 'TGE Percentage',
+        object: schedule.tge_percentage,
       })
     }
 
