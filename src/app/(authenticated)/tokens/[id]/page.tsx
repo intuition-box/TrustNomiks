@@ -516,10 +516,10 @@ export default function TokenDetailPage() {
                   ? !!(token.name && token.ticker)
                   : score >= max
                 const colorMap: Record<keyof ClusterScores, { active: string; dot: string }> = {
-                  identity:   { active: 'border-violet-500/50 bg-violet-500/10 text-violet-400',  dot: 'bg-violet-400' },
-                  supply:     { active: 'border-sky-500/50 bg-sky-500/10 text-sky-400',           dot: 'bg-sky-400' },
-                  allocation: { active: 'border-amber-500/50 bg-amber-500/10 text-amber-400',     dot: 'bg-amber-400' },
-                  vesting:    { active: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400', dot: 'bg-emerald-400' },
+                  identity:   { active: 'border-violet-500/20 bg-violet-500/5 text-violet-400/60',   dot: 'bg-violet-400/50' },
+                  supply:     { active: 'border-sky-500/20 bg-sky-500/5 text-sky-400/60',            dot: 'bg-sky-400/50' },
+                  allocation: { active: 'border-amber-500/20 bg-amber-500/5 text-amber-400/60',      dot: 'bg-amber-400/50' },
+                  vesting:    { active: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400/60',dot: 'bg-emerald-400/50' },
                 }
                 const colors = colorMap[key]
                 return (
