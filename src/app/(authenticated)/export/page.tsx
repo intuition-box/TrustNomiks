@@ -28,12 +28,12 @@ interface TokenSummary {
 
 interface CompleteTokenData {
   token: TokenSummary
-  supply?: any
-  allocations: any[]
-  vesting: any[]
-  emission?: any
-  sources: any[]
-  risk_flags: any[]
+  supply?: any // eslint-disable-line @typescript-eslint/no-explicit-any
+  allocations: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
+  vesting: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
+  emission?: any // eslint-disable-line @typescript-eslint/no-explicit-any
+  sources: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
+  risk_flags: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export default function ExportPage() {
@@ -73,7 +73,7 @@ export default function ExportPage() {
     }
 
     fetchTokens()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle individual token selection
   const toggleToken = (tokenId: string) => {

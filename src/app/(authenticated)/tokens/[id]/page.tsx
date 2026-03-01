@@ -137,7 +137,7 @@ export default function TokenDetailPage() {
     if (params.id) {
       fetchTokenData(params.id as string)
     }
-  }, [params.id])
+  }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTokenData = async (tokenId: string) => {
     try {
@@ -219,7 +219,7 @@ export default function TokenDetailPage() {
         data_sources: sourcesData || [],
         claim_sources: (claimSourcesData || []) as TokenData['claim_sources'],
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching token:', error)
       toast.error('Failed to load token data')
     } finally {
@@ -262,7 +262,7 @@ export default function TokenDetailPage() {
 
       setToken({ ...token, status: newStatus })
       toast.success('Status updated successfully')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating status:', error)
       toast.error('Failed to update status')
     }
@@ -281,7 +281,7 @@ export default function TokenDetailPage() {
 
       toast.success('Token deleted successfully')
       router.push('/dashboard')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting token:', error)
       toast.error('Failed to delete token')
     }
@@ -310,6 +310,7 @@ export default function TokenDetailPage() {
         },
         supply: token.supply_metrics || undefined,
         allocations: token.allocation_segments,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DB row shape from joined query
         vesting: token.vesting_schedules.map((v: any) => ({
           id: v.id,
           allocation_id: v.allocation_id,
@@ -325,6 +326,7 @@ export default function TokenDetailPage() {
           },
         })),
         emission: token.emission_models || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- complex triples-export type
         sources: token.data_sources as any,
         risk_flags: [],
       }

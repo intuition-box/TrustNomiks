@@ -90,7 +90,7 @@ export default function NewTokenPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [tokenId, setTokenId] = useState<string | null>(editTokenId)
   const [maxSupply, setMaxSupply] = useState<string>('')
-  const [tgeDate, setTgeDate] = useState<string | undefined>(undefined)
+  const [, setTgeDate] = useState<string | undefined>(undefined)
   const [allocations, setAllocations] = useState<AllocationWithId[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingTokenData, setLoadingTokenData] = useState(isEditMode)
@@ -258,7 +258,7 @@ export default function NewTokenPage() {
       notes?: string | null
     }>
   ) => {
-    const schedules: Record<string, any> = {}
+    const schedules: Record<string, Record<string, string>> = {}
 
     allocationData.forEach((alloc) => {
       const vestingSchedule = vestingData?.find((v) => v.allocation_id === alloc.id)
@@ -328,7 +328,7 @@ export default function NewTokenPage() {
           vestingData || []
         ),
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading allocations:', error)
       toast.error('Failed to load allocations')
     } finally {
@@ -503,7 +503,7 @@ export default function NewTokenPage() {
 
       // Calculate completed steps after loading
       calculateCompletedSteps()
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading token data:', error)
       toast.error('Failed to load token data')
       router.push('/dashboard')
@@ -540,14 +540,6 @@ export default function NewTokenPage() {
     if (step6Data.sources.length > 0) completed.push(6)
 
     setCompletedSteps(completed)
-  }
-
-  // Handle step navigation
-  const handleStepNavigation = (targetStep: number) => {
-    // Only allow navigation to current step or completed steps
-    if (targetStep <= currentStep || completedSteps.includes(targetStep)) {
-      setCurrentStep(targetStep)
-    }
   }
 
   // Load token data on mount if editing
@@ -693,9 +685,9 @@ export default function NewTokenPage() {
       setTgeDate(data.tge_date)
       calculateCompletedSteps()
       toast.success(isEditMode ? 'Identity updated' : 'Token created — continue filling in the sections below')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving token:', error)
-      toast.error(error.message || 'Failed to save token')
+      toast.error(error instanceof Error ? error.message : 'Failed to save token')
     } finally {
       setLoading(false)
     }
@@ -738,9 +730,9 @@ export default function NewTokenPage() {
 
       calculateCompletedSteps()
       toast.success('Supply metrics saved')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving supply metrics:', error)
-      toast.error(error.message || 'Failed to save supply metrics')
+      toast.error(error instanceof Error ? error.message : 'Failed to save supply metrics')
     } finally {
       setLoading(false)
     }
@@ -872,9 +864,9 @@ export default function NewTokenPage() {
 
       calculateCompletedSteps()
       toast.success('Allocations saved — vesting section is now unlocked')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving allocations:', error)
-      toast.error(error.message || 'Failed to save allocations')
+      toast.error(error instanceof Error ? error.message : 'Failed to save allocations')
     } finally {
       setLoading(false)
     }
@@ -925,15 +917,16 @@ export default function NewTokenPage() {
 
       calculateCompletedSteps()
       toast.success('Vesting schedules saved')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving vesting schedules:', error)
+      const pgError = error as { code?: string; message?: string } | null
       if (
-        error?.code === '23514' &&
-        String(error?.message || '').includes('vesting_schedules_frequency_check')
+        pgError?.code === '23514' &&
+        String(pgError?.message || '').includes('vesting_schedules_frequency_check')
       ) {
         toast.error('Database schema is outdated: apply the vesting frequency migration (yearly).')
       } else {
-        toast.error(error.message || 'Failed to save vesting schedules')
+        toast.error(error instanceof Error ? error.message : 'Failed to save vesting schedules')
       }
     } finally {
       setLoading(false)
@@ -975,9 +968,9 @@ export default function NewTokenPage() {
 
       calculateCompletedSteps()
       toast.success('Emission model saved')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving emission model:', error)
-      toast.error(error.message || 'Failed to save emission model')
+      toast.error(error instanceof Error ? error.message : 'Failed to save emission model')
     } finally {
       setLoading(false)
     }
@@ -1046,9 +1039,9 @@ export default function NewTokenPage() {
 
       // Move to completion page (step 7)
       setCurrentStep(7)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving data sources:', error)
-      toast.error(error.message || 'Failed to save data sources')
+      toast.error(error instanceof Error ? error.message : 'Failed to save data sources')
     } finally {
       setLoading(false)
     }
@@ -1205,13 +1198,6 @@ export default function NewTokenPage() {
       shouldTouch: true,
     })
     closeSegmentGuide()
-  }
-
-  // Go back to previous step
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
   }
 
   // Prevent scroll from changing number input values
@@ -2467,6 +2453,7 @@ export default function NewTokenPage() {
                   </div>
 
                   {/* Vesting Schedules Accordion */}
+                  {/* eslint-disable @typescript-eslint/no-explicit-any -- react-hook-form FieldPath cannot resolve dynamic Record<string,...> keys */}
                   <Accordion type="multiple" className="space-y-4">
                     {allocations.map((allocation) => {
                       const scheduleKey = `schedules.${allocation.id}`
@@ -2676,6 +2663,7 @@ export default function NewTokenPage() {
                       )
                     })}
                   </Accordion>
+                  {/* eslint-enable @typescript-eslint/no-explicit-any */}
 
                   {/* Actions */}
                   <div className="flex justify-end pt-4">

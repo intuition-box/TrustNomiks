@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Coins, Download, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Home, Coins, Download, Settings, PanelLeftClose, PanelLeftOpen, Building2 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/user-menu'
@@ -19,6 +19,7 @@ interface SidebarNavProps {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/tokens', label: 'Tokens', icon: Coins },
+  { href: '/token-house', label: 'Token House', icon: Building2 },
   { href: '/export', label: 'Export', icon: Download },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
