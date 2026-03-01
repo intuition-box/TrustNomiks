@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { SidebarNav } from '@/components/sidebar-nav'
@@ -14,22 +14,35 @@ interface AuthenticatedShellProps {
 
 const SIDEBAR_STORAGE_KEY = 'trustnomiks:sidebar-collapsed'
 
-export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) {
-  const [collapsed, setCollapsed] = useState(false)
+// useSyncExternalStore handles SSR→client transition without setState-in-effect:
+// - SSR / hydration: getServerSnapshot → false (sidebar expanded)
+// - After hydration: getSnapshot → reads localStorage
+function subscribeToSidebar(callback: () => void) {
+  window.addEventListener('storage', callback)
+  return () => window.removeEventListener('storage', callback)
+}
 
-  // Read localStorage after hydration to avoid SSR/client mismatch
-  useEffect(() => {
-    if (localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true') {
-      setCollapsed(true)
-    }
-  }, [])
+function getSidebarSnapshot() {
+  return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+}
+
+function getServerSidebarSnapshot() {
+  return false
+}
+
+export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) {
+  const collapsed = useSyncExternalStore(
+    subscribeToSidebar,
+    getSidebarSnapshot,
+    getServerSidebarSnapshot
+  )
 
   const toggleSidebar = () => {
-    setCollapsed((previous) => {
-      const nextValue = !previous
-      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(nextValue))
-      return nextValue
-    })
+    const next = !collapsed
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
+    // Dispatch storage event to trigger useSyncExternalStore re-render
+    // (native storage events only fire on other tabs)
+    window.dispatchEvent(new StorageEvent('storage', { key: SIDEBAR_STORAGE_KEY }))
   }
 
   return (

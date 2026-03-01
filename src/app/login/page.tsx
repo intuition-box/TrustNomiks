@@ -60,7 +60,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -69,9 +69,9 @@ export default function LoginPage() {
 
       router.push('/dashboard')
       router.refresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err)
-      setError(err.message || 'An error occurred during login')
+      setError(err instanceof Error ? err.message : 'An error occurred during login')
     } finally {
       setLoading(false)
     }
@@ -111,12 +111,13 @@ export default function LoginPage() {
 
       router.push('/dashboard')
       router.refresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Signup error:', err)
-      if (err.message.includes('already registered')) {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg.includes('already registered')) {
         setError('This email is already registered. Please log in.')
       } else {
-        setError(err.message || 'An error occurred during signup')
+        setError(msg || 'An error occurred during signup')
       }
     } finally {
       setLoading(false)

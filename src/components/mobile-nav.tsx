@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, Home, Coins, Download, Settings, LogOut } from 'lucide-react'
+import { Menu, Home, Coins, Download, Settings, LogOut, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
@@ -21,6 +21,7 @@ interface MobileNavProps {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/tokens', label: 'Tokens', icon: Coins },
+  { href: '/token-house', label: 'Token House', icon: Building2 },
   { href: '/export', label: 'Export', icon: Download },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]

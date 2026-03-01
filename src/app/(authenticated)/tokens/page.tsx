@@ -55,11 +55,11 @@ export default function TokensPage() {
 
   useEffect(() => {
     fetchTokens()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     applyFiltersAndSort()
-  }, [tokens, filters, sortField, sortDirection])
+  }, [tokens, filters, sortField, sortDirection]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTokens = async () => {
     try {
@@ -104,16 +104,14 @@ export default function TokensPage() {
     }
 
     result.sort((a, b) => {
-      let aValue: any = a[sortField]
-      let bValue: any = b[sortField]
+      const rawA = a[sortField]
+      const rawB = b[sortField]
 
-      if (aValue === null) return 1
-      if (bValue === null) return -1
+      if (rawA == null) return 1
+      if (rawB == null) return -1
 
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue.toLowerCase()
-      }
+      const aValue = typeof rawA === 'string' ? rawA.toLowerCase() : rawA
+      const bValue = typeof rawB === 'string' ? rawB.toLowerCase() : rawB
 
       if (sortDirection === 'asc') {
         return aValue > bValue ? 1 : -1
