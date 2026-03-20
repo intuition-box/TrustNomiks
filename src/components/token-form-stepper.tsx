@@ -66,7 +66,7 @@ export function TokenFormStepper({ currentStep, completedSteps = [], onStepClick
                     )}
                   >
                     {completed ? (
-                      <Check className="h-5 w-5 text-white" />
+                      <Check className="h-5 w-5 text-primary-foreground" />
                     ) : currentStep === step.id ? (
                       <Circle className="h-4 w-4 text-primary-foreground fill-current" />
                     ) : (
