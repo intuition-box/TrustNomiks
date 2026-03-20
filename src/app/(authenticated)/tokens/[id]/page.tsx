@@ -53,6 +53,7 @@ import {
   normalizeVestingFrequency,
 } from '@/types/form'
 import { toast } from 'sonner'
+import { TokenPriceCard } from '@/components/token-price-card'
 
 interface TokenData {
   id: string
@@ -60,6 +61,8 @@ interface TokenData {
   ticker: string
   chain: string | null
   contract_address: string | null
+  coingecko_id: string | null
+  coingecko_image: string | null
   tge_date: string | null
   category: string | null
   sector: string | null
@@ -240,9 +243,9 @@ export default function TokenDetailPage() {
 
   const getStatusBadge = (status: string) => {
     const configs = {
-      draft: { label: 'Draft', className: 'bg-gray-500/10 text-gray-500 border-gray-500/20' },
-      in_review: { label: 'In Review', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
-      validated: { label: 'Validated', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
+      draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-500 border-gray-500/20' },
+      in_review: { label: 'In Review', className: 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' },
+      validated: { label: 'Validated', className: 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20' },
     }
     const config = configs[status as keyof typeof configs] || configs.draft
 
@@ -420,16 +423,16 @@ export default function TokenDetailPage() {
 
   const getSegmentTextColor = (index: number) => {
     const colors = [
-      'text-blue-400',
-      'text-purple-400',
-      'text-pink-400',
-      'text-orange-400',
-      'text-green-400',
-      'text-teal-400',
-      'text-indigo-400',
-      'text-red-400',
-      'text-yellow-400',
-      'text-cyan-400',
+      'text-blue-600 dark:text-blue-400',
+      'text-purple-600 dark:text-purple-400',
+      'text-pink-600 dark:text-pink-400',
+      'text-orange-600 dark:text-orange-400',
+      'text-green-600 dark:text-green-400',
+      'text-teal-600 dark:text-teal-400',
+      'text-indigo-600 dark:text-indigo-400',
+      'text-red-600 dark:text-red-400',
+      'text-yellow-600 dark:text-yellow-400',
+      'text-cyan-600 dark:text-cyan-400',
     ]
     return colors[index % colors.length]
   }
@@ -468,6 +471,14 @@ export default function TokenDetailPage() {
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-3">
+                {token.coingecko_image && (
+                  <img
+                    src={token.coingecko_image}
+                    alt={token.name}
+                    className="h-9 w-9 rounded-full"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                )}
                 <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
                 <span className="text-2xl font-mono text-primary">{token.ticker}</span>
                 {getStatusBadge(token.status)}
@@ -492,17 +503,20 @@ export default function TokenDetailPage() {
         </div>
       </Card>
 
+      {/* Market Data */}
+      <TokenPriceCard coingeckoId={token.coingecko_id} tokenId={token.id} />
+
       {/* Completeness Score */}
       <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-500/5 to-transparent">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
-                <BarChart2 className="h-4 w-4 text-indigo-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
+                <BarChart2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               </span>
               <CardTitle className="text-base">Completeness Score</CardTitle>
             </div>
-            <span className="text-2xl font-bold text-indigo-400">{token.completeness}%</span>
+            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{token.completeness}%</span>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -518,10 +532,10 @@ export default function TokenDetailPage() {
                   ? !!(token.name && token.ticker)
                   : score >= max
                 const colorMap: Record<keyof ClusterScores, { active: string; dot: string }> = {
-                  identity:   { active: 'border-violet-500/20 bg-violet-500/5 text-violet-400/60',   dot: 'bg-violet-400/50' },
-                  supply:     { active: 'border-sky-500/20 bg-sky-500/5 text-sky-400/60',            dot: 'bg-sky-400/50' },
-                  allocation: { active: 'border-amber-500/20 bg-amber-500/5 text-amber-400/60',      dot: 'bg-amber-400/50' },
-                  vesting:    { active: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400/60',dot: 'bg-emerald-400/50' },
+                  identity:   { active: 'border-violet-500/20 bg-violet-100 dark:bg-violet-500/5 text-violet-600 dark:text-violet-400/60',   dot: 'bg-violet-600 dark:bg-violet-400/50' },
+                  supply:     { active: 'border-sky-500/20 bg-sky-100 dark:bg-sky-500/5 text-sky-600 dark:text-sky-400/60',            dot: 'bg-sky-600 dark:bg-sky-400/50' },
+                  allocation: { active: 'border-amber-500/20 bg-amber-100 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400/60',      dot: 'bg-amber-600 dark:bg-amber-400/50' },
+                  vesting:    { active: 'border-emerald-500/20 bg-emerald-100 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400/60',dot: 'bg-emerald-600 dark:bg-emerald-400/50' },
                 }
                 const colors = colorMap[key]
                 return (
@@ -551,10 +565,10 @@ export default function TokenDetailPage() {
 
       {/* Identity Section */}
       <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_30px_rgba(139,92,246,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-violet-500/5 to-transparent">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-violet-100 dark:from-violet-500/5 to-transparent">
           <CardTitle className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-500/10">
-              <Tag className="h-4 w-4 text-violet-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-100 dark:bg-violet-500/10">
+              <Tag className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </span>
             Token Identity
           </CardTitle>
@@ -594,10 +608,10 @@ export default function TokenDetailPage() {
       {/* Supply Metrics */}
       {token.supply_metrics && (
         <Card className="border border-sky-500/30 overflow-hidden shadow-[0_0_30px_rgba(14,165,233,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-sky-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-sky-100 dark:from-sky-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-500/10">
-                <BarChart2 className="h-4 w-4 text-sky-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-100 dark:bg-sky-500/10">
+                <BarChart2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
               </span>
               Supply Metrics
             </CardTitle>
@@ -633,10 +647,10 @@ export default function TokenDetailPage() {
       {/* Allocations */}
       {token.allocation_segments.length > 0 && (
         <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
-                <PieChart className="h-4 w-4 text-indigo-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
+                <PieChart className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               </span>
               Token Allocations
             </CardTitle>
@@ -749,10 +763,10 @@ export default function TokenDetailPage() {
       {/* Vesting Schedules */}
       {token.vesting_schedules.length > 0 && (
         <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-amber-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-amber-100 dark:from-amber-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10">
-                <Clock className="h-4 w-4 text-amber-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-500/10">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               </span>
               Vesting Schedules
             </CardTitle>
@@ -787,10 +801,10 @@ export default function TokenDetailPage() {
       {/* Emission Model */}
       {token.emission_models && (
         <Card className="border border-emerald-500/30 overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-emerald-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-emerald-100 dark:from-emerald-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-500/10">
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-500/10">
+                <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               </span>
               Emission Model
             </CardTitle>
@@ -813,7 +827,7 @@ export default function TokenDetailPage() {
             )}
 
             {token.emission_models.has_burn && (
-              <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <div className="p-3 bg-orange-100 dark:bg-orange-500/10 border border-orange-500/20 rounded-lg">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
                   <div>
@@ -829,7 +843,7 @@ export default function TokenDetailPage() {
             )}
 
             {token.emission_models.has_buyback && (
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <div className="p-3 bg-blue-100 dark:bg-blue-500/10 border border-blue-500/20 rounded-lg">
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="h-5 w-5 text-blue-500 mt-0.5" />
                   <div>
@@ -850,10 +864,10 @@ export default function TokenDetailPage() {
       {/* Data Sources */}
       {token.data_sources.length > 0 && (
         <Card className="border border-cyan-500/30 overflow-hidden shadow-[0_0_30px_rgba(6,182,212,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-cyan-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-cyan-100 dark:from-cyan-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-cyan-500/10">
-                <Database className="h-4 w-4 text-cyan-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-cyan-100 dark:bg-cyan-500/10">
+                <Database className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               </span>
               Data Sources
             </CardTitle>
@@ -918,10 +932,10 @@ export default function TokenDetailPage() {
 
       {/* Actions */}
       <Card className="border border-rose-500/30 overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-rose-500/5 to-transparent">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-rose-100 dark:from-rose-500/5 to-transparent">
           <CardTitle className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-rose-500/10">
-              <Settings2 className="h-4 w-4 text-rose-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-rose-100 dark:bg-rose-500/10">
+              <Settings2 className="h-4 w-4 text-rose-600 dark:text-rose-400" />
             </span>
             Actions
           </CardTitle>
