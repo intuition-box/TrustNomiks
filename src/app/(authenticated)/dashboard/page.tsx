@@ -36,18 +36,18 @@ type DashboardToken = {
 }
 
 const CLUSTER_COLORS: Record<keyof ClusterScores, { indicator: string; dot: string; text: string }> = {
-  identity:   { indicator: 'bg-violet-500', dot: 'bg-violet-400', text: 'text-violet-400' },
-  supply:     { indicator: 'bg-sky-500',    dot: 'bg-sky-400',    text: 'text-sky-400'    },
-  allocation: { indicator: 'bg-amber-500',  dot: 'bg-amber-400',  text: 'text-amber-400'  },
-  vesting:    { indicator: 'bg-emerald-500',dot: 'bg-emerald-400',text: 'text-emerald-400' },
+  identity:   { indicator: 'bg-violet-500', dot: 'bg-violet-400', text: 'text-violet-600 dark:text-violet-400' },
+  supply:     { indicator: 'bg-sky-500',    dot: 'bg-sky-400',    text: 'text-sky-600 dark:text-sky-400'    },
+  allocation: { indicator: 'bg-amber-500',  dot: 'bg-amber-400',  text: 'text-amber-600 dark:text-amber-400'  },
+  vesting:    { indicator: 'bg-emerald-500',dot: 'bg-emerald-400',text: 'text-emerald-600 dark:text-emerald-400' },
 }
 
 const TIERS = [
-  { label: 'Novice',      emoji: '🌱', min: 0,  max: 2,          color: 'text-emerald-400', border: 'border-emerald-500/40', bg: 'bg-emerald-500/10' },
-  { label: 'Contributor', emoji: '🏅', min: 3,  max: 9,          color: 'text-violet-400',  border: 'border-violet-500/40',  bg: 'bg-violet-500/10'  },
-  { label: 'Expert',      emoji: '⭐', min: 10, max: 24,         color: 'text-sky-400',     border: 'border-sky-500/40',     bg: 'bg-sky-500/10'     },
-  { label: 'Master',      emoji: '🔥', min: 25, max: 49,         color: 'text-orange-400',  border: 'border-orange-500/40',  bg: 'bg-orange-500/10'  },
-  { label: 'Legend',      emoji: '👑', min: 50, max: Infinity,   color: 'text-yellow-400',  border: 'border-yellow-500/40',  bg: 'bg-yellow-500/10'  },
+  { label: 'Novice',      emoji: '🌱', min: 0,  max: 2,          color: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/40', bg: 'bg-emerald-100 dark:bg-emerald-500/10' },
+  { label: 'Contributor', emoji: '🏅', min: 3,  max: 9,          color: 'text-violet-600 dark:text-violet-400',  border: 'border-violet-500/40',  bg: 'bg-violet-100 dark:bg-violet-500/10'  },
+  { label: 'Expert',      emoji: '⭐', min: 10, max: 24,         color: 'text-sky-600 dark:text-sky-400',     border: 'border-sky-500/40',     bg: 'bg-sky-100 dark:bg-sky-500/10'     },
+  { label: 'Master',      emoji: '🔥', min: 25, max: 49,         color: 'text-orange-600 dark:text-orange-400',  border: 'border-orange-500/40',  bg: 'bg-orange-100 dark:bg-orange-500/10'  },
+  { label: 'Legend',      emoji: '👑', min: 50, max: Infinity,   color: 'text-yellow-600 dark:text-yellow-400',  border: 'border-yellow-500/40',  bg: 'bg-yellow-100 dark:bg-yellow-500/10'  },
 ]
 
 function getTierIndex(count: number) {
@@ -156,7 +156,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-        <div className="bg-gradient-to-br from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
+        <div className="bg-gradient-to-br from-indigo-100 dark:from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -172,11 +172,11 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.12)] bg-gradient-to-br from-violet-500/5 to-transparent">
+        <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.12)] bg-gradient-to-br from-violet-100 dark:from-violet-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-500/10">
-              <LayoutDashboard className="h-4 w-4 text-violet-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-100 dark:bg-violet-500/10">
+              <LayoutDashboard className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -185,11 +185,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-emerald-500/30 overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.12)] bg-gradient-to-br from-emerald-500/5 to-transparent">
+        <Card className="border border-emerald-500/30 overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.12)] bg-gradient-to-br from-emerald-100 dark:from-emerald-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Validated</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-500/10">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-500/10">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -198,11 +198,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_20px_rgba(245,158,11,0.12)] bg-gradient-to-br from-amber-500/5 to-transparent">
+        <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_20px_rgba(245,158,11,0.12)] bg-gradient-to-br from-amber-100 dark:from-amber-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Review</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10">
-              <Clock className="h-4 w-4 text-amber-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-500/10">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -211,11 +211,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-sky-500/30 overflow-hidden shadow-[0_0_20px_rgba(14,165,233,0.12)] bg-gradient-to-br from-sky-500/5 to-transparent">
+        <Card className="border border-sky-500/30 overflow-hidden shadow-[0_0_20px_rgba(14,165,233,0.12)] bg-gradient-to-br from-sky-100 dark:from-sky-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Drafts</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-500/10">
-              <FileText className="h-4 w-4 text-sky-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-100 dark:bg-sky-500/10">
+              <FileText className="h-4 w-4 text-sky-600 dark:text-sky-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -227,10 +227,10 @@ export default function DashboardPage() {
 
       {/* Data Completeness by Cluster */}
       <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-        <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-indigo-500/5 to-transparent">
+        <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
           <CardTitle className="flex items-center gap-2.5 text-base">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
-              <TrendingUp className="h-4 w-4 text-indigo-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
+              <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             </span>
             Data Completeness
           </CardTitle>
@@ -273,10 +273,10 @@ export default function DashboardPage() {
 
           {/* Weakest cluster callout */}
           {tokens.length > 0 && (
-            <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 px-4 py-3 flex items-start gap-2.5">
-              <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-300/80">
-                <span className="font-semibold text-amber-400">Weakest cluster: {CLUSTER_LABELS[weakest.key]}</span>
+            <div className="rounded-lg bg-amber-100 dark:bg-amber-500/5 border border-amber-500/20 px-4 py-3 flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-300/80">
+                <span className="font-semibold text-amber-600 dark:text-amber-400">Weakest cluster: {CLUSTER_LABELS[weakest.key]}</span>
                 {' '}— {weakest.total - weakest.complete} token{weakest.total - weakest.complete !== 1 ? 's' : ''} missing this data
                 {' '}({Math.round(100 - weakest.rate)}% incomplete)
               </p>
@@ -290,10 +290,10 @@ export default function DashboardPage() {
 
         {/* Your Contribution */}
         <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.12)]">
-          <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-violet-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-violet-100 dark:from-violet-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-500/10">
-                <Zap className="h-4 w-4 text-violet-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-100 dark:bg-violet-500/10">
+                <Zap className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               </span>
               Your Contribution
             </CardTitle>
@@ -371,10 +371,10 @@ export default function DashboardPage() {
 
         {/* Leaderboard */}
         <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-          <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-indigo-500/5 to-transparent">
+          <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
             <CardTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
-                <Trophy className="h-4 w-4 text-indigo-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
+                <Trophy className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               </span>
               Leaderboard
             </CardTitle>
@@ -397,7 +397,7 @@ export default function DashboardPage() {
                       className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors',
                         entry.isCurrentUser
-                          ? 'bg-indigo-500/10 border-indigo-500/30'
+                          ? 'bg-indigo-100 dark:bg-indigo-500/10 border-indigo-500/30'
                           : 'bg-muted/20 border-border/30'
                       )}
                     >
@@ -418,7 +418,7 @@ export default function DashboardPage() {
                               : `Contributor ···${entry.userId.slice(-6)}`}
                           </p>
                           {entry.isCurrentUser && (
-                            <span className="text-[10px] text-indigo-400 font-semibold bg-indigo-500/10 border border-indigo-500/20 rounded-full px-1.5 py-px shrink-0">
+                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-full px-1.5 py-px shrink-0">
                               you
                             </span>
                           )}

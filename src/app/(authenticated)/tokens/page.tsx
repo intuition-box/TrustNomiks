@@ -142,9 +142,9 @@ export default function TokensPage() {
 
   const getStatusBadge = (status: string) => {
     const configs = {
-      draft: { label: 'Draft', className: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
-      in_review: { label: 'In Review', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-      validated: { label: 'Validated', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+      draft: { label: 'Draft', className: 'bg-slate-100 dark:bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20' },
+      in_review: { label: 'In Review', className: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
+      validated: { label: 'Validated', className: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
     }
     const config = configs[status as keyof typeof configs] || configs.draft
     return <Badge className={config.className}>{config.label}</Badge>
@@ -192,7 +192,7 @@ export default function TokensPage() {
     return (
       <div className="space-y-6">
         <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-          <div className="bg-gradient-to-br from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
+          <div className="bg-gradient-to-br from-indigo-50 dark:from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
                 <h1 className="text-3xl font-bold tracking-tight">Tokens</h1>
@@ -227,7 +227,7 @@ export default function TokensPage() {
     <div className="space-y-6">
       {/* Header */}
       <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-        <div className="bg-gradient-to-br from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
+        <div className="bg-gradient-to-br from-indigo-50 dark:from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h1 className="text-3xl font-bold tracking-tight">Tokens</h1>
@@ -243,11 +243,11 @@ export default function TokensPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.12)] bg-gradient-to-br from-violet-500/5 to-transparent">
+        <Card className="border border-violet-500/20 dark:border-violet-500/30 overflow-hidden shadow-sm dark:shadow-[0_0_20px_rgba(139,92,246,0.12)] bg-gradient-to-br from-violet-50 dark:from-violet-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-500/10">
-              <LayoutDashboard className="h-4 w-4 text-violet-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-100 dark:bg-violet-500/10">
+              <LayoutDashboard className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -256,11 +256,11 @@ export default function TokensPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-emerald-500/30 overflow-hidden shadow-[0_0_20px_rgba(16,185,129,0.12)] bg-gradient-to-br from-emerald-500/5 to-transparent">
+        <Card className="border border-emerald-500/20 dark:border-emerald-500/30 overflow-hidden shadow-sm dark:shadow-[0_0_20px_rgba(16,185,129,0.12)] bg-gradient-to-br from-emerald-50 dark:from-emerald-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Validated</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-500/10">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-500/10">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -269,11 +269,11 @@ export default function TokensPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_20px_rgba(245,158,11,0.12)] bg-gradient-to-br from-amber-500/5 to-transparent">
+        <Card className="border border-amber-500/20 dark:border-amber-500/30 overflow-hidden shadow-sm dark:shadow-[0_0_20px_rgba(245,158,11,0.12)] bg-gradient-to-br from-amber-50 dark:from-amber-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">In Review</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-500/10">
-              <Clock className="h-4 w-4 text-amber-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-500/10">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -282,11 +282,11 @@ export default function TokensPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-sky-500/30 overflow-hidden shadow-[0_0_20px_rgba(14,165,233,0.12)] bg-gradient-to-br from-sky-500/5 to-transparent">
+        <Card className="border border-sky-500/20 dark:border-sky-500/30 overflow-hidden shadow-sm dark:shadow-[0_0_20px_rgba(14,165,233,0.12)] bg-gradient-to-br from-sky-50 dark:from-sky-500/5 to-transparent">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Drafts</CardTitle>
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-500/10">
-              <FileText className="h-4 w-4 text-sky-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-100 dark:bg-sky-500/10">
+              <FileText className="h-4 w-4 text-sky-600 dark:text-sky-400" />
             </span>
           </CardHeader>
           <CardContent>
@@ -298,10 +298,10 @@ export default function TokensPage() {
 
       {/* Token Registry */}
       <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-500/5 to-transparent">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-50 dark:from-indigo-500/5 to-transparent">
           <CardTitle className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-500/10">
-              <Layers className="h-4 w-4 text-indigo-400" />
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
+              <Layers className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             </span>
             Token Registry
           </CardTitle>
@@ -325,10 +325,10 @@ export default function TokensPage() {
             {(['all', 'draft', 'in_review', 'validated'] as const).map((status) => {
               const isActive = filters.status === status
               const config = {
-                all:       { label: 'All',       active: 'bg-violet-500/15 border-violet-500/50 text-violet-300',   inactive: 'border-border/40 text-muted-foreground hover:border-violet-500/30 hover:text-violet-400 hover:bg-violet-500/5'  },
-                draft:     { label: 'Draft',     active: 'bg-sky-500/15 border-sky-500/50 text-sky-300',            inactive: 'border-border/40 text-muted-foreground hover:border-sky-500/30 hover:text-sky-400 hover:bg-sky-500/5'        },
-                in_review: { label: 'In Review', active: 'bg-amber-500/15 border-amber-500/50 text-amber-300',      inactive: 'border-border/40 text-muted-foreground hover:border-amber-500/30 hover:text-amber-400 hover:bg-amber-500/5'    },
-                validated: { label: 'Validated', active: 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300',inactive: 'border-border/40 text-muted-foreground hover:border-emerald-500/30 hover:text-emerald-400 hover:bg-emerald-500/5'},
+                all:       { label: 'All',       active: 'bg-violet-100 dark:bg-violet-500/15 border-violet-500/50 text-violet-700 dark:text-violet-300',   inactive: 'border-border/40 text-muted-foreground hover:border-violet-500/30 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/5'  },
+                draft:     { label: 'Draft',     active: 'bg-sky-100 dark:bg-sky-500/15 border-sky-500/50 text-sky-700 dark:text-sky-300',            inactive: 'border-border/40 text-muted-foreground hover:border-sky-500/30 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-500/5'        },
+                in_review: { label: 'In Review', active: 'bg-amber-100 dark:bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-300',      inactive: 'border-border/40 text-muted-foreground hover:border-amber-500/30 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/5'    },
+                validated: { label: 'Validated', active: 'bg-emerald-100 dark:bg-emerald-500/15 border-emerald-500/50 text-emerald-700 dark:text-emerald-300',inactive: 'border-border/40 text-muted-foreground hover:border-emerald-500/30 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/5'},
               }[status]
               return (
                 <button
@@ -431,10 +431,10 @@ export default function TokensPage() {
                             ? !!(token.name && token.ticker)
                             : score >= max
                           const colorMap: Record<keyof ClusterScores, { active: string; dot: string }> = {
-                            identity:   { active: 'border-violet-500/20 bg-violet-500/5 text-violet-400/60',   dot: 'bg-violet-400/50' },
-                            supply:     { active: 'border-sky-500/20 bg-sky-500/5 text-sky-400/60',            dot: 'bg-sky-400/50' },
-                            allocation: { active: 'border-amber-500/20 bg-amber-500/5 text-amber-400/60',      dot: 'bg-amber-400/50' },
-                            vesting:    { active: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400/60',dot: 'bg-emerald-400/50' },
+                            identity:   { active: 'border-violet-500/20 bg-violet-100 dark:bg-violet-500/5 text-violet-600 dark:text-violet-400/60',   dot: 'bg-violet-600 dark:bg-violet-400/50' },
+                            supply:     { active: 'border-sky-500/20 bg-sky-100 dark:bg-sky-500/5 text-sky-600 dark:text-sky-400/60',            dot: 'bg-sky-600 dark:bg-sky-400/50' },
+                            allocation: { active: 'border-amber-500/20 bg-amber-100 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400/60',      dot: 'bg-amber-600 dark:bg-amber-400/50' },
+                            vesting:    { active: 'border-emerald-500/20 bg-emerald-100 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400/60',dot: 'bg-emerald-600 dark:bg-emerald-400/50' },
                           }
                           const colors = colorMap[key]
                           return (

@@ -1,8 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  /* TrustNomiks Dark Mode Theme - shadcn/ui variables */
-  --background: 240 10% 3.9%; /* #0A0A0F */
+  /* TrustNomiks Light Theme (default) */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+
+  --card: 0 0% 98.5%;
+  --card-foreground: 240 10% 3.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+
+  --primary: 239 84% 67%; /* Indigo #6366F1 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 266 83% 61%; /* Violet #8B5CF6 */
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 240 5% 93%;
+  --muted-foreground: 240 4% 46%;
+
+  --accent: 240 5% 93%;
+  --accent-foreground: 240 10% 3.9%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 239 84% 67%;
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* TrustNomiks Dark Theme */
+  --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
 
   --card: 240 10% 5%;
@@ -11,10 +44,10 @@
   --popover: 240 10% 5%;
   --popover-foreground: 0 0% 98%;
 
-  --primary: 239 84% 67%; /* #6366F1 Indigo */
+  --primary: 239 84% 67%;
   --primary-foreground: 0 0% 98%;
 
-  --secondary: 266 83% 61%; /* #8B5CF6 Violet */
+  --secondary: 266 83% 61%;
   --secondary-foreground: 0 0% 98%;
 
   --muted: 240 10% 10%;
@@ -29,8 +62,6 @@
   --border: 240 10% 15%;
   --input: 240 10% 15%;
   --ring: 239 84% 67%;
-
-  --radius: 0.5rem;
 }
 
 @theme inline {
