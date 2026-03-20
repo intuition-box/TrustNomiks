@@ -76,6 +76,7 @@ import {
 } from '@/types/form'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { CoinGeckoSearch } from '@/components/coingecko-search'
 
 interface AllocationWithId extends AllocationSegment {
   id: string
@@ -114,6 +115,8 @@ export default function NewTokenPage() {
       ticker: '',
       chain: undefined,
       contract_address: '',
+      coingecko_id: undefined,
+      coingecko_image: undefined,
       tge_date: undefined,
       category: undefined,
       sector: undefined,
@@ -364,6 +367,8 @@ export default function NewTokenPage() {
         ticker: tokenData.ticker,
         chain: tokenData.chain || undefined,
         contract_address: tokenData.contract_address || '',
+        coingecko_id: tokenData.coingecko_id || undefined,
+        coingecko_image: tokenData.coingecko_image || undefined,
         tge_date: tokenData.tge_date || undefined,
         category: toSupportedCategory(tokenData.category) || undefined,
         sector:
@@ -639,6 +644,8 @@ export default function NewTokenPage() {
             ticker: data.ticker.toUpperCase(),
             chain: data.chain || null,
             contract_address: data.contract_address || null,
+            coingecko_id: data.coingecko_id || null,
+            coingecko_image: data.coingecko_image || null,
             tge_date: data.tge_date || null,
             category: normalizedCategory || null,
             sector: safeSector,
@@ -665,6 +672,8 @@ export default function NewTokenPage() {
             ticker: data.ticker.toUpperCase(),
             chain: data.chain || null,
             contract_address: data.contract_address || null,
+            coingecko_id: data.coingecko_id || null,
+            coingecko_image: data.coingecko_image || null,
             tge_date: data.tge_date || null,
             category: normalizedCategory || null,
             sector: safeSector,
@@ -1339,10 +1348,10 @@ export default function NewTokenPage() {
 
   // Sidebar cluster data
   const sidebarClusters = [
-    { key: 'identity',   label: 'Identity',   bar: 'bg-violet-500', text: 'text-violet-400', live: liveIdentityScore,   max: 20 },
-    { key: 'supply',     label: 'Supply',     bar: 'bg-sky-500',    text: 'text-sky-400',    live: liveSupplyScore,     max: 15 },
-    { key: 'allocation', label: 'Allocation', bar: 'bg-amber-500',  text: 'text-amber-400',  live: liveAllocationScore, max: 20 },
-    { key: 'vesting',    label: 'Vesting',    bar: 'bg-emerald-500',text: 'text-emerald-400',live: liveVestingScore,    max: 20 },
+    { key: 'identity',   label: 'Identity',   bar: 'bg-violet-500', text: 'text-violet-600 dark:text-violet-400', live: liveIdentityScore,   max: 20 },
+    { key: 'supply',     label: 'Supply',     bar: 'bg-sky-500',    text: 'text-sky-600 dark:text-sky-400',       live: liveSupplyScore,     max: 15 },
+    { key: 'allocation', label: 'Allocation', bar: 'bg-amber-500',  text: 'text-amber-600 dark:text-amber-400',   live: liveAllocationScore, max: 20 },
+    { key: 'vesting',    label: 'Vesting',    bar: 'bg-emerald-500',text: 'text-emerald-600 dark:text-emerald-400',live: liveVestingScore,    max: 20 },
   ]
 
   // ── Completion screen (after sources saved) ────────────────────────────────
@@ -1351,7 +1360,7 @@ export default function NewTokenPage() {
       <div className="mx-auto max-w-2xl pb-16 pt-8">
         <div className="rounded-xl border border-primary/20 bg-card overflow-hidden">
           <div className="px-8 py-10 text-center space-y-4">
-            <div className="mx-auto h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+            <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center">
               <CheckCircle2 className="h-8 w-8 text-emerald-500" />
             </div>
             <h1 className="text-2xl font-bold">Token {isEditMode ? 'Updated' : 'Created'} Successfully!</h1>
@@ -1451,7 +1460,7 @@ export default function NewTokenPage() {
             {showFlash && (
               <span
                 key={flashKey}
-                className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-bold text-emerald-400 whitespace-nowrap select-none"
+                className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap select-none"
                 style={{ animation: 'score-flash 1.4s ease-out forwards' }}
               >
                 +{flashPts}
@@ -1489,7 +1498,7 @@ export default function NewTokenPage() {
                 {showFlash && (
                   <span
                     key={flashKey}
-                    className="absolute -top-7 left-0 text-sm font-bold text-emerald-400 whitespace-nowrap select-none"
+                    className="absolute -top-7 left-0 text-sm font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap select-none"
                     style={{ animation: 'score-flash 1.4s ease-out forwards' }}
                   >
                     +{flashPts} pts
@@ -1544,10 +1553,10 @@ export default function NewTokenPage() {
           {/* Section nav */}
           <nav className="mt-3 rounded-xl border bg-card p-3 space-y-0.5">
             {[
-              { id: 'section-identity',   label: 'Identity',   icon: '◆', color: 'text-violet-400',  done: completedSteps.includes(1) },
-              { id: 'section-supply',     label: 'Supply',     icon: '◆', color: 'text-sky-400',     done: completedSteps.includes(2) },
-              { id: 'section-allocation', label: 'Allocation', icon: '◆', color: 'text-amber-400',   done: completedSteps.includes(3) },
-              { id: 'section-vesting',    label: 'Vesting',    icon: '◆', color: 'text-emerald-400', done: completedSteps.includes(4) },
+              { id: 'section-identity',   label: 'Identity',   icon: '◆', color: 'text-violet-600 dark:text-violet-400',  done: completedSteps.includes(1) },
+              { id: 'section-supply',     label: 'Supply',     icon: '◆', color: 'text-sky-600 dark:text-sky-400',     done: completedSteps.includes(2) },
+              { id: 'section-allocation', label: 'Allocation', icon: '◆', color: 'text-amber-600 dark:text-amber-400',   done: completedSteps.includes(3) },
+              { id: 'section-vesting',    label: 'Vesting',    icon: '◆', color: 'text-emerald-600 dark:text-emerald-400', done: completedSteps.includes(4) },
               { id: 'section-emission',   label: 'Emission',   icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(5) },
               { id: 'section-sources',    label: 'Sources',    icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(6) },
             ].map(item => (
@@ -1571,7 +1580,7 @@ export default function NewTokenPage() {
 
           {/* ── Section 1: Identity (violet) ──────────────────────────────────── */}
           <div id="section-identity" className="rounded-xl border border-l-4 border-l-violet-500 bg-card overflow-hidden">
-            {sectionHeader('bg-violet-500', 'Identity', '· Token identification', liveIdentityScore, 20, 'text-violet-400', completedSteps.includes(1))}
+            {sectionHeader('bg-violet-500', 'Identity', '· Token identification', liveIdentityScore, 20, 'text-violet-600 dark:text-violet-400', completedSteps.includes(1))}
             <div className="px-6 py-6">
             <Form {...step1Form}>
               <form onSubmit={step1Form.handleSubmit(onSubmitStep1)} className="space-y-6">
@@ -1858,6 +1867,32 @@ export default function NewTokenPage() {
                   )}
                 />
 
+                {/* CoinGecko Link */}
+                <FormField
+                  control={step1Form.control}
+                  name="coingecko_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CoinGecko Link</FormLabel>
+                      <FormControl>
+                        <CoinGeckoSearch
+                          value={field.value || null}
+                          onSelect={(coin) => {
+                            field.onChange(coin?.id ?? '')
+                            step1Form.setValue('coingecko_image', coin?.thumb ?? '')
+                          }}
+                          chain={step1Form.watch('chain')}
+                          contractAddress={step1Form.watch('contract_address')}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Link this token to CoinGecko for real-time price data (optional)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* TGE Date */}
                 <FormField
                   control={step1Form.control}
@@ -1885,7 +1920,7 @@ export default function NewTokenPage() {
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent
-                          className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+                          className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/10 dark:shadow-black/50 backdrop-blur"
                           align="start"
                           sideOffset={10}
                           collisionPadding={16}
@@ -1941,7 +1976,7 @@ export default function NewTokenPage() {
 
           {/* ── Section 2: Supply (sky) ───────────────────────────────────────── */}
           <div id="section-supply" className="rounded-xl border border-l-4 border-l-sky-500 bg-card overflow-hidden">
-            {sectionHeader('bg-sky-500', 'Supply', '· Token supply metrics', liveSupplyScore, 15, 'text-sky-400', completedSteps.includes(2))}
+            {sectionHeader('bg-sky-500', 'Supply', '· Token supply metrics', liveSupplyScore, 15, 'text-sky-600 dark:text-sky-400', completedSteps.includes(2))}
             {!tokenId ? lockedSection('Save Identity first to unlock Supply Metrics.') : (
             <div className="px-6 py-6">
             <Form {...step2Form}>
@@ -2076,7 +2111,7 @@ export default function NewTokenPage() {
                             </FormControl>
                           </PopoverTrigger>
                           <PopoverContent
-                            className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+                            className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/10 dark:shadow-black/50 backdrop-blur"
                             align="start"
                             sideOffset={10}
                             collisionPadding={16}
@@ -2154,7 +2189,7 @@ export default function NewTokenPage() {
 
           {/* ── Section 3: Allocation (amber) ────────────────────────────────── */}
           <div id="section-allocation" className="rounded-xl border border-l-4 border-l-amber-500 bg-card overflow-hidden">
-            {sectionHeader('bg-amber-500', 'Allocation', '· Token distribution', liveAllocationScore, 20, 'text-amber-400', completedSteps.includes(3))}
+            {sectionHeader('bg-amber-500', 'Allocation', '· Token distribution', liveAllocationScore, 20, 'text-amber-600 dark:text-amber-400', completedSteps.includes(3))}
             {!tokenId ? lockedSection('Save Identity first to unlock Allocations.') : (
             <div className="px-6 py-6">
             <Form {...step3Form}>
@@ -2168,10 +2203,10 @@ export default function NewTokenPage() {
                       className={cn(
                         'text-base font-bold',
                         isComplete
-                          ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                          ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20'
                           : totalPercentage > 100
-                          ? 'bg-red-500/10 text-red-500 border-red-500/20'
-                          : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                          ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20'
+                          : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20'
                       )}
                     >
                       {isComplete ? (
@@ -2402,7 +2437,7 @@ export default function NewTokenPage() {
                 {/* Validation Message */}
                 {!isComplete && fields.length > 0 && (
                   <div className="flex items-start gap-2 p-3 rounded-md bg-muted">
-                    <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
                     <div className="text-sm">
                       <p className="font-medium">Allocation not complete</p>
                       <p className="text-muted-foreground">
@@ -2428,7 +2463,7 @@ export default function NewTokenPage() {
 
           {/* ── Section 4: Vesting (emerald) ─────────────────────────────────── */}
           <div id="section-vesting" className="rounded-xl border border-l-4 border-l-emerald-500 bg-card overflow-hidden">
-            {sectionHeader('bg-emerald-500', 'Vesting', '· Unlock schedules', liveVestingScore, 20, 'text-emerald-400', completedSteps.includes(4))}
+            {sectionHeader('bg-emerald-500', 'Vesting', '· Unlock schedules', liveVestingScore, 20, 'text-emerald-600 dark:text-emerald-400', completedSteps.includes(4))}
             {!tokenId ? lockedSection('Save Identity first to unlock Vesting.') :
              !completedSteps.includes(3) ? lockedSection('Save Allocations first — vesting schedules are built from your allocation segments.') : (
             <div className="px-6 py-6">
@@ -2478,7 +2513,7 @@ export default function NewTokenPage() {
                                 <span>{allocation.percentage}%</span>
                                 <span className="font-mono">{formatTokenAmount(allocation.token_amount)}</span>
                                 {isImmediate && (
-                                  <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                                  <Badge className="bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20">
                                     Immediate
                                   </Badge>
                                 )}
@@ -2896,10 +2931,10 @@ export default function NewTokenPage() {
               <form onSubmit={step6Form.handleSubmit(onSubmitStep6)} className="space-y-6">
                 {/* Info Banner */}
                 {sourceFields.length === 0 && (
-                  <div className="flex items-start gap-3 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
+                  <div className="flex items-start gap-3 p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
                     <div className="text-sm">
-                      <p className="font-medium text-yellow-500">No sources added yet</p>
+                      <p className="font-medium text-yellow-600 dark:text-yellow-500">No sources added yet</p>
                       <p className="text-muted-foreground">
                         Adding at least one source is highly recommended for data verification and credibility.
                       </p>
@@ -3027,7 +3062,7 @@ export default function NewTokenPage() {
                                       </FormControl>
                                     </PopoverTrigger>
                                     <PopoverContent
-                                      className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/50 backdrop-blur"
+                                      className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/10 dark:shadow-black/50 backdrop-blur"
                                       align="end"
                                       side="top"
                                       sideOffset={10}
