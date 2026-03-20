@@ -285,6 +285,8 @@ export const tokenIdentitySchema = z.object({
   ticker: z.string().min(1, 'Ticker is required').transform(val => val.toUpperCase()),
   chain: z.string().optional(),
   contract_address: z.string().optional(),
+  coingecko_id: z.string().optional(),
+  coingecko_image: z.string().optional(),
   tge_date: z.string().optional(),
   category: z.string().optional(),
   sector: z.string().optional(),

@@ -4,6 +4,8 @@ export interface Token {
   ticker: string
   chain: string | null
   contract_address: string | null
+  coingecko_id: string | null
+  coingecko_image: string | null
   tge_date: string | null
   category: string | null
   sector: string | null
