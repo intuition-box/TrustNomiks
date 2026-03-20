@@ -1,9 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Coins, Download, Settings, PanelLeftClose, PanelLeftOpen, Building2 } from 'lucide-react'
+import { Home, Coins, Download, Settings, PanelLeftClose, PanelLeftOpen, Building2, Sun, Moon } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { UserMenu } from '@/components/user-menu'
@@ -26,6 +28,10 @@ const navItems = [
 
 export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
   const pathname = usePathname()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -34,22 +40,22 @@ export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
           <Link href="/dashboard" className="relative flex items-center rounded-xl px-2 py-1 overflow-hidden">
             {/* Smoke blob A — left, slow drift */}
             <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-16 h-10 rounded-full bg-white/[0.13] blur-xl"
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-16 h-10 rounded-full bg-black/[0.06] dark:bg-white/[0.13] blur-xl"
               style={{ animation: 'smoke-a 4.2s ease-in-out infinite' }}
             />
             {/* Smoke blob B — center-right, faster */}
             <div
-              className="absolute right-2 top-0 w-12 h-8 rounded-full bg-white/[0.10] blur-2xl"
+              className="absolute right-2 top-0 w-12 h-8 rounded-full bg-black/[0.04] dark:bg-white/[0.10] blur-2xl"
               style={{ animation: 'smoke-b 3.1s ease-in-out infinite 0.8s' }}
             />
             {/* Smoke blob C — bottom-left, medium */}
             <div
-              className="absolute left-6 bottom-0 w-10 h-6 rounded-full bg-white/[0.08] blur-xl"
+              className="absolute left-6 bottom-0 w-10 h-6 rounded-full bg-black/[0.04] dark:bg-white/[0.08] blur-xl"
               style={{ animation: 'smoke-c 5s ease-in-out infinite 1.6s' }}
             />
             {/* Smoke blob D — top-right, small wisp */}
             <div
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-5 rounded-full bg-white/[0.07] blur-lg"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-5 rounded-full bg-black/[0.03] dark:bg-white/[0.07] blur-lg"
               style={{ animation: 'smoke-a 3.7s ease-in-out infinite 2.3s' }}
             />
             <Image
@@ -97,7 +103,27 @@ export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
 
       <Separator />
 
-      <div className={cn(collapsed ? 'p-2' : 'p-4')}>
+      {/* Theme toggle */}
+      <div className={cn(collapsed ? 'p-2' : 'px-4 pt-3')}>
+        <button
+          type="button"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className={cn(
+            'flex w-full rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+            collapsed ? 'justify-center' : 'items-center gap-3'
+          )}
+          title={collapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
+        >
+          {mounted ? (
+            theme === 'dark' ? <Sun className="h-5 w-5 shrink-0" /> : <Moon className="h-5 w-5 shrink-0" />
+          ) : (
+            <span className="h-5 w-5 shrink-0" />
+          )}
+          {!collapsed && mounted && (theme === 'dark' ? 'Light mode' : 'Dark mode')}
+        </button>
+      </div>
+
+      <div className={cn(collapsed ? 'p-2' : 'p-4 pt-2')}>
         <UserMenu user={user} collapsed={collapsed} />
       </div>
     </div>

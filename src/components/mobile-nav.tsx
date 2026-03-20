@@ -4,11 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, Home, Coins, Download, Settings, LogOut, Building2 } from 'lucide-react'
+import { Menu, Home, Coins, Download, Settings, LogOut, Building2, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -31,6 +32,7 @@ export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const { theme, setTheme } = useTheme()
 
   const handleLogout = async () => {
     try {
@@ -99,7 +101,7 @@ export function MobileNav({ user }: MobileNavProps) {
 
           <Separator />
 
-          {/* User info + Logout */}
+          {/* User info + Theme toggle + Logout */}
           <div className="p-4 space-y-2">
             <div className="flex items-center gap-3 rounded-lg p-2">
               <Avatar className="h-8 w-8">
@@ -109,6 +111,14 @@ export function MobileNav({ user }: MobileNavProps) {
                 {user.email}
               </span>
             </div>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            >
+              {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </Button>
             <Button
               variant="ghost"
               className="w-full justify-start text-muted-foreground"
