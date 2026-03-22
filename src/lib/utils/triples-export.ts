@@ -11,7 +11,7 @@ export interface Triple {
   object: string | number | boolean | object
 }
 
-interface TokenData {
+export interface TokenData {
   id: string
   name: string
   ticker: string
@@ -22,12 +22,12 @@ interface TokenData {
   sector?: string | null
   notes?: string | null
   status: string
-  completeness_score: number
+  completeness: number
   created_at: string
   updated_at: string
 }
 
-interface SupplyMetrics {
+export interface SupplyMetrics {
   max_supply?: string | null
   initial_supply?: string | null
   tge_supply?: string | null
@@ -37,7 +37,7 @@ interface SupplyMetrics {
   notes?: string | null
 }
 
-interface AllocationSegment {
+export interface AllocationSegment {
   id: string
   segment_type: string
   label: string
@@ -46,13 +46,14 @@ interface AllocationSegment {
   wallet_address?: string | null
 }
 
-interface VestingSchedule {
+export interface VestingSchedule {
   id: string
   allocation_id: string
   cliff_months?: number | null
   duration_months?: number | null
   frequency?: string | null
   tge_percentage?: number | null
+  cliff_unlock_percentage?: number | null
   start_date?: string | null
   notes?: string | null
   allocation?: {
@@ -61,7 +62,7 @@ interface VestingSchedule {
   } | null
 }
 
-interface EmissionModel {
+export interface EmissionModel {
   type: string
   annual_inflation_rate?: string | number | null
   inflation_schedule?: Array<{ year: number; rate: number }> | null
@@ -72,7 +73,7 @@ interface EmissionModel {
   notes?: string | null
 }
 
-interface DataSource {
+export interface DataSource {
   id: string
   source_type: string
   document_name: string
@@ -81,7 +82,7 @@ interface DataSource {
   verified_at?: string | null
 }
 
-interface RiskFlag {
+export interface RiskFlag {
   id: string
   flag_type: string
   severity: string
@@ -89,7 +90,14 @@ interface RiskFlag {
   justification?: string | null
 }
 
-interface CompleteTokenData {
+export interface ClaimSource {
+  id: string
+  data_source_id: string
+  claim_type: string
+  claim_id: string | null
+}
+
+export interface CompleteTokenData {
   token: TokenData
   supply?: SupplyMetrics
   allocations: AllocationSegment[]
@@ -97,6 +105,7 @@ interface CompleteTokenData {
   emission?: EmissionModel
   sources: DataSource[]
   risk_flags: RiskFlag[]
+  claim_sources?: ClaimSource[]
 }
 
 /**
@@ -126,7 +135,7 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
   triples.push({
     subject: ticker,
     predicate: 'has Completeness Score',
-    object: token.completeness_score,
+    object: token.completeness,
   })
 
   if (token.chain) {
@@ -325,6 +334,14 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       })
     }
 
+    if (schedule.cliff_unlock_percentage !== null && schedule.cliff_unlock_percentage !== undefined) {
+      triples.push({
+        subject: vestingId,
+        predicate: 'cliff Unlock Percentage',
+        object: schedule.cliff_unlock_percentage,
+      })
+    }
+
     if (schedule.start_date) {
       triples.push({
         subject: vestingId,
@@ -489,6 +506,34 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       })
     }
   })
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 8. CLAIM SOURCE PROVENANCE TRIPLES
+  // ═══════════════════════════════════════════════════════════════════════
+
+  if (data.claim_sources) {
+    data.claim_sources.forEach((cs) => {
+      // Find the matching data source
+      const sourceIndex = sources.findIndex(s => s.id === cs.data_source_id)
+      if (sourceIndex < 0) return
+      const source = sources[sourceIndex]
+      const sourceId = `DataSource_${ticker}_${source.source_type}_${sourceIndex + 1}`
+
+      triples.push({
+        subject: sourceId,
+        predicate: 'attests Claim Type',
+        object: cs.claim_type,
+      })
+
+      if (cs.claim_id) {
+        triples.push({
+          subject: sourceId,
+          predicate: 'attests Claim ID',
+          object: cs.claim_id,
+        })
+      }
+    })
+  }
 
   return triples
 }

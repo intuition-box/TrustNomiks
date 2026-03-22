@@ -347,6 +347,38 @@ export const supplyMetricsSchema = z.object({
   circulating_date: z.string().optional(),
   source_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   notes: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const parse = (v?: string) => {
+    if (!v || v.trim() === '') return null
+    const n = Number(v.replace(/,/g, ''))
+    return isNaN(n) ? null : n
+  }
+  const maxSupply = parse(data.max_supply)
+  const initialSupply = parse(data.initial_supply)
+  const tgeSupply = parse(data.tge_supply)
+  const circulatingSupply = parse(data.circulating_supply)
+
+  if (maxSupply !== null && initialSupply !== null && maxSupply < initialSupply) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Initial supply cannot exceed max supply',
+      path: ['initial_supply'],
+    })
+  }
+  if (initialSupply !== null && tgeSupply !== null && initialSupply < tgeSupply) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'TGE supply cannot exceed initial supply',
+      path: ['tge_supply'],
+    })
+  }
+  if (maxSupply !== null && circulatingSupply !== null && circulatingSupply > maxSupply) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Circulating supply cannot exceed max supply',
+      path: ['circulating_supply'],
+    })
+  }
 })
 
 export type SupplyMetricsFormData = z.infer<typeof supplyMetricsSchema>
@@ -400,10 +432,19 @@ export const allocationSegmentSchema = z.object({
   percentage: z.string().min(1, 'Percentage is required'),
   token_amount: z.string().optional(), // Calculated field
   wallet_address: z.string().optional(),
-}).passthrough()
+})
 
 export const allocationsSchema = z.object({
   segments: z.array(allocationSegmentSchema).min(1, 'At least one allocation segment is required'),
+}).superRefine((data, ctx) => {
+  const total = data.segments.reduce((sum, s) => sum + (parseFloat(s.percentage) || 0), 0)
+  if (Math.abs(total - 100) > 0.01) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Allocation percentages must sum to 100% (currently ${total.toFixed(2)}%)`,
+      path: ['segments'],
+    })
+  }
 })
 
 export type AllocationSegment = z.infer<typeof allocationSegmentSchema>
@@ -515,6 +556,35 @@ export const vestingScheduleSchema = z.object({
 
 export const vestingSchedulesSchema = z.object({
   schedules: z.record(z.string(), vestingScheduleSchema),
+}).superRefine((data, ctx) => {
+  for (const [allocId, schedule] of Object.entries(data.schedules)) {
+    // Validate cliff_months <= duration_months
+    if (schedule.cliff_months && schedule.cliff_months.trim() !== '' &&
+        schedule.duration_months && schedule.duration_months.trim() !== '') {
+      const cliff = parseInt(schedule.cliff_months, 10)
+      const duration = parseInt(schedule.duration_months, 10)
+      if (!isNaN(cliff) && !isNaN(duration) && cliff > duration) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Cliff period cannot exceed vesting duration',
+          path: ['schedules', allocId, 'cliff_months'],
+        })
+      }
+    }
+    // Validate tge_percentage + cliff_unlock_percentage <= 100
+    if (schedule.tge_percentage && schedule.tge_percentage.trim() !== '' &&
+        schedule.cliff_unlock_percentage && schedule.cliff_unlock_percentage.trim() !== '') {
+      const tge = parseFloat(schedule.tge_percentage)
+      const cliffUnlock = parseFloat(schedule.cliff_unlock_percentage)
+      if (!isNaN(tge) && !isNaN(cliffUnlock) && tge + cliffUnlock > 100) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'TGE% + Cliff unlock% cannot exceed 100%',
+          path: ['schedules', allocId, 'tge_percentage'],
+        })
+      }
+    }
+  }
 })
 
 export type VestingSchedule = z.infer<typeof vestingScheduleSchema>

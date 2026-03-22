@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, startTransition } from 'react'
 import { Search, X, Loader2, ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ export function CoinGeckoSearch({
     if (value || resolvedOnce || !chain || !contractAddress || chain === 'other') return
 
     let cancelled = false
-    setResolving(true)
+    startTransition(() => setResolving(true))
 
     fetch(`/api/coingecko/resolve?chain=${encodeURIComponent(chain)}&contract_address=${encodeURIComponent(contractAddress)}`)
       .then(async (res) => {
@@ -48,8 +48,10 @@ export function CoinGeckoSearch({
       .catch(() => {})
       .finally(() => {
         if (!cancelled) {
-          setResolving(false)
-          setResolvedOnce(true)
+          startTransition(() => {
+            setResolving(false)
+            setResolvedOnce(true)
+          })
         }
       })
 
@@ -58,11 +60,13 @@ export function CoinGeckoSearch({
 
   // Open dropdown when there are results
   useEffect(() => {
-    if (results.length > 0 && query.length >= 2) {
-      setOpen(true)
-    } else if (query.length < 2) {
-      setOpen(false)
-    }
+    startTransition(() => {
+      if (results.length > 0 && query.length >= 2) {
+        setOpen(true)
+      } else if (query.length < 2) {
+        setOpen(false)
+      }
+    })
   }, [results, query])
 
   // Close dropdown on outside click
