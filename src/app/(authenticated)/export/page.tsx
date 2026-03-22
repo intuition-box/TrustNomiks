@@ -13,6 +13,7 @@ import {
   convertMultipleTokensToTriples,
   downloadTriplesAsJSON,
   type Triple,
+  type CompleteTokenData,
 } from '@/lib/utils/triples-export'
 
 interface TokenSummary {
@@ -21,19 +22,9 @@ interface TokenSummary {
   ticker: string
   chain?: string
   status: string
-  completeness_score: number
+  completeness: number
   created_at: string
   updated_at: string
-}
-
-interface CompleteTokenData {
-  token: TokenSummary
-  supply?: any // eslint-disable-line @typescript-eslint/no-explicit-any
-  allocations: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
-  vesting: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
-  emission?: any // eslint-disable-line @typescript-eslint/no-explicit-any
-  sources: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
-  risk_flags: any[] // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export default function ExportPage() {
@@ -108,7 +99,7 @@ export default function ExportPage() {
   // Fetch complete data for selected tokens
   const fetchCompleteTokenData = async (tokenId: string): Promise<CompleteTokenData | null> => {
     try {
-      // Fetch token
+      // Token must be fetched first (gate on existence)
       const { data: tokenData, error: tokenError } = await supabase
         .from('tokens')
         .select('*')
@@ -117,58 +108,38 @@ export default function ExportPage() {
 
       if (tokenError || !tokenData) return null
 
-      // Fetch supply metrics
-      const { data: supplyData } = await supabase
-        .from('supply_metrics')
-        .select('*')
-        .eq('token_id', tokenId)
-        .single()
+      // Fetch all independent related data in parallel
+      const [supplyResult, allocResult, emissionResult, sourcesResult, riskResult] = await Promise.all([
+        supabase.from('supply_metrics').select('*').eq('token_id', tokenId).single(),
+        supabase.from('allocation_segments').select('*').eq('token_id', tokenId).order('percentage', { ascending: false }),
+        supabase.from('emission_models').select('*').eq('token_id', tokenId).single(),
+        supabase.from('data_sources').select('*').eq('token_id', tokenId),
+        supabase.from('risk_flags').select('*').eq('token_id', tokenId),
+      ])
 
-      // Fetch allocations
-      const { data: allocData } = await supabase
-        .from('allocation_segments')
-        .select('*')
-        .eq('token_id', tokenId)
-        .order('percentage', { ascending: false })
+      const allocationIds = allocResult.data?.map((a: { id: string }) => a.id) || []
 
-      const allocationIds = allocData?.map((a) => a.id) || []
-
-      // Fetch vesting schedules with allocation info
-      const { data: vestingData } = await supabase
-        .from('vesting_schedules')
-        .select(`
-          *,
-          allocation:allocation_segments!vesting_schedules_allocation_id_fkey(id, label, segment_type)
-        `)
-        .in('allocation_id', allocationIds.length > 0 ? allocationIds : [''])
-
-      // Fetch emission model
-      const { data: emissionData } = await supabase
-        .from('emission_models')
-        .select('*')
-        .eq('token_id', tokenId)
-        .single()
-
-      // Fetch data sources
-      const { data: sourcesData } = await supabase
-        .from('data_sources')
-        .select('*')
-        .eq('token_id', tokenId)
-
-      // Fetch risk flags
-      const { data: riskData } = await supabase
-        .from('risk_flags')
-        .select('*')
-        .eq('token_id', tokenId)
+      // Vesting needs allocation IDs; claim_sources is independent but grouped here for clarity
+      const [vestingResult, claimSourcesResult] = await Promise.all([
+        supabase
+          .from('vesting_schedules')
+          .select(`
+            *,
+            allocation:allocation_segments!vesting_schedules_allocation_id_fkey(id, label, segment_type)
+          `)
+          .in('allocation_id', allocationIds.length > 0 ? allocationIds : ['']),
+        supabase.from('claim_sources').select('*').eq('token_id', tokenId),
+      ])
 
       return {
         token: tokenData,
-        supply: supplyData || undefined,
-        allocations: allocData || [],
-        vesting: vestingData || [],
-        emission: emissionData || undefined,
-        sources: sourcesData || [],
-        risk_flags: riskData || [],
+        supply: supplyResult.data || undefined,
+        allocations: allocResult.data || [],
+        vesting: vestingResult.data || [],
+        emission: emissionResult.data || undefined,
+        sources: sourcesResult.data || [],
+        risk_flags: riskResult.data || [],
+        claim_sources: claimSourcesResult.data || [],
       }
     } catch (err) {
       console.error(`Error fetching data for token ${tokenId}:`, err)
@@ -176,19 +147,23 @@ export default function ExportPage() {
     }
   }
 
-  // Generate triples for selected tokens
+  // Generate triples for selected tokens (batched parallel fetch)
   const generateTriples = async () => {
     if (selectedTokenIds.size === 0) return
 
     setExporting(true)
     try {
+      const tokenIds = Array.from(selectedTokenIds)
+      const BATCH_SIZE = 5
       const selectedTokensData: CompleteTokenData[] = []
 
-      // Fetch complete data for each selected token
-      for (const tokenId of Array.from(selectedTokenIds)) {
-        const completeData = await fetchCompleteTokenData(tokenId)
-        if (completeData) {
-          selectedTokensData.push(completeData)
+      for (let i = 0; i < tokenIds.length; i += BATCH_SIZE) {
+        const batch = tokenIds.slice(i, i + BATCH_SIZE)
+        const results = await Promise.all(
+          batch.map(id => fetchCompleteTokenData(id))
+        )
+        for (const result of results) {
+          if (result) selectedTokensData.push(result)
         }
       }
 
@@ -292,7 +267,7 @@ export default function ExportPage() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Completeness: {token.completeness_score}%
+                      Completeness: {token.completeness}%
                     </p>
                   </label>
                 </div>

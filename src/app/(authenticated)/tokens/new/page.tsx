@@ -41,6 +41,16 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   tokenIdentitySchema,
   supplyMetricsSchema,
   allocationsSchema,
@@ -100,6 +110,7 @@ export default function NewTokenPage() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [identityGuideTarget, setIdentityGuideTarget] = useState<'category' | 'sector' | null>(null)
   const [segmentGuideRowIndex, setSegmentGuideRowIndex] = useState<number | null>(null)
+  const [pendingRemoval, setPendingRemoval] = useState<{ type: 'allocation' | 'source'; index: number } | null>(null)
   const prevScoreRef = useRef(0)
   const [flashPts, setFlashPts] = useState(0)
   const [flashKey, setFlashKey] = useState(0)
@@ -607,6 +618,18 @@ export default function NewTokenPage() {
   const delta = 100 - totalPercentage
   const isComplete = totalPercentage === 100
 
+  const handleRpcError = (error: { code?: string; message?: string }): boolean => {
+    if (error.message?.includes('FORBIDDEN') || error.code === '42501') {
+      toast.error('You do not have permission to modify this token.')
+      return true
+    }
+    if (error.message?.includes('CONFLICT') || error.code === '40001') {
+      toast.error('This token was modified by someone else. Please refresh and try again.')
+      return true
+    }
+    return false
+  }
+
   // Save Step 1 and create/update token
   const onSubmitStep1 = async (data: TokenIdentityFormData) => {
     try {
@@ -628,9 +651,14 @@ export default function NewTokenPage() {
         // Update existing token - check for concurrent modifications
         const { data: currentToken } = await supabase
           .from('tokens')
-          .select('updated_at')
+          .select('updated_at, created_by')
           .eq('id', tokenId)
           .single()
+
+        if (currentToken && currentToken.created_by !== user.id) {
+          toast.error('You do not have permission to modify this token.')
+          return
+        }
 
         if (currentToken && initialUpdatedAt && currentToken.updated_at !== initialUpdatedAt) {
           toast.error('This token was modified by someone else. Please refresh and try again.')
@@ -715,7 +743,7 @@ export default function NewTokenPage() {
       // Store max supply for step 3 calculations
       setMaxSupply(data.max_supply || '')
 
-      // Convert string numbers to bigint
+      // Convert string numbers to bigint strings
       const maxSupplyNum = data.max_supply ? BigInt(data.max_supply.replace(/,/g, '')) : null
       const initialSupply = data.initial_supply ? BigInt(data.initial_supply.replace(/,/g, '')) : null
       const tgeSupply = data.tge_supply ? BigInt(data.tge_supply.replace(/,/g, '')) : null
@@ -723,19 +751,26 @@ export default function NewTokenPage() {
         ? BigInt(data.circulating_supply.replace(/,/g, ''))
         : null
 
-      // Save supply metrics (upsert with explicit onConflict)
-      const { error } = await supabase.from('supply_metrics').upsert({
-        token_id: tokenId,
-        max_supply: maxSupplyNum ? maxSupplyNum.toString() : null,
-        initial_supply: initialSupply ? initialSupply.toString() : null,
-        tge_supply: tgeSupply ? tgeSupply.toString() : null,
-        circulating_supply: circulatingSupply ? circulatingSupply.toString() : null,
-        circulating_date: data.circulating_date || null,
-        source_url: data.source_url || null,
-        notes: data.notes || null,
-      }, { onConflict: 'token_id' })
+      const { data: newUpdatedAt, error } = await supabase.rpc('save_supply_metrics_tx', {
+        p_token_id: tokenId,
+        p_metrics: {
+          max_supply: maxSupplyNum ? maxSupplyNum.toString() : null,
+          initial_supply: initialSupply ? initialSupply.toString() : null,
+          tge_supply: tgeSupply ? tgeSupply.toString() : null,
+          circulating_supply: circulatingSupply ? circulatingSupply.toString() : null,
+          circulating_date: data.circulating_date || null,
+          source_url: data.source_url || null,
+          notes: data.notes || null,
+        },
+        p_expected_updated_at: initialUpdatedAt,
+      })
 
-      if (error) throw error
+      if (error) {
+        if (handleRpcError(error)) return
+        throw error
+      }
+
+      setInitialUpdatedAt(newUpdatedAt)
 
       calculateCompletedSteps()
       toast.success('Supply metrics saved')
@@ -757,83 +792,47 @@ export default function NewTokenPage() {
     try {
       setLoading(true)
 
-      // Load current allocations to compute a diff and preserve existing allocation IDs.
-      const { data: existingAllocations, error: existingAllocationsError } = await supabase
-        .from('allocation_segments')
-        .select('id')
-        .eq('token_id', tokenId)
+      const segmentsPayload = data.segments.map(segment => ({
+        id: segment.id || null,
+        segment_type: toSupportedSegmentType(segment.segment_type),
+        label: segment.label,
+        percentage: parseFloat(segment.percentage),
+        token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
+        wallet_address: segment.wallet_address || null,
+      }))
 
-      if (existingAllocationsError) throw existingAllocationsError
-
-      const existingIdSet = new Set((existingAllocations || []).map((alloc) => alloc.id))
-
-      // Existing rows that should be updated.
-      const segmentsToUpdate = data.segments
-        .filter((segment) => segment.id && existingIdSet.has(segment.id))
-        .map((segment) => ({
-          id: segment.id!,
-          token_id: tokenId,
-          segment_type: toSupportedSegmentType(segment.segment_type),
-          label: segment.label,
-          percentage: parseFloat(segment.percentage),
-          token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
-          wallet_address: segment.wallet_address || null,
-        }))
-
-      if (segmentsToUpdate.length > 0) {
-        const { error } = await supabase
-          .from('allocation_segments')
-          .upsert(segmentsToUpdate, { onConflict: 'id' })
-        if (error) throw error
+      // Pre-compute completeness for atomic save
+      const s1 = step1Form.getValues()
+      const s2 = step2Form.getValues()
+      const s3Total = data.segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+      const clusterScoresStep3 = {
+        identity: 10 + (s1.contract_address ? 5 : 0) + (s1.tge_date ? 5 : 0),
+        supply: s2.max_supply ? 10 + ((s2.initial_supply || s2.tge_supply) ? 5 : 0) : 0,
+        allocation: (data.segments.length >= 3 ? 10 : 0) + (Math.abs(s3Total - 100) < 0.01 ? 10 : 0),
+        vesting: 0,
       }
-
-      // New rows that should be inserted.
-      const segmentsToInsert = data.segments
-        .filter((segment) => !segment.id || !existingIdSet.has(segment.id))
-        .map((segment) => ({
-          token_id: tokenId,
-          segment_type: toSupportedSegmentType(segment.segment_type),
-          label: segment.label,
-          percentage: parseFloat(segment.percentage),
-          token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
-          wallet_address: segment.wallet_address || null,
-        }))
-
-      if (segmentsToInsert.length > 0) {
-        const { error } = await supabase
-          .from('allocation_segments')
-          .insert(segmentsToInsert)
-        if (error) throw error
-      }
-
-      // Delete rows removed by the user (this is the only case where vesting should be deleted).
-      const submittedExistingIds = new Set(
-        data.segments
-          .filter((segment) => segment.id && existingIdSet.has(segment.id))
-          .map((segment) => segment.id as string)
+      const completeness = Math.min(
+        clusterScoresStep3.identity + clusterScoresStep3.supply + clusterScoresStep3.allocation + clusterScoresStep3.vesting,
+        100
       )
-      const allocationIdsToDelete = (existingAllocations || [])
-        .map((alloc) => alloc.id)
-        .filter((id) => !submittedExistingIds.has(id))
 
-      if (allocationIdsToDelete.length > 0) {
-        const { error } = await supabase
-          .from('allocation_segments')
-          .delete()
-          .in('id', allocationIdsToDelete)
-        if (error) throw error
+      const { data: rpcResult, error } = await supabase.rpc('save_allocations_tx', {
+        p_token_id: tokenId,
+        p_segments: segmentsPayload,
+        p_expected_updated_at: initialUpdatedAt,
+        p_completeness: completeness,
+        p_cluster_scores: clusterScoresStep3,
+      })
+
+      if (error) {
+        if (handleRpcError(error)) return
+        throw error
       }
 
-      // Refresh allocations state with DB rows (keeping stable IDs for preserved allocations).
-      const { data: savedAllocations, error: savedAllocationsError } = await supabase
-        .from('allocation_segments')
-        .select('*')
-        .eq('token_id', tokenId)
-        .order('percentage', { ascending: false })
+      setInitialUpdatedAt(rpcResult.updated_at)
 
-      if (savedAllocationsError) throw savedAllocationsError
-
-      const allocationsWithIds = (savedAllocations || []).map((alloc) => ({
+      // Refresh allocations state from RPC result
+      const allocationsWithIds = (rpcResult.segments || []).map((alloc: { id: string; segment_type: string; label: string; percentage: number; token_amount: string | null; wallet_address: string | null }) => ({
         id: alloc.id,
         segment_type: toSupportedSegmentType(alloc.segment_type),
         label: alloc.label,
@@ -843,8 +842,8 @@ export default function NewTokenPage() {
       }))
       setAllocations(allocationsWithIds)
 
-      // Rebuild Step 4 form with existing vesting values for preserved allocations.
-      const allocationIds = (savedAllocations || []).map((alloc) => alloc.id)
+      // Read-only: fetch vesting data for Step 4 form rebuild
+      const allocationIds = (rpcResult.segments || []).map((s: { id: string }) => s.id)
       const { data: vestingData } = await supabase
         .from('vesting_schedules')
         .select('*')
@@ -852,24 +851,10 @@ export default function NewTokenPage() {
 
       step4Form.reset({
         schedules: buildStep4Schedules(
-          (savedAllocations || []).map((alloc) => ({ id: alloc.id, segment_type: alloc.segment_type })),
+          (rpcResult.segments || []).map((alloc: { id: string; segment_type: string }) => ({ id: alloc.id, segment_type: alloc.segment_type })),
           vestingData || []
         ),
       })
-
-      // Update token completeness + cluster scores
-      const s1 = step1Form.getValues()
-      const s2 = step2Form.getValues()
-      const s3 = step3Form.getValues()
-      const s3Total = s3.segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
-      const clusterScoresStep3 = {
-        identity: 10 + (s1.contract_address ? 5 : 0) + (s1.tge_date ? 5 : 0),
-        supply: s2.max_supply ? 10 + ((s2.initial_supply || s2.tge_supply) ? 5 : 0) : 0,
-        allocation: (s3.segments.length >= 3 ? 10 : 0) + (Math.abs(s3Total - 100) < 0.01 ? 10 : 0),
-        vesting: 0,
-      }
-      const completeness = calculateCompleteness()
-      await supabase.from('tokens').update({ completeness, cluster_scores: clusterScoresStep3 }).eq('id', tokenId)
 
       calculateCompletedSteps()
       toast.success('Allocations saved — vesting section is now unlocked')
@@ -891,11 +876,8 @@ export default function NewTokenPage() {
     try {
       setLoading(true)
 
-      // Delete existing vesting schedules first
       const allocationIds = allocations.map(a => a.id)
-      await supabase.from('vesting_schedules').delete().in('allocation_id', allocationIds)
 
-      // Save new vesting schedules
       const schedulesToSave = Object.entries(data.schedules).map(([allocationId, schedule]) => ({
         allocation_id: allocationId,
         cliff_months: schedule.cliff_months ? parseInt(schedule.cliff_months) : 0,
@@ -906,11 +888,7 @@ export default function NewTokenPage() {
         notes: schedule.notes || null,
       }))
 
-      const { error } = await supabase.from('vesting_schedules').insert(schedulesToSave)
-
-      if (error) throw error
-
-      // Update token completeness + cluster scores (vesting now complete)
+      // Pre-compute completeness for atomic save
       const s1v = step1Form.getValues()
       const s2v = step2Form.getValues()
       const s3v = step3Form.getValues()
@@ -921,8 +899,23 @@ export default function NewTokenPage() {
         allocation: (s3v.segments.length >= 3 ? 10 : 0) + (Math.abs(s3TotalV - 100) < 0.01 ? 10 : 0),
         vesting: 20,
       }
-      const completeness = calculateCompleteness() + 20 // Add vesting score
-      await supabase.from('tokens').update({ completeness, cluster_scores: clusterScoresStep4 }).eq('id', tokenId)
+      const completeness = calculateCompleteness() + 20
+
+      const { data: newUpdatedAt, error } = await supabase.rpc('save_vesting_schedules_tx', {
+        p_token_id: tokenId,
+        p_allocation_ids: allocationIds,
+        p_schedules: schedulesToSave,
+        p_expected_updated_at: initialUpdatedAt,
+        p_completeness: Math.min(completeness, 100),
+        p_cluster_scores: clusterScoresStep4,
+      })
+
+      if (error) {
+        if (handleRpcError(error)) return
+        throw error
+      }
+
+      setInitialUpdatedAt(newUpdatedAt)
 
       calculateCompletedSteps()
       toast.success('Vesting schedules saved')
@@ -934,6 +927,8 @@ export default function NewTokenPage() {
         String(pgError?.message || '').includes('vesting_schedules_frequency_check')
       ) {
         toast.error('Database schema is outdated: apply the vesting frequency migration (yearly).')
+      } else if (pgError?.message?.includes('CONFLICT')) {
+        toast.error('This token was modified by someone else. Please refresh and try again.')
       } else {
         toast.error(error instanceof Error ? error.message : 'Failed to save vesting schedules')
       }
@@ -960,20 +955,27 @@ export default function NewTokenPage() {
           }))
         : null
 
-      // Save emission model (upsert with explicit onConflict)
-      const { error } = await supabase.from('emission_models').upsert({
-        token_id: tokenId,
-        type: data.type,
-        annual_inflation_rate: data.annual_inflation_rate ? parseFloat(data.annual_inflation_rate) : null,
-        inflation_schedule: inflationSchedule,
-        has_burn: data.has_burn || false,
-        burn_details: data.burn_details || null,
-        has_buyback: data.has_buyback || false,
-        buyback_details: data.buyback_details || null,
-        notes: data.notes || null,
-      }, { onConflict: 'token_id' })
+      const { data: newUpdatedAt, error } = await supabase.rpc('save_emission_model_tx', {
+        p_token_id: tokenId,
+        p_model: {
+          type: data.type,
+          annual_inflation_rate: data.annual_inflation_rate ? parseFloat(data.annual_inflation_rate) : null,
+          inflation_schedule: inflationSchedule,
+          has_burn: data.has_burn || false,
+          burn_details: data.burn_details || null,
+          has_buyback: data.has_buyback || false,
+          buyback_details: data.buyback_details || null,
+          notes: data.notes || null,
+        },
+        p_expected_updated_at: initialUpdatedAt,
+      })
 
-      if (error) throw error
+      if (error) {
+        if (handleRpcError(error)) return
+        throw error
+      }
+
+      setInitialUpdatedAt(newUpdatedAt)
 
       calculateCompletedSteps()
       toast.success('Emission model saved')
@@ -995,55 +997,42 @@ export default function NewTokenPage() {
     try {
       setLoading(true)
 
-      // Delete existing sources — claim_sources rows are auto-deleted via ON DELETE CASCADE
-      await supabase.from('data_sources').delete().eq('token_id', tokenId)
+      const sourcesToSave = data.sources.map((source) => ({
+        source_type: source.source_type,
+        document_name: source.document_name,
+        url: source.url,
+        version: source.version || null,
+        verified_at: source.verified_at || null,
+      }))
 
-      // Save new sources and retrieve their new DB-assigned UUIDs (indexed by position)
-      let newSourceIds: string[] = []
-      if (data.sources.length > 0) {
-        const sourcesToSave = data.sources.map((source) => ({
-          token_id: tokenId,
-          source_type: source.source_type,
-          document_name: source.document_name,
-          url: source.url,
-          version: source.version || null,
-          verified_at: source.verified_at || null,
+      // Flatten attributions to individual claim_source rows with source index
+      const attributionsToSave = (data.attributions || []).flatMap(attr =>
+        attr.data_source_ids.map(idx => ({
+          source_index: parseInt(idx),
+          claim_type: attr.claim_type,
+          claim_id: attr.claim_id || null,
         }))
+      )
 
-        const { data: insertedSources, error } = await supabase
-          .from('data_sources')
-          .insert(sourcesToSave)
-          .select('id')
-        if (error) throw error
-        newSourceIds = (insertedSources || []).map(s => s.id)
+      // Pre-compute final completeness BEFORE the RPC
+      // Use calculateFinalCompleteness but override sourcesCount with form data
+      const { totalScore: finalCompleteness, clusterScores } = await calculateFinalCompletenessWithSourceCount(data.sources.length)
+
+      const { data: rpcResult, error } = await supabase.rpc('save_data_sources_tx', {
+        p_token_id: tokenId,
+        p_sources: sourcesToSave,
+        p_attributions: attributionsToSave,
+        p_expected_updated_at: initialUpdatedAt,
+        p_completeness: finalCompleteness,
+        p_cluster_scores: clusterScores,
+      })
+
+      if (error) {
+        if (handleRpcError(error)) return
+        throw error
       }
 
-      // Save claim_sources: map form source-index → new DB UUID
-      if (data.attributions && data.attributions.length > 0 && newSourceIds.length > 0) {
-        const claimsToSave = data.attributions
-          .flatMap(attr =>
-            attr.data_source_ids
-              .map(idx => {
-                const dbId = newSourceIds[parseInt(idx)]
-                if (!dbId) return null
-                return {
-                  token_id: tokenId,
-                  data_source_id: dbId,
-                  claim_type: attr.claim_type,
-                  claim_id: attr.claim_id || null,
-                }
-              })
-              .filter((r): r is NonNullable<typeof r> => r !== null)
-          )
-        if (claimsToSave.length > 0) {
-          const { error } = await supabase.from('claim_sources').insert(claimsToSave)
-          if (error) throw error
-        }
-      }
-
-      // Calculate final completeness score
-      const { totalScore: finalCompleteness, clusterScores } = await calculateFinalCompleteness()
-      await supabase.from('tokens').update({ completeness: finalCompleteness, cluster_scores: clusterScores }).eq('id', tokenId)
+      setInitialUpdatedAt(rpcResult.updated_at)
       setFinalScore(finalCompleteness)
 
       // Move to completion page (step 7)
@@ -1056,8 +1045,9 @@ export default function NewTokenPage() {
     }
   }
 
-  // Calculate final completeness score based on all data
-  const calculateFinalCompleteness = async (): Promise<{ totalScore: number; clusterScores: { identity: number; supply: number; allocation: number; vesting: number } }> => {
+  // Calculate final completeness score with an explicit source count
+  // Used by Step 6 to compute scores BEFORE the RPC saves the new sources
+  const calculateFinalCompletenessWithSourceCount = async (sourcesCount: number): Promise<{ totalScore: number; clusterScores: { identity: number; supply: number; allocation: number; vesting: number } }> => {
     try {
       const { data: tokenData } = await supabase
         .from('tokens')
@@ -1089,18 +1079,13 @@ export default function NewTokenPage() {
         .eq('token_id', tokenId)
         .single()
 
-      const { data: sourcesData } = await supabase
-        .from('data_sources')
-        .select('*')
-        .eq('token_id', tokenId)
-
       return computeScores({
         token: tokenData,
         supply: supplyData,
         allocations: allocData || [],
         vestingCount: vestingData?.length ?? 0,
         emission: emissionData,
-        sourcesCount: sourcesData?.length ?? 0,
+        sourcesCount: sourcesCount,
       })
     } catch (error) {
       console.error('Error calculating completeness:', error)
@@ -2236,14 +2221,7 @@ export default function NewTokenPage() {
                             variant="ghost"
                             size="sm"
                             className="absolute top-2 right-2"
-                            onClick={() => {
-                              if (segmentGuideRowIndex === index) {
-                                closeSegmentGuide()
-                              } else if (segmentGuideRowIndex !== null && segmentGuideRowIndex > index) {
-                                setSegmentGuideRowIndex(segmentGuideRowIndex - 1)
-                              }
-                              remove(index)
-                            }}
+                            onClick={() => setPendingRemoval({ type: 'allocation', index })}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -2954,7 +2932,7 @@ export default function NewTokenPage() {
                             variant="ghost"
                             size="sm"
                             className="absolute top-2 right-2"
-                            onClick={() => removeSource(index)}
+                            onClick={() => setPendingRemoval({ type: 'source', index })}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -3266,6 +3244,43 @@ export default function NewTokenPage() {
 
         </div>{/* end main content */}
       </div>{/* end two-column layout */}
+      {/* Removal confirmation dialog (allocations + sources) */}
+      <AlertDialog open={!!pendingRemoval} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingRemoval?.type === 'allocation' ? 'Remove allocation segment?' : 'Remove data source?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRemoval?.type === 'allocation'
+                ? 'This will remove the allocation segment and any vesting schedule tied to it. This cannot be undone after saving.'
+                : 'This will remove the data source and any claim attributions linked to it. This cannot be undone after saving.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingRemoval) return
+                if (pendingRemoval.type === 'allocation') {
+                  const index = pendingRemoval.index
+                  if (segmentGuideRowIndex === index) {
+                    closeSegmentGuide()
+                  } else if (segmentGuideRowIndex !== null && segmentGuideRowIndex > index) {
+                    setSegmentGuideRowIndex(segmentGuideRowIndex - 1)
+                  }
+                  remove(index)
+                } else {
+                  removeSource(pendingRemoval.index)
+                }
+                setPendingRemoval(null)
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

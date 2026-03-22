@@ -132,6 +132,7 @@ export default function TokenDetailPage() {
   const [token, setToken] = useState<TokenData | null>(null)
   const [loading, setLoading] = useState(true)
   const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<number | null>(null)
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null)
   const router = useRouter()
   const params = useParams()
   const supabase = createClient()
@@ -252,6 +253,19 @@ export default function TokenDetailPage() {
     return <Badge className={config.className}>{config.label}</Badge>
   }
 
+  const STATUS_RANK: Record<string, number> = { draft: 0, in_review: 1, validated: 2 }
+
+  const handleStatusSelect = (newStatus: string) => {
+    if (!token) return
+    const currentRank = STATUS_RANK[token.status] ?? 0
+    const newRank = STATUS_RANK[newStatus] ?? 0
+    if (newRank < currentRank) {
+      setPendingStatus(newStatus)
+    } else {
+      handleStatusChange(newStatus)
+    }
+  }
+
   const handleStatusChange = async (newStatus: string) => {
     if (!token) return
 
@@ -307,7 +321,7 @@ export default function TokenDetailPage() {
           sector: token.sector || undefined,
           notes: token.notes || undefined,
           status: token.status,
-          completeness_score: token.completeness,
+          completeness: token.completeness,
           created_at: token.created_at,
           updated_at: token.created_at,
         },
@@ -943,7 +957,7 @@ export default function TokenDetailPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3 pt-6">
           {/* Change Status */}
-          <Select onValueChange={handleStatusChange} defaultValue={token.status}>
+          <Select onValueChange={handleStatusSelect} value={token.status}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Change status" />
             </SelectTrigger>
@@ -980,6 +994,24 @@ export default function TokenDetailPage() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
                   Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Downgrade confirmation */}
+          <AlertDialog open={!!pendingStatus} onOpenChange={(open) => { if (!open) setPendingStatus(null) }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Downgrade token status?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You are about to change the status of {token?.name} ({token?.ticker}) from &quot;{token?.status?.replace('_', ' ')}&quot; to &quot;{pendingStatus?.replace('_', ' ')}&quot;. This may require re-validation later.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => { if (pendingStatus) { handleStatusChange(pendingStatus); setPendingStatus(null) } }}>
+                  Confirm Downgrade
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
