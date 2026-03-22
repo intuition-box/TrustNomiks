@@ -42,3 +42,4 @@ next-env.d.ts
 
 # claude instructions (local only)
 CLAUDE.local.md
+claude.md
