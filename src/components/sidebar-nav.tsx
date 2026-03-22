@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Coins, Download, Settings, PanelLeftClose, PanelLeftOpen, Building2, Sun, Moon } from 'lucide-react'
+import { Home, Coins, Download, PanelLeftClose, PanelLeftOpen, Building2, Sun, Moon, UserCircle } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
@@ -19,19 +19,21 @@ interface SidebarNavProps {
 }
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/tokens', label: 'Tokens', icon: Coins },
-  { href: '/token-house', label: 'Token House', icon: Building2 },
-  { href: '/export', label: 'Export', icon: Download },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard',   label: 'Dashboard',   icon: Home        },
+  { href: '/tokens',      label: 'Tokens',       icon: Coins       },
+  { href: '/token-house', label: 'Token House',  icon: Building2   },
+  { href: '/export',      label: 'Export',       icon: Download    },
+  { href: '/profile',     label: 'Profile',      icon: UserCircle  },
 ]
 
 export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
   const pathname = usePathname()
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => { setMounted(true) }, [])
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
 
   return (
     <div className="flex h-full flex-col">
