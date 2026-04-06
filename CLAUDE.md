@@ -1,158 +1,246 @@
 # TrustNomiks
 
-Application SaaS de gestion de tokenomics — permet de créer et gérer des données complètes sur les tokens crypto avec un workflow guidé en 6 étapes, visualisation par knowledge graph, et intégration CoinGecko.
+TrustNomiks is a Next.js 16 SaaS application for tokenomics data management. Users create and curate comprehensive token records through a 6-step guided form. The data is visualized as allocation charts, vesting timelines, and a semantic knowledge graph aligned with the Intuition Protocol.
 
-## Stack technique
-
-- **Framework:** Next.js 16 + React 19 + TypeScript 5
-- **Base de données / Auth:** Supabase (PostgreSQL + RLS) via `@supabase/ssr`
-- **UI:** Tailwind CSS 4, shadcn/ui (style new-york, Radix UI), Lucide icons
-- **Formulaires:** React Hook Form 7 + Zod 4
-- **Charts:** Recharts 3, react-force-graph-2d (knowledge graph)
-- **Tests:** Vitest 4
-- **Dates:** date-fns 4, react-day-picker 9
-- **Alias de chemin:** `@/*` → `./src/*`
+---
 
 ## Commandes
 
 ```bash
-npm run dev          # Serveur de développement
-npm run build        # Build de production
-npm run lint         # ESLint
-npm run test         # Tests Vitest (run once)
-npm run test:watch   # Tests Vitest (watch mode)
+npm run dev         # Serveur de développement (port 3000)
+npm run build       # Build de production
+npm run start       # Serveur de production
+npm run lint        # ESLint (config Next.js, pas d'overrides custom)
+npm run test        # Vitest run (single pass)
+npm run test:watch  # Vitest watch
 ```
+
+Tests dans `src/**/*.test.ts`. Couvrent : validation des schémas de formulaire, scoring de complétude, construction du knowledge graph, export de triples. L'environnement Vitest est `node` (pas de DOM).
+
+---
+
+## Stack technique
+
+| Couche | Technologie |
+|---|---|
+| Framework | Next.js 16.1.6, React 19.2.3, TypeScript 5 |
+| Database/Auth | Supabase (PostgreSQL + RLS) via `@supabase/ssr` |
+| Styling | Tailwind CSS 4, variables CSS pour le thème |
+| Composants UI | shadcn/ui style `new-york`, Radix UI, Lucide icons |
+| Formulaires | React Hook Form 7 + Zod 4 (`@hookform/resolvers`) |
+| Charts | Recharts 3, react-force-graph-2d |
+| Toasts | Sonner (configuré dans le root layout, `richColors`, `top-right`) |
+| Dates | date-fns 4, react-day-picker 9 |
+| Tests | Vitest 4.1.0 |
+
+Alias de chemin : `@/*` → `./src/*`
 
 ## Variables d'environnement
 
 ```
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
+
+Pas de clé secrète Supabase côté serveur — l'app s'appuie sur RLS et les RPCs `SECURITY DEFINER` pour l'autorisation.
+
+---
 
 ## Structure du projet
 
 ```
 src/
   app/
-    (authenticated)/      # Routes protégées (middleware auth)
-      dashboard/          # Page principale avec scoring par clusters
-      tokens/             # Liste des tokens (registre)
-      tokens/[id]/        # Détail token avec charts et market data
-      tokens/new/         # Formulaire de création 6 étapes
-      token-house/        # Workspace d'analyse de tokens
-      profile/            # Profil utilisateur
-      export/             # Export bulk de tokens validés
+    (authenticated)/          # Route group — toutes les pages protégées
+      layout.tsx              # Auth guard : redirige vers /login si pas d'user
+      dashboard/              # Stats, cluster completeness, knowledge graph card
+      tokens/
+        page.tsx              # Registre de tokens (liste, filtres, tri)
+        new/page.tsx          # Formulaire de création 6 étapes ('use client', très grand fichier)
+        [id]/page.tsx         # Vue détail token (lecture seule, changement de statut, suppression)
+      token-house/            # Workspace pour l'analyse d'assets visuels
+      export/                 # Export bulk de tokens validés en JSON triples
+      profile/
     api/
-      knowledge-graph/    # GET /api/knowledge-graph (cache 5min)
+      knowledge-graph/route.ts  # GET — construit le graphe sémantique depuis les vues SQL
       coingecko/
-        search/           # GET ?q= — recherche de tokens
-        price/            # GET ?id= — prix en temps réel
-        resolve/          # GET ?address=&chain= — résolution adresse
-    login/                # Page d'authentification
-    layout.tsx            # Layout racine
-    page.tsx              # Redirige vers /dashboard
-    error.tsx             # Error boundary global
+        search/route.ts         # Proxy de la recherche CoinGecko
+        price/route.ts          # Données de prix en live
+        resolve/route.ts        # Résolution des métadonnées par coingecko_id
+    login/                    # Page d'authentification
+    layout.tsx                # Root layout : ThemeProvider + Toaster
+    page.tsx                  # Redirige vers /dashboard
+    globals.css               # Tailwind base + CSS variable theme tokens
   components/
-    ui/                   # Composants shadcn/ui (30+)
-    knowledge-graph/      # graph-canvas, graph-toolbar, graph-detail-panel, graph-legend
-    charts/               # Recharts : donut alloc, bar supply, unlock timeline
-    token-house/          # Composants workspace Token House
-    authenticated-shell.tsx   # Layout principal avec sidebar
-    token-form-stepper.tsx    # Stepper 6 étapes
+    ui/                       # Composants shadcn/ui de base (30+)
+    knowledge-graph/          # graph-canvas, graph-toolbar, graph-detail-panel, graph-legend,
+                              #   dashboard-knowledge-graph-card
+    charts/                   # Wrappers Recharts : donut alloc, bar supply, unlock timeline
+    token-house/              # Composants workspace Token House
+    authenticated-shell.tsx   # Sidebar + mobile nav shell ; état sidebar via useSyncExternalStore
+    token-form-stepper.tsx    # Composant indicateur d'étapes
     sidebar-nav.tsx
     mobile-nav.tsx
+    token-price-card.tsx      # Affichage prix live CoinGecko
+    coingecko-search.tsx      # Combobox avec recherche CoinGecko live
+    user-menu.tsx
   hooks/
-    use-knowledge-graph.ts    # Fetch graph avec AbortController
-    use-coingecko-search.ts   # Recherche avec debounce
+    use-knowledge-graph.ts    # Fetch /api/knowledge-graph ; gère abort, clé de cache
+    use-coingecko-search.ts
   lib/
     supabase/
-      client.ts           # Client navigateur
-      server.ts           # Client serveur (cookies SSR)
+      client.ts               # createBrowserClient (utiliser dans les composants 'use client')
+      server.ts               # createServerClient avec cookies() (server components / API routes)
     knowledge-graph/
-      build-graph.ts      # Construction du graphe sémantique
-      graph-types.ts
+      build-graph.ts          # Fonction pure : atoms + triples + sources → {nodes, edges}
+      graph-types.ts          # NodeFamily, NodeType, GraphNode, GraphEdge, types canoniques
       node-config.ts
     coingecko/
-      chain-map.ts        # Mapping blockchain → CoinGecko platform
-      rate-limiter.ts     # Rate limiting API CoinGecko
+      chain-map.ts
+      rate-limiter.ts         # Sliding-window : 25 req/min (marge de sécurité tier gratuit)
     utils/
-      completeness.ts     # Scoring 4 clusters (identity/supply/allocation/vesting)
-      vesting-timeline.ts # Calcul des schedules de vesting
-      triples-export.ts   # Export Intuition Triples (RDF)
-      asset-readiness.ts  # Métriques de validation
-      chart-colors.ts     # Palette de couleurs cohérente
-    utils.ts              # cn(), helpers généraux
+      completeness.ts         # ClusterScores, computeScores(), CLUSTER_MAX, CLUSTER_LABELS
+      vesting-timeline.ts     # Timeline de déverrouillage mois par mois pour les charts
+      triples-export.ts       # convertTokenToTriples(), downloadTriplesAsJSON()
+      asset-readiness.ts      # Quels cluster scores sont requis par asset visuel
+      chart-colors.ts
+    utils.ts                  # Utilitaire cn() (clsx + tailwind-merge)
   types/
-    token.ts              # Interfaces domaine Token
-    form.ts               # Schémas Zod + types formulaires (source de vérité)
+    token.ts                  # Token, TokenStatus, TokenFilters, SortField
+    form.ts                   # TOUS les schémas Zod + types + constantes d'options (grand fichier)
     auth.ts
-    knowledge-graph.ts
+    knowledge-graph.ts        # KnowledgeGraphParams, KnowledgeGraphResponse
     coingecko.ts
-  middleware.ts            # Rafraîchissement session Supabase + redirections auth
+  middleware.ts               # Rafraîchissement session + logique de redirection pour toutes les routes
 supabase/
-  migrations/             # Migrations SQL nommées YYYYMMDD_description.sql
+  migrations/                 # Nommées par date : YYYYMMDD_description.sql (12 migrations, fév–mars 2026)
 docs/
-  rls-audit-20260321.md   # Audit RLS (Row-Level Security)
+  rls-audit-20260321.md       # Suivi des tables avec des politiques RLS confirmées
 ```
 
-## Architecture et patterns clés
+---
 
-### Authentification
-- `src/middleware.ts` rafraîchit la session Supabase sur chaque requête
-- Routes non-auth redirigent vers `/login`, `/login` redirige vers `/dashboard` si déjà connecté
-- Toutes les routes sous `(authenticated)/` sont protégées
+## Authentification & Middleware
 
-### Formulaire token 6 étapes
-Défini dans `src/types/form.ts` (schémas Zod) et `src/components/token-form-stepper.tsx` :
-1. **Identity** — nom, ticker, chain, catégorie, secteur
-2. **Supply Metrics** — max/initial/circulating/TGE supply (accepte les nombres avec virgules)
-3. **Allocations** — segments avec pourcentages (doivent totaliser 100%, tolérance 0.01%)
-4. **Vesting Schedules** — cliff, durée, fréquence, TGE%, cliff unlock%
-5. **Emission Model** — type, taux d'inflation, burn, buyback
-6. **Data Sources** — whitepaper, docs, données on-chain, etc.
+`src/middleware.ts` s'exécute sur chaque route non-statique :
+1. Rafraîchit la session Supabase via `createServerClient`.
+2. Redirige les utilisateurs non-authentifiés vers `/login`.
+3. Redirige les utilisateurs authentifiés hors de `/login` vers `/dashboard`.
 
-### Scoring par clusters
-`src/lib/utils/completeness.ts` calcule un score 0-100% pour 4 clusters :
-- **Identity** : nom, ticker, chain, catégorie, secteur
-- **Supply** : max, initial, circulating, TGE supply
-- **Allocation** : segments avec pourcentages
-- **Vesting** : schedules de déverrouillage
+Le layout `(authenticated)` double-vérifie l'auth avec `supabase.auth.getUser()` côté serveur et rend `<AuthenticatedShell>`.
 
-### Knowledge Graph (Intuition Protocol)
-- Vues Supabase projettent les tables relationnelles en atoms/triples sémantiques
-- Préfixes UUID : `atom:token:`, `atom:alloc:`, etc.
-- Triples avec provenance (claim_group, origin_table, origin_row_id)
-- Export via `src/lib/utils/triples-export.ts`
+Toujours utiliser `@/lib/supabase/server` dans les server components et API route handlers. Toujours utiliser `@/lib/supabase/client` dans les composants `'use client'`.
 
-### Supabase / Base de données
-- Sauvegardes transactionnelles via RPCs (`SECURITY DEFINER`)
-- Pas de RLS directe visible en local — dépend de la config Supabase remote
-- Migrations datées en `supabase/migrations/`
-- Client navigateur : `src/lib/supabase/client.ts`
-- Client serveur (SSR) : `src/lib/supabase/server.ts`
+---
 
-### Composants UI
-- Toujours préférer les composants existants dans `src/components/ui/` (shadcn)
-- Pour ajouter un composant shadcn : `npx shadcn@latest add <component>`
-- Thème : variables CSS HSL, dark mode via classe `.dark`
-- Icônes : Lucide React uniquement
+## Architecture du formulaire (création token 6 étapes)
 
-## Tests
+Le formulaire de création à `src/app/(authenticated)/tokens/new/page.tsx` est un seul grand fichier `'use client'`. Chaque étape a son propre schéma Zod et instance `useForm` :
 
-Tests unitaires dans `src/**/*.test.ts` couvrant :
-- `src/types/form.test.ts` — validation des schémas Zod (boundary conditions, comma numbers, cross-field)
-- `src/lib/knowledge-graph/build-graph.test.ts` — construction du graphe
-- `src/lib/utils/completeness.test.ts` — scoring
-- `src/lib/utils/triples-export.test.ts` — format d'export
+| Étape | Schéma | Contrainte clé |
+|---|---|---|
+| 1 — Identity | `tokenIdentitySchema` | le secteur doit appartenir à la catégorie choisie |
+| 2 — Supply | `supplyMetricsSchema` | max ≥ initial ≥ TGE supply ; cross-field via `superRefine` |
+| 3 — Allocations | `allocationsSchema` | les pourcentages doivent totaliser exactement 100% (±0.01) |
+| 4 — Vesting | `vestingSchedulesSchema` | cliff ≤ duration ; TGE% + cliff unlock% ≤ 100% |
+| 5 — Emission | `emissionModelSchema` | emission type est requis |
+| 6 — Sources | `dataSourcesSchema` | les champs URL doivent être des URLs valides |
 
-Run : `npm run test`
+Tous les schémas, tableaux d'enums, constantes d'options et fonctions de formatage sont dans `src/types/form.ts`. Pour ajouter de nouveaux types de champs ou valeurs d'enum, mettre à jour `form.ts` et ajouter les helpers `normalize*` + `format*` correspondants.
 
-## Conventions
+Les champs numériques de supply sont stockés en **strings** dans l'état du formulaire (virgules autorisées, ex. `"1,000,000"`) et parsés en nombres uniquement à la validation/soumission.
 
-- **Styling :** Tailwind uniquement, pas de CSS custom sauf `globals.css`
-- **Types :** Zod schemas dans `src/types/form.ts` sont la source de vérité pour les types formulaires
-- **Migrations DB :** Nommage `YYYYMMDD_description.sql`
-- **Server vs Client :** Marquer `'use client'` uniquement quand nécessaire (hooks, interactivité). Layouts et pages = Server Components par défaut
-- **Toasts :** Utiliser `sonner` (import depuis `@/components/ui/sonner`)
-- **Erreurs :** Error boundaries Next.js (`error.tsx`) + Sonner pour feedback utilisateur
+---
+
+## Scoring par clusters
+
+`src/lib/utils/completeness.ts` définit le modèle de clusters :
+- **identity** — max 20 pts (name + ticker + chain = 10, contract address = 5, TGE date = 5)
+- **supply** — max 15 pts (max_supply = 10, initial ou TGE supply = 5)
+- **allocation** — max 20 pts (≥3 segments = 10, somme = 100% = 10)
+- **vesting** — max 20 pts (n'importe quel vesting schedule = 20)
+- **extras** — emission type (5), emission detail (5), ≥1 source (10)
+
+Total max : 100. Stocké dans `tokens.completeness` et `tokens.cluster_scores`. La DB stocke les scores via des RPCs `SECURITY DEFINER` ; `computeScores()` dans le code client est utilisé pour la prévisualisation en temps réel dans le formulaire.
+
+---
+
+## Base de données & RPCs
+
+Les migrations sont nommées par date : `YYYYMMDD_description.sql`. Toujours suivre cette convention.
+
+Les étapes 2–6 du formulaire sauvegardent via des RPCs transactionnels (`SECURITY DEFINER`) plutôt que des inserts directs :
+- `save_supply_metrics_tx`
+- `save_allocations_tx`
+- `save_vesting_schedules_tx`
+- `save_emission_model_tx`
+- `save_data_sources_tx`
+
+Chaque RPC utilise un **verrouillage optimiste** via `p_expected_updated_at` / `tokens.updated_at`. Un code d'erreur `serialization_failure` signifie qu'une autre session a modifié le token en même temps.
+
+L'étape 1 (identity) sauvegarde directement dans `tokens` avec une vérification de propriété côté client.
+
+Le knowledge graph est servi via trois vues SQL : `kg_atoms_v1`, `kg_triples_v1`, `kg_triple_sources_v1` (définies dans `20260322_knowledge_graph_views.sql`).
+
+**Statut RLS** (voir `docs/rls-audit-20260321.md`) : seule `claim_sources` a des politiques de migration locales confirmées. La table `tokens` et les tables enfants s'appuient sur des politiques configurées depuis le dashboard Supabase ou les vérifications de propriété des RPCs.
+
+---
+
+## Knowledge Graph
+
+Le graphe modélise les données token comme des triples sémantiques alignés avec l'Intuition Protocol :
+- **atom** nodes — entités domaine (token, allocation, vesting, emission, data_source, category, sector, chain)
+- **triple** nodes — relations réifiées (nœuds de premier ordre, pas juste des arêtes)
+- **source** nodes — provenance (data sources)
+- **hub** node — racine synthétique `graph:trustnomiks`
+
+Prédicats d'arête : `belongs_to_graph`, `subject_of`, `object_of`, `justified_by`.
+
+`buildGraph()` dans `src/lib/knowledge-graph/build-graph.ts` est une fonction pure. La route API `/api/knowledge-graph` met en cache les réponses 5 minutes dans un `Map` au niveau module. Le hook `useKnowledgeGraph` gère les abort controllers pour éviter les réponses obsolètes.
+
+---
+
+## Intégration CoinGecko
+
+Trois routes API proxy sous `/api/coingecko/`. Le rate limiter (`src/lib/coingecko/rate-limiter.ts`) applique 25 req/min (tier gratuit CoinGecko = 30). C'est une sliding window en mémoire au niveau module — elle se réinitialise au redémarrage du serveur et ne se coordonne pas entre plusieurs instances.
+
+---
+
+## Conventions UI
+
+- Tout le styling via **Tailwind CSS**. Pas de fichiers CSS custom sauf `globals.css`.
+- Utiliser `cn()` de `@/lib/utils` pour la fusion conditionnelle de classes.
+- Les composants shadcn/ui sont dans `src/components/ui/`. Ne pas éditer les fichiers shadcn générés directement — les composer ou les wrapper.
+- Pour ajouter un composant shadcn : `npx shadcn@latest add <component>` (respecte `components.json` : style `new-york`, base color `slate`, CSS variables activées).
+- Icônes : Lucide React uniquement.
+- Toasts : `import { toast } from 'sonner'` — appeler `toast.success()`, `toast.error()`, etc.
+- Thème : `next-themes` avec `defaultTheme="light"` et `enableSystem={false}`. Dark mode basé sur les classes.
+- État sidebar : persisté dans `localStorage` clé `trustnomiks:sidebar-collapsed`, synchronisé via `useSyncExternalStore`.
+
+---
+
+## Localisation des enums/constantes clés
+
+Toutes les valeurs d'enum métier sont dans `src/types/form.ts` :
+- `CATEGORY_OPTIONS`, `SECTOR_OPTIONS` — avec `normalizeCategory()`, `normalizeSector()`
+- `SEGMENT_TYPES`, `SEGMENT_TYPE_OPTIONS` — avec `normalizeSegmentType()`
+- `VESTING_FREQUENCIES` — noter que `quarterly` est normalisé en `yearly` (migration legacy)
+- `EMISSION_TYPE_OPTIONS`
+- `SOURCE_TYPE_OPTIONS`
+- `BLOCKCHAIN_OPTIONS`
+- `FORM_STEPS` — id/nom/description de chaque étape
+
+Les définitions de couleurs par cluster sont dupliquées entre `src/lib/utils/completeness.ts` (valeurs Tailwind string) et `src/app/(authenticated)/dashboard/page.tsx` (variantes indicator/dot/text complètes). Pour ajouter un nouveau cluster, mettre à jour les deux.
+
+---
+
+## Gotchas
+
+- `src/app/(authenticated)/tokens/new/page.tsx` est extrêmement grand (formulaire 6 étapes complet). Pour travailler sur une étape spécifique, chercher le commentaire de section de l'étape ou le nom du schéma plutôt que de lire tout le fichier.
+- Les champs numériques supply sont des strings dans tout l'état du formulaire. Parser avec `Number(value.replace(/,/g, ''))` avant tout calcul arithmétique.
+- `normalizeVestingFrequency()` mappe la valeur legacy `quarterly` → `yearly`. Ne pas rajouter `quarterly` comme nouvelle option.
+- La relation `category` ↔ `sector` est hiérarchique : chaque secteur appartient exactement à une catégorie. `isSectorCompatibleWithCategory()` l'applique. Le formulaire valide que si l'un est défini, les deux doivent l'être et être compatibles.
+- La route API knowledge graph utilise un cache au niveau module (`Map`). En développement avec hot reload, ce cache est éphémère. En production, il persiste pour la durée de vie du processus serveur.
+- Le rate limiter CoinGecko est aussi au niveau module. Sur des déploiements serverless, chaque instance a son propre compteur — la limite effective par déploiement sera donc supérieure à 25 req/min.
+- La page détail token (`[id]/page.tsx`) effectue les changements de statut et suppressions via des appels Supabase client directs avec seulement une vérification de propriété côté client — elle n'utilise pas les RPCs transactionnels.
+- L'environnement Vitest est `node`, donc les APIs navigateur (`document`, `window`, `URL.createObjectURL`) sont indisponibles dans les tests. `downloadTriplesAsJSON()` ne peut pas être testé en unit test tel quel.
