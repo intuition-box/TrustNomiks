@@ -13,7 +13,6 @@ const FILTERABLE_TYPES: NodeType[] = [
   'allocation',
   'vesting',
   'emission',
-  'data_source',
   'triple',
 ]
 

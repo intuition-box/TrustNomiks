@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
   const scope = params.get('scope') || 'global'
   const tokenIdsParam = params.get('tokenIds')
   const includeSources = params.get('includeSources') !== 'false'
+  const includeTaxonomy = params.get('includeTaxonomy') !== 'false'
   const includeLiterals = params.get('includeLiterals') === 'true'
+  const bust = params.get('bust') === 'true'
 
   if (scope !== 'global' && scope !== 'token') {
     return NextResponse.json({ error: 'scope must be "global" or "token"' }, { status: 400 })
@@ -33,9 +35,9 @@ export async function GET(request: NextRequest) {
     ? tokenIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
     : []
 
-  const cacheKey = `${scope}:${tokenIds.join(',')}:${includeSources}:${includeLiterals}`
+  const cacheKey = `${scope}:${tokenIds.join(',')}:${includeSources}:${includeTaxonomy}:${includeLiterals}`
   const cached = cache.get(cacheKey)
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+  if (!bust && cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return NextResponse.json(cached.data)
   }
 
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
       (atomsResult.data ?? []) as CanonicalAtom[],
       (triplesResult.data ?? []) as CanonicalTriple[],
       (sourcesResult.data ?? []) as CanonicalSource[],
-      { includeSources, includeLiterals },
+      { includeSources, includeTaxonomy, includeLiterals },
     )
 
     const response: KnowledgeGraphResponse = {

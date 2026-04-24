@@ -15,12 +15,13 @@ export function useKnowledgeGraph(params: KnowledgeGraphParams, enabled = true) 
       scope: params.scope,
       tokenIds: params.tokenIds,
       includeSources: params.includeSources,
+      includeTaxonomy: params.includeTaxonomy,
       includeLiterals: params.includeLiterals,
     }),
-    [params.scope, params.tokenIds, params.includeSources, params.includeLiterals],
+    [params.scope, params.tokenIds, params.includeSources, params.includeTaxonomy, params.includeLiterals],
   )
 
-  const fetchGraph = useCallback(async () => {
+  const fetchGraph = useCallback(async (bust = false) => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -33,7 +34,9 @@ export function useKnowledgeGraph(params: KnowledgeGraphParams, enabled = true) 
       sp.set('scope', params.scope)
       if (params.tokenIds?.length) sp.set('tokenIds', params.tokenIds.join(','))
       if (params.includeSources === false) sp.set('includeSources', 'false')
+      if (params.includeTaxonomy === false) sp.set('includeTaxonomy', 'false')
       if (params.includeLiterals) sp.set('includeLiterals', 'true')
+      if (bust) sp.set('bust', 'true')
 
       const res = await fetch(`/api/knowledge-graph?${sp.toString()}`, {
         signal: controller.signal,
@@ -57,5 +60,5 @@ export function useKnowledgeGraph(params: KnowledgeGraphParams, enabled = true) 
     return () => abortRef.current?.abort()
   }, [fetchGraph, enabled])
 
-  return { data, loading, error, refetch: fetchGraph }
+  return { data, loading, error, refetch: () => fetchGraph(true) }
 }

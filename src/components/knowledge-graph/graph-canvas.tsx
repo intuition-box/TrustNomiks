@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { forceCollide, forceRadial } from 'd3-force-3d'
 import { Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { KnowledgeGraphResponse } from '@/types/knowledge-graph'
@@ -32,6 +33,16 @@ interface GraphCanvasProps {
   searchQuery: string
   activeFilters: NodeType[]
   resetKey: number
+  /**
+   * Optional per-node color override. Returns a CSS color string to use instead of the
+   * NODE_CONFIG default, or undefined to fall back. Used by the on-chain drill-down
+   * to color nodes by publication status (confirmed / failed / skipped).
+   */
+  nodeColor?: (node: GraphNode) => string | undefined
+  /** Optional link color override (default: faint slate). */
+  linkColor?: string
+  /** Optional link width override (default: 0.4). */
+  linkWidth?: number
 }
 
 export function GraphCanvas({
@@ -43,7 +54,15 @@ export function GraphCanvas({
   searchQuery,
   activeFilters,
   resetKey,
+  nodeColor,
+  linkColor,
+  linkWidth,
 }: GraphCanvasProps) {
+  // Index the full GraphNode map once for fast per-frame lookup in nodeCanvasObject.
+  const graphNodesById = useMemo(
+    () => new Map(data.nodes.map((n) => [n.id, n])),
+    [data.nodes],
+  )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(undefined)
   const [showCenterBtn, setShowCenterBtn] = useState(false)
@@ -66,6 +85,64 @@ export function GraphCanvas({
     })),
   }), [data])
 
+  // ── Token count for dynamic scaling ───────────────────────────────────
+  const tokenCount = useMemo(
+    () => data.nodes.filter(n => n.type === 'token').length,
+    [data],
+  )
+
+  // ── Configure d3 forces — applied on first engine tick ─────────────────
+  // Forces must be configured when the simulation is running (ref is valid).
+  // Using onEngineTick guarantees timing. A dataSignature ref tracks when
+  // forces need to be re-applied (on data change).
+  const forcesDataKey = useRef('')
+
+  const applyForces = useCallback(() => {
+    const key = `${tokenCount}:${data.nodes.length}`
+    if (key === forcesDataKey.current) return  // already applied for this data
+    const fg = graphRef.current
+    if (!fg || tokenCount === 0) return
+
+    // Charge: repulsion to push token clusters apart
+    fg.d3Force('charge')?.strength((node: FGNode) => {
+      if (node.type === 'graph_root') return 0
+      if (node.type === 'token') return -300 - tokenCount * 30
+      if (node.type === 'triple') return -10
+      return -40 - tokenCount * 2
+    })
+
+    // Link distance: hub→token gets generous spacing, internal links stay tight
+    fg.d3Force('link')
+      ?.distance((link: { predicate?: string }) => {
+        const pred = link.predicate
+        if (pred === 'belongs_to_graph') return 250 + tokenCount * 30
+        if (pred === 'subject_of' || pred === 'object_of') return 25
+        return 30
+      })
+      .strength(0.3)
+
+    // Remove center force — hub is already pinned at (0,0)
+    fg.d3Force('center', null)
+
+    // Collision: prevent nodes from overlapping
+    fg.d3Force('collision', forceCollide((node: FGNode) => {
+      const baseSize = NODE_CONFIG[node.type]?.size ?? 6
+      if (node.type === 'token') return baseSize + 20 + tokenCount
+      if (node.type === 'triple') return baseSize + 1
+      return baseSize + 6
+    }).strength(0.8).iterations(3))
+
+    // Radial orbit: tokens orbit the hub at a dynamic radius
+    const orbitRadius = Math.max(300, 200 + tokenCount * 50)
+    fg.d3Force('tokenOrbit', forceRadial(
+      (node: FGNode) => node.type === 'token' ? orbitRadius : 0,
+      0, 0,
+    ).strength((node: FGNode) => node.type === 'token' ? 0.12 : 0))
+
+    forcesDataKey.current = key
+    fg.d3ReheatSimulation()
+  }, [tokenCount, data.nodes.length])
+
   // ── Auto-fit when data shape changes ────────────────────────────────────
   const dataSignature = `${data.nodes.length}:${data.edges.length}`
   const prevSignature = useRef('')
@@ -74,12 +151,13 @@ export function GraphCanvas({
     if (data.nodes.length > 0 && dataSignature !== prevSignature.current) {
       prevSignature.current = dataSignature
       graphRef.current?.d3ReheatSimulation?.()
+      const fitDelay = 1200 + tokenCount * 20
       const timer = setTimeout(() => {
         graphRef.current?.zoomToFit(400, 50)
-      }, 1200)
+      }, fitDelay)
       return () => clearTimeout(timer)
     }
-  }, [dataSignature, data.nodes.length])
+  }, [dataSignature, data.nodes.length, tokenCount])
 
   // ── Imperative reset from parent ────────────────────────────────────────
   const prevResetKey = useRef(0)
@@ -99,7 +177,9 @@ export function GraphCanvas({
     }
   }, [data.nodes.length])
 
-  const hideCenter = useCallback(() => setShowCenterBtn(false), [])
+  const hideCenter = useCallback(() => {
+    queueMicrotask(() => setShowCenterBtn(false))
+  }, [])
 
   const handleCenterClick = useCallback(() => {
     graphRef.current?.zoomToFit(400, 50)
@@ -133,6 +213,11 @@ export function GraphCanvas({
       const x = node.x ?? 0
       const y = node.y ?? 0
 
+      // Resolve effective color: external override takes precedence over NODE_CONFIG
+      const graphNode = graphNodesById.get(node.id)
+      const overrideColor = nodeColor && graphNode ? nodeColor(graphNode) : undefined
+      const effectiveColor = overrideColor ?? config.color
+
       ctx.globalAlpha = visible ? 1 : 0.08
 
       if (isHub) {
@@ -149,17 +234,17 @@ export function GraphCanvas({
         ctx.lineTo(x, y + size)
         ctx.lineTo(x - size, y)
         ctx.closePath()
-        ctx.fillStyle = isSelected ? '#ffffff' : config.color
+        ctx.fillStyle = isSelected ? '#ffffff' : effectiveColor
         ctx.fill()
       } else {
         ctx.beginPath()
         ctx.arc(x, y, size, 0, 2 * Math.PI)
-        ctx.fillStyle = isSelected ? '#ffffff' : config.color
+        ctx.fillStyle = isSelected ? '#ffffff' : effectiveColor
         ctx.fill()
       }
 
       if (isSelected) {
-        ctx.strokeStyle = config.color
+        ctx.strokeStyle = effectiveColor
         ctx.lineWidth = 2.5
         ctx.stroke()
       }
@@ -180,7 +265,7 @@ export function GraphCanvas({
 
       ctx.globalAlpha = 1
     },
-    [selectedNodeId, isVisible],
+    [selectedNodeId, isVisible, nodeColor, graphNodesById],
   )
 
   const handleNodeClick = useCallback(
@@ -192,30 +277,6 @@ export function GraphCanvas({
     },
     [data.nodes, onNodeSelect, hideCenter],
   )
-
-  // ── Radial pull on tokens ───────────────────────────────────────────────
-
-  const handleEngineTick = useCallback(() => {
-    const fg = graphRef.current
-    if (!fg) return
-    const internalNodes = fg.graphData?.()?.nodes
-    if (!internalNodes) return
-
-    const ORBIT_RADIUS = 180
-    const RADIAL_STRENGTH = 0.03
-
-    for (const raw of internalNodes) {
-      const n = raw as FGNode & { vx?: number; vy?: number }
-      if (n.type !== 'token') continue
-      const x = n.x ?? 0
-      const y = n.y ?? 0
-      const dist = Math.sqrt(x * x + y * y) || 1
-      const delta = dist - ORBIT_RADIUS
-      const force = delta * RADIAL_STRENGTH
-      n.vx = (n.vx ?? 0) - (x / dist) * force
-      n.vy = (n.vy ?? 0) - (y / dist) * force
-    }
-  }, [])
 
   if (width === 0 || height === 0) return null
 
@@ -239,16 +300,16 @@ export function GraphCanvas({
         onNodeClick={handleNodeClick}
         onNodeDrag={hideCenter}
         onZoom={hideCenter}
-        onEngineTick={handleEngineTick}
+        onEngineTick={applyForces}
         onEngineStop={handleEngineStop}
-        linkColor={() => 'rgba(148, 163, 184, 0.15)'}
-        linkWidth={0.4}
+        linkColor={() => linkColor ?? 'rgba(148, 163, 184, 0.15)'}
+        linkWidth={linkWidth ?? 0.4}
         linkDirectionalArrowLength={2.5}
         linkDirectionalArrowRelPos={1}
-        warmupTicks={80}
-        cooldownTicks={150}
-        d3AlphaDecay={0.025}
-        d3VelocityDecay={0.35}
+        warmupTicks={0}
+        cooldownTicks={300}
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.3}
         enableNodeDrag={true}
         enableZoomInteraction={true}
         enablePanInteraction={true}

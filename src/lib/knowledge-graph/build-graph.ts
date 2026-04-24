@@ -44,6 +44,7 @@ const ATOM_TYPE_MAP: Record<string, NodeType> = {
 
 export interface BuildGraphOptions {
   includeSources?: boolean    // default true
+  includeTaxonomy?: boolean   // default true — category, sector, chain nodes
   includeLiterals?: boolean   // default false — literal triples shown on focus/detail
 }
 
@@ -55,7 +56,8 @@ export function buildGraph(
   claimSources: CanonicalSource[],
   options: BuildGraphOptions = {},
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {
-  const { includeSources = true, includeLiterals = false } = options
+  const { includeSources = true, includeTaxonomy = true, includeLiterals = false } = options
+  const TAXONOMY_NODE_TYPES: Set<NodeType> = new Set(['category', 'sector', 'chain'])
 
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
@@ -79,6 +81,7 @@ export function buildGraph(
     const nodeType = ATOM_TYPE_MAP[atom.atom_type]
     if (!nodeType) continue
     if (!includeSources && nodeType === 'data_source') continue
+    if (!includeTaxonomy && TAXONOMY_NODE_TYPES.has(nodeType)) continue
     if (nodeIds.has(atom.atom_id)) continue
     nodeIds.add(atom.atom_id)
 
@@ -225,7 +228,6 @@ export function buildGraph(
   // Taxonomy atoms (category, sector, chain) have no token_id.
   // Remove any that aren't referenced by at least one edge.
 
-  const TAXONOMY_TYPES: Set<NodeType> = new Set(['category', 'sector', 'chain'])
   const referencedIds = new Set<string>()
   for (const e of edges) {
     referencedIds.add(e.source)
@@ -233,7 +235,7 @@ export function buildGraph(
   }
 
   const prunedNodes = nodes.filter((n) => {
-    if (!TAXONOMY_TYPES.has(n.type)) return true
+    if (!TAXONOMY_NODE_TYPES.has(n.type)) return true
     return referencedIds.has(n.id)
   })
 
