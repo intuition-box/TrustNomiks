@@ -144,7 +144,7 @@ BEGIN
       v_source->>'document_name',
       v_source->>'url',
       v_source->>'version',
-      v_source->>'verified_at'
+      (v_source->>'verified_at')::date
     )
     RETURNING id INTO v_source_id;
 
@@ -163,7 +163,7 @@ BEGIN
           p_token_id,
           v_db_source_id,
           v_attribution->>'claim_type',
-          NULLIF(v_attribution->>'claim_id', '')
+          NULLIF(v_attribution->>'claim_id', '')::uuid
         );
       END IF;
     END LOOP;
