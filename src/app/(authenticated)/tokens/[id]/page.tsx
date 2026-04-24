@@ -54,6 +54,7 @@ import {
 } from '@/types/form'
 import { toast } from 'sonner'
 import { TokenPriceCard } from '@/components/token-price-card'
+import { PublishPanel } from '@/components/intuition/publish-panel'
 
 interface TokenData {
   id: string
@@ -1018,6 +1019,11 @@ export default function TokenDetailPage() {
           </AlertDialog>
         </CardContent>
       </Card>
+
+      {/* Intuition Protocol publish */}
+      {(token.status === 'validated' || token.status === 'in_review') && (
+        <PublishPanel tokenId={token.id} tokenStatus={token.status} />
+      )}
     </div>
   )
 }
