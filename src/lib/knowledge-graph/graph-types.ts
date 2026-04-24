@@ -19,6 +19,8 @@ export type AtomType =
   | 'category'
   | 'sector'
   | 'chain'
+  | 'predicate' // on-chain-only: rendered in the run drill-down when not confirmed
+  | 'literal'   // on-chain-only: rendered in the run drill-down when not confirmed
 
 export type NodeType = AtomType | 'triple' | 'graph_root'
 
@@ -32,6 +34,8 @@ export const NODE_FAMILY_MAP: Record<NodeType, NodeFamily> = {
   category:    'atom',
   sector:      'atom',
   chain:       'atom',
+  predicate:   'atom',
+  literal:     'atom',
   triple:      'triple',
   graph_root:  'hub',
 }

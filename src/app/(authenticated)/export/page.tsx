@@ -15,6 +15,7 @@ import {
   type Triple,
   type CompleteTokenData,
 } from '@/lib/utils/triples-export'
+import { MyExportsBlock } from '@/components/intuition/my-exports-block'
 
 interface TokenSummary {
   id: string
@@ -200,6 +201,11 @@ export default function ExportPage() {
           Export validated tokens to Intuition Triples format for knowledge graph integration.
         </p>
       </div>
+
+      <Separator />
+
+      {/* My on-chain publish history */}
+      <MyExportsBlock />
 
       <Separator />
 

@@ -23,4 +23,8 @@ export const NODE_CONFIG: Record<NodeType, NodeVisualConfig> = {
 
   // Triple family — reified relationships
   triple:      { color: '#94a3b8', size: 3,  label: 'Triple'      },  // slate-400, small
+
+  // On-chain-only atom types — surfaced in the run drill-down when not confirmed
+  predicate:   { color: '#94a3b8', size: 4,  label: 'Predicate'   },  // slate-400, small
+  literal:     { color: '#94a3b8', size: 4,  label: 'Literal'     },  // slate-400, small
 }
