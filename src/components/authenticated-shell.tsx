@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { SidebarNav } from '@/components/sidebar-nav'
 import { MobileNav } from '@/components/mobile-nav'
+import { WalletConnectButton } from '@/components/wallet-connect-button'
 import type { User } from '@supabase/supabase-js'
 
 interface AuthenticatedShellProps {
@@ -53,24 +54,30 @@ export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) 
         <SidebarNav user={user} collapsed={collapsed} onToggle={toggleSidebar} />
       </aside>
 
-      <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center border-b border-border bg-card px-4 lg:hidden">
-        <MobileNav user={user} />
-        <Link href="/dashboard" className="ml-2 flex items-center">
-          <Image
-            src="/trustnomiks_logo_final.png"
-            alt="TrustNomiks"
-            width={0}
-            height={0}
-            sizes="140px"
-            className="h-8 w-auto max-w-[130px] object-contain"
-            priority
-          />
-        </Link>
+      <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
+        <div className="flex items-center">
+          <MobileNav user={user} />
+          <Link href="/dashboard" className="ml-2 flex items-center">
+            <Image
+              src="/trustnomiks_logo_final.png"
+              alt="TrustNomiks"
+              width={0}
+              height={0}
+              sizes="140px"
+              className="h-8 w-auto max-w-[130px] object-contain"
+              priority
+            />
+          </Link>
+        </div>
+        <WalletConnectButton />
       </div>
 
       <main
         className={`mt-14 min-w-0 flex-1 p-4 transition-[margin] duration-300 sm:p-6 lg:mt-0 lg:p-8 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}`}
       >
+        <div className="mb-6 hidden items-center justify-end lg:flex">
+          <WalletConnectButton />
+        </div>
         {children}
       </main>
     </div>
