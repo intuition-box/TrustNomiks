@@ -12,11 +12,7 @@ const LEGEND_TYPES: NodeType[] = [
   'allocation',
   'vesting',
   'emission',
-  'data_source',
   'triple',
-  'category',
-  'sector',
-  'chain',
 ]
 
 export function GraphLegend() {

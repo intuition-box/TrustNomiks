@@ -23,7 +23,7 @@ export function DashboardKnowledgeGraphCard() {
   const observerRef = useRef<ResizeObserver | null>(null)
 
   const { data, loading, error, refetch } = useKnowledgeGraph(
-    { scope: 'global', includeSources: true },
+    { scope: 'global', includeSources: false, includeTaxonomy: false },
     true,
   )
 
@@ -103,7 +103,7 @@ export function DashboardKnowledgeGraphCard() {
               <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
                 <GitBranch className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               </span>
-              Knowledge Graph
+              Tokenomics Graph
             </CardTitle>
             {data && (
               <CardDescription className="text-xs">

@@ -6,6 +6,7 @@ export interface KnowledgeGraphParams {
   scope: 'global' | 'token'
   tokenIds?: string[]
   includeSources?: boolean   // default true
+  includeTaxonomy?: boolean  // default true — category, sector, chain
   includeLiterals?: boolean  // default false
 }
 
