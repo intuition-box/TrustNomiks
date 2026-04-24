@@ -165,6 +165,7 @@ async function handleChunk(
       tx_hash: m.txHash,
       status: m.status,
       error_message: m.errorMessage ?? null,
+      run_id: runId,
       created_by: userId,
     }))
 
@@ -192,6 +193,7 @@ async function handleChunk(
       tx_hash: m.txHash,
       status: m.status,
       error_message: m.errorMessage ?? null,
+      run_id: runId,
       created_by: userId,
     }))
 
@@ -215,6 +217,7 @@ async function handleChunk(
       tx_hash: m.txHash,
       status: m.status,
       error_message: m.errorMessage ?? null,
+      run_id: runId,
       created_by: userId,
     }))
 
@@ -349,6 +352,7 @@ async function handleLegacyPersist(
       tx_hash: m.txHash,
       status: m.status,
       error_message: m.errorMessage ?? null,
+      run_id: run.id,
       created_by: userId,
     }))
 
@@ -375,6 +379,7 @@ async function handleLegacyPersist(
       tx_hash: m.txHash,
       status: m.status,
       error_message: m.errorMessage ?? null,
+      run_id: run.id,
       created_by: userId,
     }))
 
@@ -397,6 +402,7 @@ async function handleLegacyPersist(
       tx_hash: m.txHash,
       status: m.status,
       error_message: m.errorMessage ?? null,
+      run_id: run.id,
       created_by: userId,
     }))
 

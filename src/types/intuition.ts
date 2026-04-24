@@ -1,4 +1,4 @@
-import type { PublishPlan, PublishRunResult, RunStatus } from '@/lib/intuition/types'
+import type { PublishPlan, PublishRunResult, PublishStatus, RunStatus } from '@/lib/intuition/types'
 
 // ── API: GET /api/intuition/publish-plan ─────────────────────────────────────
 
@@ -84,6 +84,117 @@ export type PublishRunActionRequest =
 export interface PublishRunResponse {
   runId: string
   status: RunStatus
+}
+
+// ── API: GET /api/intuition/my-runs ──────────────────────────────────────────
+
+export interface MyRunSummary {
+  runId: string
+  tokenId: string
+  tokenName: string
+  tokenTicker: string
+  walletAddress: string
+  chainId: number
+  status: RunStatus
+  atomsCreated: number
+  atomsSkipped: number
+  atomsFailed: number
+  triplesCreated: number
+  triplesSkipped: number
+  triplesFailed: number
+  txHashCount: number
+  startedAt: string
+  completedAt: string | null
+}
+
+export interface MyRunsResponse {
+  runs: MyRunSummary[]
+  total: number
+  page: number
+  pageSize: number
+  /** Aggregates across ALL runs for this wallet (not just current page). */
+  aggregates: {
+    distinctTokens: number
+    totalAtomsCreated: number
+    totalTriplesCreated: number
+    totalRuns: number
+    runsByStatus: Record<RunStatus, number>
+  }
+}
+
+// ── API: GET /api/intuition/runs/[runId] ─────────────────────────────────────
+
+export interface RunAtomMappingRow {
+  atomId: string
+  atomType: string
+  normalizedData: string
+  termId: string | null
+  txHash: string | null
+  status: PublishStatus
+  errorMessage: string | null
+}
+
+export interface RunClaimMappingRow {
+  tripleId: string
+  claimGroup: string | null
+  originRowId: string | null
+  subjectTermId: string
+  predicateTermId: string
+  objectTermId: string
+  tripleTermId: string | null
+  txHash: string | null
+  status: PublishStatus
+  errorMessage: string | null
+}
+
+export interface RunProvenanceMappingRow {
+  tripleId: string
+  sourceAtomId: string
+  provenanceTripleTermId: string | null
+  txHash: string | null
+  status: PublishStatus
+  errorMessage: string | null
+}
+
+export interface RunDetailMeta {
+  runId: string
+  tokenId: string
+  tokenName: string
+  tokenTicker: string
+  walletAddress: string
+  chainId: number
+  status: RunStatus
+  startedAt: string
+  completedAt: string | null
+  /** True if the run was created before the `run_id` column existed and was resolved via tx_hash fallback. */
+  isLegacy: boolean
+}
+
+export interface RunDetailResponse {
+  run: RunDetailMeta
+  atomMappings: RunAtomMappingRow[]
+  claimMappings: RunClaimMappingRow[]
+  provenanceMappings: RunProvenanceMappingRow[]
+  /** Canonical atoms joined from kg_atoms_v1 for label resolution (only atoms present in atomMappings). */
+  canonicalAtoms: Array<{
+    atom_id: string
+    atom_type: string
+    label: string
+    token_id: string | null
+    metadata: Record<string, unknown>
+  }>
+  /** Canonical triples joined from kg_triples_v1 for predicate/subject/object resolution. */
+  canonicalTriples: Array<{
+    triple_id: string
+    subject_id: string
+    predicate: string
+    object_id: string | null
+    object_literal: string | null
+    token_id: string
+    claim_group: string | null
+    origin_table: string | null
+    origin_row_id: string | null
+  }>
 }
 
 // ── API: GET /api/intuition/status ───────────────────────────────────────────
