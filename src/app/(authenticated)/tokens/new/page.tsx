@@ -994,6 +994,11 @@ export default function NewTokenPage() {
       return
     }
 
+    if (!initialUpdatedAt) {
+      toast.error('Token state not loaded. Please refresh the page.')
+      return
+    }
+
     try {
       setLoading(true)
 
@@ -1023,7 +1028,7 @@ export default function NewTokenPage() {
         p_sources: sourcesToSave,
         p_attributions: attributionsToSave,
         p_expected_updated_at: initialUpdatedAt,
-        p_completeness: finalCompleteness,
+        p_completeness: Math.round(finalCompleteness),
         p_cluster_scores: clusterScores,
       })
 
@@ -1039,7 +1044,10 @@ export default function NewTokenPage() {
       setCurrentStep(7)
     } catch (error: unknown) {
       console.error('Error saving data sources:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save data sources')
+      const msg = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message: unknown }).message)
+        : 'Failed to save data sources'
+      toast.error(msg || 'Failed to save data sources')
     } finally {
       setLoading(false)
     }
