@@ -139,7 +139,7 @@ export function CoinGeckoSearch({
       )}
 
       {showDropdown && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-border bg-zinc-900 shadow-2xl overflow-hidden">
+        <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden">
           {error ? (
             <div className="p-3 text-sm text-destructive">{error}</div>
           ) : results.length === 0 && query.length >= 2 && !isLoading ? (
@@ -183,7 +183,7 @@ function CoinOption({
         type="button"
         className={cn(
           'flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm',
-          'hover:bg-zinc-800 transition-colors'
+          'hover:bg-accent hover:text-accent-foreground transition-colors'
         )}
         onClick={onSelect}
       >
