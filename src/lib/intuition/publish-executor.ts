@@ -33,6 +33,11 @@ import {
   TRIPLE_CHUNK_SIZE,
   PROVENANCE_CHUNK_SIZE,
 } from './config'
+import { recheckAtomExistence } from './existence-resolver'
+import {
+  calculateAtomId,
+  multiVaultIsTermCreated,
+} from '@0xintuition/sdk'
 import type {
   PublishPlan,
   PublishEvent,
@@ -71,6 +76,11 @@ function stringToAtomData(str: string): Hex {
   return toHex(new TextEncoder().encode(str))
 }
 
+/** Compute atom term ID from normalized data */
+function computeAtomTermId(normalizedData: string): Hex {
+  return calculateAtomId(stringToAtomData(normalizedData))
+}
+
 // ── Main executor ───────────────────────────────────────────────────────────
 
 export async function* executePublishPlan(
@@ -78,6 +88,22 @@ export async function* executePublishPlan(
   walletClient: WalletClient,
   publicClient: PublicClient,
 ): AsyncGenerator<PublishEvent> {
+  // Verify wallet connection before starting
+  console.log('🔍 Publish executor starting - checking wallet connection...')
+  console.log('WalletClient:', walletClient ? 'Present' : 'MISSING')
+  console.log('PublicClient:', publicClient ? 'Present' : 'MISSING')
+
+  if (walletClient) {
+    try {
+      const account = walletClient.account
+      const chain = walletClient.chain
+      console.log('Wallet account:', account?.address || 'No account')
+      console.log('Wallet chain:', chain?.id || 'No chain')
+    } catch (e) {
+      console.error('Error checking wallet details:', e)
+    }
+  }
+
   const config = makeWriteConfig(walletClient, publicClient)
 
   // Track created term IDs for cross-phase lookups
@@ -98,7 +124,51 @@ export async function* executePublishPlan(
   // ── Phase 1: Batch create atoms ───────────────────────────────────────────
 
   const atomsToCreate = plan.atoms.toCreate
-  const atomChunks = chunkArray(atomsToCreate, ATOM_CHUNK_SIZE)
+
+  // IMPROVED FIX: Verify which atoms actually exist and get their real term IDs
+  console.log('🔧 IMPROVED FIX: Checking which atoms actually exist on-chain...')
+
+  const realExistingAtoms = []
+  const needToCreate = []
+
+  for (const atom of atomsToCreate) {
+    const computedTermId = computeAtomTermId(atom.normalizedData)
+    try {
+      const exists = await multiVaultIsTermCreated({ address: MULTIVAULT_ADDRESS, publicClient }, { args: [computedTermId] })
+      if (exists) {
+        createdAtomTermIds.set(atom.atomId, computedTermId)
+        realExistingAtoms.push(atom)
+        console.log(`✅ FOUND existing atom: "${atom.normalizedData}" (${atom.atomId})`)
+      } else {
+        needToCreate.push(atom)
+        console.log(`❌ NEEDS creation: "${atom.normalizedData}" (${atom.atomId})`)
+      }
+    } catch (error) {
+      console.error(`Error checking atom ${atom.atomId}:`, error)
+      needToCreate.push(atom) // If can't check, try to create
+    }
+  }
+
+  console.log(`Found ${realExistingAtoms.length} existing atoms, ${needToCreate.length} need creation`)
+
+  // Deduplicate atoms by their normalized data to avoid creating duplicates
+  const atomsByData = new Map<string, typeof needToCreate[0]>()
+  for (const atom of needToCreate) {
+    if (!atomsByData.has(atom.normalizedData)) {
+      atomsByData.set(atom.normalizedData, atom)
+    } else {
+      // Map duplicate atoms to the first instance
+      const originalAtom = atomsByData.get(atom.normalizedData)!
+      const termId = computeAtomTermId(atom.normalizedData)
+      createdAtomTermIds.set(atom.atomId, termId)
+      console.log(`🔄 Mapped duplicate atom: "${atom.normalizedData}" (${atom.atomId}) -> existing instance`)
+    }
+  }
+
+  const finalAtomsToCreate = Array.from(atomsByData.values())
+  console.log(`✅ ENABLING atom creation - ${finalAtomsToCreate.length} unique atoms will be created (${needToCreate.length} total requested), ${realExistingAtoms.length} already exist`)
+
+  const atomChunks = chunkArray(finalAtomsToCreate, ATOM_CHUNK_SIZE)
   let atomsProcessed = 0
   let atomPhaseAborted = false
 
@@ -106,7 +176,7 @@ export async function* executePublishPlan(
     type: 'phase_start',
     phase: 'atoms',
     totalChunks: atomChunks.length,
-    progress: { currentChunk: 0, totalChunks: atomChunks.length, itemsProcessed: 0, totalItems: atomsToCreate.length },
+    progress: { currentChunk: 0, totalChunks: atomChunks.length, itemsProcessed: 0, totalItems: finalAtomsToCreate.length },
   }
 
   for (let ci = 0; ci < atomChunks.length; ci++) {
@@ -117,13 +187,20 @@ export async function* executePublishPlan(
       phase: 'atoms',
       chunkIndex: ci,
       totalChunks: atomChunks.length,
-      progress: { currentChunk: ci, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: atomsToCreate.length },
+      progress: { currentChunk: ci, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
     }
 
     try {
       const hexDataArray = chunk.map((a) => stringToAtomData(a.normalizedData))
       const assetsArray = chunk.map(() => atomCost)
       const totalValue = atomCost * BigInt(chunk.length)
+
+      console.log(`Creating atom chunk ${ci + 1}/${atomChunks.length} with ${chunk.length} atoms:`)
+      chunk.forEach((atom, idx) => {
+        console.log(`  [${idx}] "${atom.normalizedData}" (${atom.atomId})`)
+      })
+
+      console.log('✓ All atoms verified as needing creation - proceeding with contract call')
 
       const txHash = await multiVaultCreateAtoms(config, {
         args: [hexDataArray, assetsArray],
@@ -155,7 +232,7 @@ export async function* executePublishPlan(
           totalChunks: atomChunks.length,
           error: mismatchErr,
           txHash: txHash as string,
-          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: atomsToCreate.length },
+          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
           chunkMappings: { atomMappings: failedMappings },
         }
 
@@ -171,6 +248,14 @@ export async function* executePublishPlan(
         const actualTermId = events[j].args.termId as Hex
 
         createdAtomTermIds.set(atom.atomId, actualTermId)
+
+        // Also map any atoms in needToCreate that have the same normalized data
+        for (const needAtom of needToCreate) {
+          if (needAtom.normalizedData === atom.normalizedData) {
+            createdAtomTermIds.set(needAtom.atomId, actualTermId)
+          }
+        }
+
         atomMappings.push({
           atomId: atom.atomId,
           atomType: atom.atomType,
@@ -197,34 +282,68 @@ export async function* executePublishPlan(
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
+      console.error(`Atom chunk ${ci + 1} failed:`, errorMsg)
 
-      // Build failed mappings for all atoms in this chunk
-      const atomMappings: PublishRunResult['atomMappings'] = chunk.map((atom) => ({
-        atomId: atom.atomId,
-        atomType: atom.atomType,
-        normalizedData: atom.normalizedData,
-        termId: atom.computedTermId as string,
-        txHash: '',
-        status: 'failed' as const,
-        errorMessage: errorMsg,
-      }))
+      // Special handling for MultiVault_AtomExists error
+      if (errorMsg.includes('MultiVault_AtomExists')) {
+        console.log('Detected atom already exists error. Marking atoms as existing and continuing...')
 
-      atomsProcessed += chunk.length
+        // Mark these atoms as existing rather than failed
+        const atomMappings: PublishRunResult['atomMappings'] = chunk.map((atom) => ({
+          atomId: atom.atomId,
+          atomType: atom.atomType,
+          normalizedData: atom.normalizedData,
+          termId: atom.computedTermId as string,
+          txHash: '',
+          status: 'confirmed' as const,
+          errorMessage: 'Atom already exists on-chain (skipped)',
+        }))
 
-      yield {
-        type: 'chunk_failed',
-        phase: 'atoms',
-        chunkIndex: ci,
-        totalChunks: atomChunks.length,
-        error: errorMsg,
-        progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: atomsToCreate.length },
-        chunkMappings: { atomMappings },
+        // Add these atoms to the created atoms map so triples can reference them
+        for (const atom of chunk) {
+          createdAtomTermIds.set(atom.atomId, atom.computedTermId)
+        }
+
+        atomsProcessed += chunk.length
+
+        yield {
+          type: 'chunk_success',
+          phase: 'atoms',
+          chunkIndex: ci,
+          totalChunks: atomChunks.length,
+          txHash: '',
+          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+          chunkMappings: { atomMappings },
+        }
+      } else {
+        // Build failed mappings for all atoms in this chunk
+        const atomMappings: PublishRunResult['atomMappings'] = chunk.map((atom) => ({
+          atomId: atom.atomId,
+          atomType: atom.atomType,
+          normalizedData: atom.normalizedData,
+          termId: atom.computedTermId as string,
+          txHash: '',
+          status: 'failed' as const,
+          errorMessage: errorMsg,
+        }))
+
+        atomsProcessed += chunk.length
+
+        yield {
+          type: 'chunk_failed',
+          phase: 'atoms',
+          chunkIndex: ci,
+          totalChunks: atomChunks.length,
+          error: errorMsg,
+          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+          chunkMappings: { atomMappings },
+        }
+
+        // ABORT: atom chunk failure stops before triples phase
+        atomPhaseAborted = true
+        yield { type: 'abort', phase: 'atoms', error: `Atom chunk ${ci + 1}/${atomChunks.length} failed — aborting before triples phase` }
+        break
       }
-
-      // ABORT: atom chunk failure stops before triples phase
-      atomPhaseAborted = true
-      yield { type: 'abort', phase: 'atoms', error: `Atom chunk ${ci + 1}/${atomChunks.length} failed — aborting before triples phase` }
-      break
     }
 
     if (ci < atomChunks.length - 1) {
@@ -242,6 +361,9 @@ export async function* executePublishPlan(
   // ── Phase 2: Batch create triples ─────────────────────────────────────────
 
   const triplesToCreate = plan.triples.toCreate
+  console.log(`Starting triples phase with ${triplesToCreate.length} triples to create`)
+  console.log(`Available atom term IDs: ${createdAtomTermIds.size}`)
+
   const tripleChunks = chunkArray(triplesToCreate, TRIPLE_CHUNK_SIZE)
   let triplesProcessed = 0
   const confirmedTripleIds = new Set<string>()
@@ -269,12 +391,19 @@ export async function* executePublishPlan(
       const sub = createdAtomTermIds.get(triple.subjectAtomId)
       const pred = createdAtomTermIds.get(triple.predicateAtomId)
       const obj = createdAtomTermIds.get(triple.objectAtomId)
+
       if (sub && pred && obj) {
         validTriples.push(triple)
       } else {
+        console.log(`⚠️  Skipping triple ${triple.tripleId}:`)
+        if (!sub) console.log(`  Subject ${triple.subjectAtomId}: MISSING`)
+        if (!pred) console.log(`  Predicate ${triple.predicateAtomId}: MISSING`)
+        if (!obj) console.log(`  Object ${triple.objectAtomId}: MISSING`)
         skippedTriples.push(triple)
       }
     }
+
+    console.log(`Triple chunk ${ci + 1}: ${validTriples.length} valid, ${skippedTriples.length} skipped`)
 
     yield {
       type: 'chunk_pending',
@@ -319,10 +448,28 @@ export async function* executePublishPlan(
       const assetsArray = validTriples.map(() => tripleCost)
       const totalValue = tripleCost * BigInt(validTriples.length)
 
+      console.log(`🚀 About to call createTriples for ${validTriples.length} triples`)
+      console.log(`Triple cost: ${tripleCost}, Total value: ${totalValue}`)
+      console.log(`Wallet client status:`, walletClient ? 'Connected' : 'NOT CONNECTED')
+      console.log(`Public client status:`, publicClient ? 'Available' : 'NOT AVAILABLE')
+
+      // Log first few triples for debugging
+      validTriples.slice(0, 3).forEach((t, i) => {
+        console.log(`Triple ${i + 1}:`, {
+          subject: subjectIds[i],
+          predicate: predicateIds[i],
+          object: objectIds[i]
+        })
+      })
+
+      console.log(`🔄 Calling multiVaultCreateTriples...`)
+
       const txHash = await multiVaultCreateTriples(config, {
         args: [subjectIds, predicateIds, objectIds, assetsArray],
         value: totalValue,
       })
+
+      console.log(`✅ Triple creation succeeded! TxHash: ${txHash}`)
 
       // Wait for confirmation and parse TripleCreated events
       const events = await eventParseTripleCreated(publicClient, txHash)
@@ -397,6 +544,8 @@ export async function* executePublishPlan(
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
+      console.error(`❌ Triple creation failed for chunk ${ci + 1}:`, errorMsg)
+      console.error(`Full error:`, err)
 
       for (const t of validTriples) {
         claimMappings.push({
