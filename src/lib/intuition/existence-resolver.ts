@@ -36,6 +36,47 @@ function computeTripleTermId(
   return calculateTripleId(subjectTermId, predicateTermId, objectTermId)
 }
 
+// ── Additional helper for double-checking atoms before creation ─────────────
+
+export async function recheckAtomExistence(
+  atoms: RawAtomEntry[],
+  publicClient: PublicClient,
+): Promise<Map<string, { exists: boolean; termId: Hex }>> {
+  const readConfig = { address: MULTIVAULT_ADDRESS, publicClient }
+  const resultMap = new Map<string, { exists: boolean; termId: Hex }>()
+
+  // Check atoms in smaller batches to avoid rate limits
+  for (let i = 0; i < atoms.length; i += 10) {
+    const batch = atoms.slice(i, i + 10)
+
+    const checks = await Promise.all(
+      batch.map(async (atom) => {
+        const termId = computeAtomTermId(atom.normalizedData)
+        try {
+          const exists = await multiVaultIsTermCreated(readConfig, { args: [termId] })
+          console.log(`Recheck atom: "${atom.normalizedData}" (${atom.atomId}) => ${exists ? 'EXISTS' : 'NOT_FOUND'}`)
+          return { atomId: atom.atomId, exists, termId }
+        } catch (error) {
+          console.error(`Recheck failed for atom "${atom.normalizedData}" (${atom.atomId}):`, error)
+          // Be conservative - assume it exists if we can't check
+          return { atomId: atom.atomId, exists: true, termId }
+        }
+      })
+    )
+
+    for (const { atomId, exists, termId } of checks) {
+      resultMap.set(atomId, { exists, termId })
+    }
+
+    // Small delay to avoid rate limiting
+    if (i + 10 < atoms.length) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+  }
+
+  return resultMap
+}
+
 // ── Main resolver ───────────────────────────────────────────────────────────
 
 export async function resolveExistence(
@@ -62,10 +103,12 @@ export async function resolveExistence(
         const termId = atomTermIds.get(atom.atomId)!
         try {
           const exists = await multiVaultIsTermCreated(readConfig, { args: [termId] })
+          console.log(`Atom existence check: "${atom.normalizedData}" (${atom.atomId}) => ${exists ? 'EXISTS' : 'NOT_FOUND'}`)
           return { atom, termId, exists }
-        } catch {
-          // If the check fails, assume not created (will try to create)
-          return { atom, termId, exists: false }
+        } catch (error) {
+          console.error(`Failed to check existence for atom "${atom.normalizedData}" (${atom.atomId}):`, error)
+          // On error, be conservative: assume it exists to avoid duplicate creation
+          return { atom, termId, exists: true }
         }
       }),
     )
