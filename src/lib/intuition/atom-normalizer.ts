@@ -2,14 +2,26 @@
  * Normalizes TrustNomiks canonical atoms and predicates into stable,
  * deterministic strings for on-chain publication to Intuition Protocol.
  *
- * V1 rules:
- *  - All atoms are strings (no IPFS/Thing).
- *  - Predicates are snake_case, from a controlled vocabulary.
+ * V2 rules (canonical):
+ *  - Predicates resolve to IPFS Thing URIs via the canonical registry
+ *    (see canonical-registry.ts). The internal snake_case key remains the
+ *    DB index; the on-chain `data` is the registry's `uri`.
+ *  - Entity atoms (token, allocation, …) resolve to IPFS Thing URIs via
+ *    entity-pinner.ts at bundle-build time.
+ *  - Literal atoms remain plain strings on-chain (their dedup is content-based);
+ *    internal IDs are now indexed by content hash, not tripleId, so the
+ *    in-memory atomMap deduplicates correctly.
  *  - Scalars: numbers as base-10 without separators, dates as YYYY-MM-DD,
  *    booleans as "true"/"false".
+ *
+ * The legacy `normalizeAtom` is preserved for back-compat with tests and
+ * non-publish read paths (graph drill-downs). New publish code should
+ * pin entities via entity-pinner instead.
  */
 
+import { createHash } from 'node:crypto'
 import type { CanonicalAtom, CanonicalTriple } from '@/lib/knowledge-graph/graph-types'
+import { getCanonicalPredicate } from './canonical-registry'
 
 // ── Predicate ontology (kg_triples_v1 predicate → on-chain snake_case) ──────
 
@@ -153,16 +165,36 @@ export function normalizeAtom(atom: CanonicalAtom): string {
 
 /**
  * Generate a synthetic atom ID for a predicate string.
+ * The internal key remains snake_case; the on-chain data is resolved via
+ * `predicateNormalizedData` which looks the URI up in the canonical registry.
  */
 export function predicateToAtomId(normalizedPredicate: string): string {
   return `atom:predicate:${normalizedPredicate}`
 }
 
 /**
- * Generate a synthetic atom ID for a literal value.
+ * Resolve the on-chain `normalizedData` for a predicate (an IPFS Thing URI).
+ * Throws if the predicate is missing from the canonical registry — that means
+ * `pin-canonical-predicates.ts` was not re-run after a new entry was added.
  */
-export function literalToAtomId(tripleId: string, literal: string): string {
-  return `atom:literal:${tripleId}`
+export function predicateNormalizedData(normalizedPredicate: string): string {
+  return getCanonicalPredicate(normalizedPredicate).uri
+}
+
+/**
+ * Generate a synthetic atom ID for a literal value.
+ *
+ * Indexed by the hash of the normalized value, not the triple it came from,
+ * so two triples carrying "monthly" share the same internal atom and the
+ * in-memory atomMap deduplicates correctly. The on-chain dedup is unaffected
+ * (it has always been by content hash).
+ *
+ * The `_tripleId` arg is preserved for callsite compatibility but unused.
+ */
+export function literalToAtomId(_tripleId: string, literal: string): string {
+  const normalized = normalizeLiteral(literal)
+  const digest = createHash('sha256').update(normalized).digest('hex').slice(0, 16)
+  return `atom:literal:${digest}`
 }
 
 // ── Literal normalization ───────────────────────────────────────────────────

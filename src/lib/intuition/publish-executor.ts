@@ -36,6 +36,7 @@ import {
 import { recheckAtomExistence } from './existence-resolver'
 import {
   calculateAtomId,
+  calculateTripleId,
   multiVaultIsTermCreated,
 } from '@0xintuition/sdk'
 import type {
@@ -441,28 +442,109 @@ export async function* executePublishPlan(
       continue // Continue to next triple chunk
     }
 
-    try {
-      const subjectIds = validTriples.map((t) => createdAtomTermIds.get(t.subjectAtomId)!)
-      const predicateIds = validTriples.map((t) => createdAtomTermIds.get(t.predicateAtomId)!)
-      const objectIds = validTriples.map((t) => createdAtomTermIds.get(t.objectAtomId)!)
-      const assetsArray = validTriples.map(() => tripleCost)
-      const totalValue = tripleCost * BigInt(validTriples.length)
+    // ── Triple safety guard (mirror of the atom IMPROVED FIX) ───────────────
+    // 1. Recompute each triple's term_id from the *live* atom term_ids.
+    // 2. Dedup intra-batch by computed term_id.
+    // 3. Recheck on-chain existence just before submission.
+    // 4. Triples that already exist or duplicate another in the batch are
+    //    marked 'confirmed' (so provenance can target them) and dropped
+    //    from the createTriples call. This is the same pattern as for
+    //    atoms — it eliminates the entire MultiVault_TripleExists revert
+    //    class without sacrificing correctness.
 
-      console.log(`🚀 About to call createTriples for ${validTriples.length} triples`)
-      console.log(`Triple cost: ${tripleCost}, Total value: ${totalValue}`)
-      console.log(`Wallet client status:`, walletClient ? 'Connected' : 'NOT CONNECTED')
-      console.log(`Public client status:`, publicClient ? 'Available' : 'NOT AVAILABLE')
+    type EffectiveTriple = {
+      planItem: TriplePlanItem
+      effSubjectId: Hex
+      effPredicateId: Hex
+      effObjectId: Hex
+      effTripleTermId: Hex
+    }
+    const effectiveTriples: EffectiveTriple[] = validTriples.map((t) => {
+      const sub = createdAtomTermIds.get(t.subjectAtomId)!
+      const pred = createdAtomTermIds.get(t.predicateAtomId)!
+      const obj = createdAtomTermIds.get(t.objectAtomId)!
+      return {
+        planItem: t,
+        effSubjectId: sub,
+        effPredicateId: pred,
+        effObjectId: obj,
+        effTripleTermId: calculateTripleId(sub, pred, obj),
+      }
+    })
 
-      // Log first few triples for debugging
-      validTriples.slice(0, 3).forEach((t, i) => {
-        console.log(`Triple ${i + 1}:`, {
-          subject: subjectIds[i],
-          predicate: predicateIds[i],
-          object: objectIds[i]
-        })
+    const seenInBatch = new Set<string>()
+    const triplesToSubmit: EffectiveTriple[] = []
+    const preConfirmed: Array<{ et: EffectiveTriple; reason: string }> = []
+
+    for (const et of effectiveTriples) {
+      const key = et.effTripleTermId.toLowerCase()
+      if (seenInBatch.has(key)) {
+        preConfirmed.push({ et, reason: 'Duplicate within batch (skipped — same triple termId already submitted)' })
+        continue
+      }
+      seenInBatch.add(key)
+      try {
+        const exists = await multiVaultIsTermCreated(
+          { address: MULTIVAULT_ADDRESS, publicClient },
+          { args: [et.effTripleTermId] },
+        )
+        if (exists) {
+          preConfirmed.push({ et, reason: 'Triple already exists on-chain (skipped)' })
+        } else {
+          triplesToSubmit.push(et)
+        }
+      } catch (err) {
+        // Conservative: assume exists if we can't check. Better than reverting the whole batch.
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`[triples] existence recheck failed for ${et.planItem.tripleId} (${msg}) — assuming exists`)
+        preConfirmed.push({ et, reason: `Existence recheck failed (${msg}); assumed existing` })
+      }
+    }
+
+    // Persist the pre-confirmed (existing/dup) triples so provenance can find them.
+    for (const { et, reason } of preConfirmed) {
+      createdTripleTermIds.set(et.planItem.tripleId, et.effTripleTermId)
+      confirmedTripleIds.add(et.planItem.tripleId)
+      claimMappings.push({
+        tripleId: et.planItem.tripleId,
+        claimGroup: et.planItem.claimGroup,
+        originRowId: et.planItem.originRowId,
+        subjectTermId: et.effSubjectId as string,
+        predicateTermId: et.effPredicateId as string,
+        objectTermId: et.effObjectId as string,
+        tripleTermId: et.effTripleTermId as string,
+        txHash: '',
+        status: 'confirmed',
+        errorMessage: reason,
       })
+    }
 
-      console.log(`🔄 Calling multiVaultCreateTriples...`)
+    if (triplesToSubmit.length === 0) {
+      triplesProcessed += chunk.length
+      console.log(`Triple chunk ${ci + 1}: all ${effectiveTriples.length} triple(s) already exist or were deduped — skipping createTriples`)
+      yield {
+        type: 'chunk_success',
+        phase: 'triples',
+        chunkIndex: ci,
+        totalChunks: tripleChunks.length,
+        txHash: '',
+        progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+        chunkMappings: { claimMappings },
+      }
+      continue
+    }
+
+    console.log(`Triple chunk ${ci + 1}: ${preConfirmed.length} pre-confirmed (existing/dup), ${triplesToSubmit.length} new to submit`)
+
+    try {
+      const subjectIds = triplesToSubmit.map((et) => et.effSubjectId)
+      const predicateIds = triplesToSubmit.map((et) => et.effPredicateId)
+      const objectIds = triplesToSubmit.map((et) => et.effObjectId)
+      const assetsArray = triplesToSubmit.map(() => tripleCost)
+      const totalValue = tripleCost * BigInt(triplesToSubmit.length)
+
+      console.log(`🚀 About to call createTriples for ${triplesToSubmit.length} triples`)
+      console.log(`Triple cost: ${tripleCost}, Total value: ${totalValue}`)
 
       const txHash = await multiVaultCreateTriples(config, {
         args: [subjectIds, predicateIds, objectIds, assetsArray],
@@ -475,18 +557,18 @@ export async function* executePublishPlan(
       const events = await eventParseTripleCreated(publicClient, txHash)
 
       // Mismatch: tx mined but can't reliably map events to inputs
-      if (events.length !== validTriples.length) {
-        const mismatchErr = `Event count mismatch: expected ${validTriples.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
-        for (const t of validTriples) {
+      if (events.length !== triplesToSubmit.length) {
+        const mismatchErr = `Event count mismatch: expected ${triplesToSubmit.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
+        for (const et of triplesToSubmit) {
           // Don't add to confirmedTripleIds — provenance won't target these
           claimMappings.push({
-            tripleId: t.tripleId,
-            claimGroup: t.claimGroup,
-            originRowId: t.originRowId,
-            subjectTermId: t.subjectTermId as string,
-            predicateTermId: t.predicateTermId as string,
-            objectTermId: t.objectTermId as string,
-            tripleTermId: t.computedTripleTermId as string,
+            tripleId: et.planItem.tripleId,
+            claimGroup: et.planItem.claimGroup,
+            originRowId: et.planItem.originRowId,
+            subjectTermId: et.effSubjectId as string,
+            predicateTermId: et.effPredicateId as string,
+            objectTermId: et.effObjectId as string,
+            tripleTermId: et.effTripleTermId as string,
             txHash: txHash as string,
             status: 'failed',
             errorMessage: mismatchErr,
@@ -509,24 +591,24 @@ export async function* executePublishPlan(
       }
 
       // Events match — verify each termId
-      for (let j = 0; j < validTriples.length; j++) {
-        const triple = validTriples[j]
+      for (let j = 0; j < triplesToSubmit.length; j++) {
+        const et = triplesToSubmit[j]
         const actualTermId = events[j].args.termId as Hex
 
-        createdTripleTermIds.set(triple.tripleId, actualTermId)
-        confirmedTripleIds.add(triple.tripleId)
+        createdTripleTermIds.set(et.planItem.tripleId, actualTermId)
+        confirmedTripleIds.add(et.planItem.tripleId)
         claimMappings.push({
-          tripleId: triple.tripleId,
-          claimGroup: triple.claimGroup,
-          originRowId: triple.originRowId,
-          subjectTermId: triple.subjectTermId as string,
-          predicateTermId: triple.predicateTermId as string,
-          objectTermId: triple.objectTermId as string,
+          tripleId: et.planItem.tripleId,
+          claimGroup: et.planItem.claimGroup,
+          originRowId: et.planItem.originRowId,
+          subjectTermId: et.effSubjectId as string,
+          predicateTermId: et.effPredicateId as string,
+          objectTermId: et.effObjectId as string,
           tripleTermId: actualTermId as string,
           txHash: txHash as string,
           status: 'confirmed',
-          errorMessage: actualTermId !== triple.computedTripleTermId
-            ? `TermId mismatch: expected ${triple.computedTripleTermId}, got ${actualTermId}`
+          errorMessage: actualTermId !== et.effTripleTermId
+            ? `TermId mismatch: expected ${et.effTripleTermId}, got ${actualTermId}`
             : undefined,
         })
       }
@@ -545,17 +627,51 @@ export async function* executePublishPlan(
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       console.error(`❌ Triple creation failed for chunk ${ci + 1}:`, errorMsg)
-      console.error(`Full error:`, err)
 
-      for (const t of validTriples) {
+      // Residual TripleExists race (recheck → createTriples is not atomic):
+      // mark all triples in the submitted set as confirmed using their
+      // computed term_ids. Same recovery semantics as the AtomExists handler.
+      if (errorMsg.includes('MultiVault_TripleExists')) {
+        console.log('Detected TripleExists revert. Marking submitted triples as existing and continuing…')
+        for (const et of triplesToSubmit) {
+          createdTripleTermIds.set(et.planItem.tripleId, et.effTripleTermId)
+          confirmedTripleIds.add(et.planItem.tripleId)
+          claimMappings.push({
+            tripleId: et.planItem.tripleId,
+            claimGroup: et.planItem.claimGroup,
+            originRowId: et.planItem.originRowId,
+            subjectTermId: et.effSubjectId as string,
+            predicateTermId: et.effPredicateId as string,
+            objectTermId: et.effObjectId as string,
+            tripleTermId: et.effTripleTermId as string,
+            txHash: '',
+            status: 'confirmed',
+            errorMessage: 'Triple already exists on-chain (recovered from revert)',
+          })
+        }
+
+        triplesProcessed += chunk.length
+        yield {
+          type: 'chunk_success',
+          phase: 'triples',
+          chunkIndex: ci,
+          totalChunks: tripleChunks.length,
+          txHash: '',
+          progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+          chunkMappings: { claimMappings },
+        }
+        continue
+      }
+
+      for (const et of triplesToSubmit) {
         claimMappings.push({
-          tripleId: t.tripleId,
-          claimGroup: t.claimGroup,
-          originRowId: t.originRowId,
-          subjectTermId: t.subjectTermId as string,
-          predicateTermId: t.predicateTermId as string,
-          objectTermId: t.objectTermId as string,
-          tripleTermId: t.computedTripleTermId as string,
+          tripleId: et.planItem.tripleId,
+          claimGroup: et.planItem.claimGroup,
+          originRowId: et.planItem.originRowId,
+          subjectTermId: et.effSubjectId as string,
+          predicateTermId: et.effPredicateId as string,
+          objectTermId: et.effObjectId as string,
+          tripleTermId: et.effTripleTermId as string,
           txHash: '',
           status: 'failed',
           errorMessage: errorMsg,
@@ -650,15 +766,91 @@ export async function* executePublishPlan(
       continue
     }
 
+    // ── Provenance safety guard (mirror of triple-phase guard) ─────────────
+    // Recompute each provenance triple_term_id from the live atom/triple
+    // term_ids, dedup intra-batch, and recheck on-chain. Skip existing/dup.
+
+    type EffectiveProv = {
+      planItem: ProvenancePlanItem
+      effSubjectId: Hex   // claim triple term_id
+      effPredicateId: Hex // based_on term_id
+      effObjectId: Hex    // source atom term_id
+      effTripleTermId: Hex
+    }
+    const effectiveProvs: EffectiveProv[] = validProvs.map((p) => {
+      const sub = createdTripleTermIds.get(p.claimTripleId)!
+      const pred = createdAtomTermIds.get('atom:predicate:based_on') ?? p.predicateTermId
+      const obj = createdAtomTermIds.get(p.sourceAtomId)!
+      return {
+        planItem: p,
+        effSubjectId: sub,
+        effPredicateId: pred,
+        effObjectId: obj,
+        effTripleTermId: calculateTripleId(sub, pred, obj),
+      }
+    })
+
+    const seenProvInBatch = new Set<string>()
+    const provsToSubmit: EffectiveProv[] = []
+    const preConfirmedProvs: Array<{ ep: EffectiveProv; reason: string }> = []
+
+    for (const ep of effectiveProvs) {
+      const key = ep.effTripleTermId.toLowerCase()
+      if (seenProvInBatch.has(key)) {
+        preConfirmedProvs.push({ ep, reason: 'Duplicate within batch (skipped)' })
+        continue
+      }
+      seenProvInBatch.add(key)
+      try {
+        const exists = await multiVaultIsTermCreated(
+          { address: MULTIVAULT_ADDRESS, publicClient },
+          { args: [ep.effTripleTermId] },
+        )
+        if (exists) {
+          preConfirmedProvs.push({ ep, reason: 'Provenance triple already exists on-chain (skipped)' })
+        } else {
+          provsToSubmit.push(ep)
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.warn(`[provenance] existence recheck failed for ${ep.planItem.claimTripleId} (${msg}) — assuming exists`)
+        preConfirmedProvs.push({ ep, reason: `Existence recheck failed (${msg}); assumed existing` })
+      }
+    }
+
+    for (const { ep, reason } of preConfirmedProvs) {
+      provenanceMappings.push({
+        tripleId: ep.planItem.claimTripleId,
+        sourceAtomId: ep.planItem.sourceAtomId,
+        provenanceTripleTermId: ep.effTripleTermId as string,
+        txHash: '',
+        status: 'confirmed',
+        errorMessage: reason,
+      })
+    }
+
+    if (provsToSubmit.length === 0) {
+      provenanceProcessed += chunk.length
+      console.log(`Provenance chunk ${ci + 1}: all ${effectiveProvs.length} already exist or deduped — skipping createTriples`)
+      yield {
+        type: 'chunk_success',
+        phase: 'provenance',
+        chunkIndex: ci,
+        totalChunks: provenanceChunks.length,
+        txHash: '',
+        progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+        chunkMappings: { provenanceMappings },
+      }
+      continue
+    }
+
     try {
       // Provenance triple: [claim_triple] --[based_on]--> [source_atom]
-      const subjectIds = validProvs.map((p) => createdTripleTermIds.get(p.claimTripleId)!)
-      const predicateIds = validProvs.map((p) =>
-        createdAtomTermIds.get('atom:predicate:based_on') ?? p.predicateTermId,
-      )
-      const objectIds = validProvs.map((p) => createdAtomTermIds.get(p.sourceAtomId)!)
-      const assetsArray = validProvs.map(() => tripleCost)
-      const totalValue = tripleCost * BigInt(validProvs.length)
+      const subjectIds = provsToSubmit.map((ep) => ep.effSubjectId)
+      const predicateIds = provsToSubmit.map((ep) => ep.effPredicateId)
+      const objectIds = provsToSubmit.map((ep) => ep.effObjectId)
+      const assetsArray = provsToSubmit.map(() => tripleCost)
+      const totalValue = tripleCost * BigInt(provsToSubmit.length)
 
       const txHash = await multiVaultCreateTriples(config, {
         args: [subjectIds, predicateIds, objectIds, assetsArray],
@@ -668,13 +860,13 @@ export async function* executePublishPlan(
       const events = await eventParseTripleCreated(publicClient, txHash)
 
       // Mismatch: tx mined but can't reliably map events to inputs
-      if (events.length !== validProvs.length) {
-        const mismatchErr = `Event count mismatch: expected ${validProvs.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
-        for (const p of validProvs) {
+      if (events.length !== provsToSubmit.length) {
+        const mismatchErr = `Event count mismatch: expected ${provsToSubmit.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
+        for (const ep of provsToSubmit) {
           provenanceMappings.push({
-            tripleId: p.claimTripleId,
-            sourceAtomId: p.sourceAtomId,
-            provenanceTripleTermId: p.computedTripleTermId as string,
+            tripleId: ep.planItem.claimTripleId,
+            sourceAtomId: ep.planItem.sourceAtomId,
+            provenanceTripleTermId: ep.effTripleTermId as string,
             txHash: txHash as string,
             status: 'failed',
             errorMessage: mismatchErr,
@@ -697,18 +889,18 @@ export async function* executePublishPlan(
       }
 
       // Events match — verify each termId
-      for (let j = 0; j < validProvs.length; j++) {
-        const prov = validProvs[j]
+      for (let j = 0; j < provsToSubmit.length; j++) {
+        const ep = provsToSubmit[j]
         const actualTermId = events[j].args.termId as Hex
 
         provenanceMappings.push({
-          tripleId: prov.claimTripleId,
-          sourceAtomId: prov.sourceAtomId,
+          tripleId: ep.planItem.claimTripleId,
+          sourceAtomId: ep.planItem.sourceAtomId,
           provenanceTripleTermId: actualTermId as string,
           txHash: txHash as string,
           status: 'confirmed',
-          errorMessage: actualTermId !== prov.computedTripleTermId
-            ? `TermId mismatch: expected ${prov.computedTripleTermId}, got ${actualTermId}`
+          errorMessage: actualTermId !== ep.effTripleTermId
+            ? `TermId mismatch: expected ${ep.effTripleTermId}, got ${actualTermId}`
             : undefined,
         })
       }
@@ -727,11 +919,38 @@ export async function* executePublishPlan(
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
 
-      for (const p of validProvs) {
+      // Residual TripleExists race: mark as confirmed using computed term_ids.
+      if (errorMsg.includes('MultiVault_TripleExists')) {
+        console.log('Detected TripleExists revert in provenance. Marking as existing and continuing…')
+        for (const ep of provsToSubmit) {
+          provenanceMappings.push({
+            tripleId: ep.planItem.claimTripleId,
+            sourceAtomId: ep.planItem.sourceAtomId,
+            provenanceTripleTermId: ep.effTripleTermId as string,
+            txHash: '',
+            status: 'confirmed',
+            errorMessage: 'Provenance triple already exists on-chain (recovered from revert)',
+          })
+        }
+
+        provenanceProcessed += chunk.length
+        yield {
+          type: 'chunk_success',
+          phase: 'provenance',
+          chunkIndex: ci,
+          totalChunks: provenanceChunks.length,
+          txHash: '',
+          progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+          chunkMappings: { provenanceMappings },
+        }
+        continue
+      }
+
+      for (const ep of provsToSubmit) {
         provenanceMappings.push({
-          tripleId: p.claimTripleId,
-          sourceAtomId: p.sourceAtomId,
-          provenanceTripleTermId: p.computedTripleTermId as string,
+          tripleId: ep.planItem.claimTripleId,
+          sourceAtomId: ep.planItem.sourceAtomId,
+          provenanceTripleTermId: ep.effTripleTermId as string,
           txHash: '',
           status: 'failed',
           errorMessage: errorMsg,

@@ -10,7 +10,9 @@ import {
   filterAtoms,
   isPredicateExcluded,
   isAtomTypeExcluded,
+  predicateNormalizedData,
 } from './atom-normalizer'
+import { getCanonicalRegistry } from './canonical-registry'
 import type { CanonicalAtom, CanonicalTriple } from '@/lib/knowledge-graph/graph-types'
 
 // ── normalizePredicate ──────────────────────────────────────────────────────
@@ -130,9 +132,78 @@ describe('ID generators', () => {
     expect(predicateToAtomId('has_name')).toBe('atom:predicate:has_name')
   })
 
-  it('generates literal atom IDs', () => {
-    const id = literalToAtomId('triple:abc:has_name', 'Bitcoin')
-    expect(id).toBe('atom:literal:triple:abc:has_name')
+  it('generates literal atom IDs from content hash, not triple id', () => {
+    // Same value produces the same atom id, regardless of triple it came from.
+    const a = literalToAtomId('triple:foo', 'Bitcoin')
+    const b = literalToAtomId('triple:bar', 'Bitcoin')
+    expect(a).toBe(b)
+    expect(a).toMatch(/^atom:literal:[0-9a-f]{16}$/)
+
+    // Different values produce different ids.
+    const c = literalToAtomId('triple:foo', 'Ethereum')
+    expect(c).not.toBe(a)
+
+    // Normalization is applied before hashing — "21,000,000" and "21000000" collide.
+    expect(literalToAtomId('t1', '21,000,000')).toBe(literalToAtomId('t2', '21000000'))
+  })
+})
+
+// ── predicateNormalizedData ─────────────────────────────────────────────────
+
+describe('predicateNormalizedData (canonical registry)', () => {
+  it('returns the registered URI for has_category (reused canonical "is a")', () => {
+    const uri = predicateNormalizedData('has_category')
+    expect(uri).toBe('ipfs://QmSbTY2QqhnZdCr7zqdZkFBLfY9FGEtPf8KUYzezDipPyG')
+  })
+
+  it('throws for predicates missing from the registry', () => {
+    expect(() => predicateNormalizedData('totally_made_up_predicate')).toThrow(
+      /missing from registry/,
+    )
+  })
+})
+
+// ── canonical registry guards ───────────────────────────────────────────────
+
+describe('canonical registry', () => {
+  it('every entry has a well-formed termId, uri, and lowercase label', () => {
+    const registry = getCanonicalRegistry()
+    const entries = Object.values(registry.predicates)
+    expect(entries.length).toBeGreaterThan(0)
+    for (const e of entries) {
+      expect(e.termId).toMatch(/^0x[0-9a-f]{64}$/)
+      expect(e.uri.startsWith('ipfs://')).toBe(true)
+      // Canonical labels must be lowercase with spaces (no underscores or capitals)
+      expect(e.canonicalLabel).not.toMatch(/[A-Z_]/)
+    }
+  })
+
+  it('every non-excluded predicate from PREDICATE_MAP is in the registry', () => {
+    // Excluded V1 predicates have no on-chain atom and no registry entry.
+    const EXCLUDED = new Set([
+      'has_status', 'has_completeness',
+      'has_risk_flag', 'has_severity', 'is_flagged', 'has_justification',
+    ])
+    const sampleRawKeys = [
+      'has Allocation Segment', 'has Vesting Schedule', 'has Emission Model',
+      'has Data Source', 'has Category', 'has Sector', 'has Chain',
+      'has Name', 'has Ticker', 'has Contract Address', 'has TGE Date',
+      'has Max Supply', 'has Initial Supply', 'has TGE Supply', 'has Circulating Supply',
+      'has Percentage', 'has Token Amount', 'has Wallet Address',
+      'has Cliff Months', 'has Duration Months', 'has Frequency',
+      'has TGE Percentage', 'has Cliff Unlock Percentage',
+      'has Annual Inflation Rate',
+      'has URL', 'has Version', 'has Verified At',
+      'based_on',
+    ]
+    const registry = getCanonicalRegistry()
+    const missing: string[] = []
+    for (const raw of sampleRawKeys) {
+      const norm = normalizePredicate(raw)
+      if (EXCLUDED.has(norm)) continue
+      if (!(norm in registry.predicates)) missing.push(norm)
+    }
+    expect(missing).toEqual([])
   })
 })
 
