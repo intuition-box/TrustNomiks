@@ -5,7 +5,7 @@
  * then checks existence via the Intuition SDK.
  */
 
-import { toHex } from 'viem'
+import { parseAbi, toHex } from 'viem'
 import type { Hex, PublicClient } from 'viem'
 import {
   calculateAtomId,
@@ -219,20 +219,43 @@ export async function resolveExistence(
     }
   }
 
-  // 6. Get cost estimates from on-chain config
+  // 6. Get cost estimates and the protocol's minDeposit from on-chain config.
+  // The minDeposit is what `deposit` / `depositBatch` would require post-creation;
+  // we use the same floor as the per-item *seed* deposit included in `assets[]`
+  // during creation. This opens each fresh vault with a real user position
+  // instead of zero shares (since assets[i] above creationCost flows into
+  // the vault). Read dynamically so a governance update propagates without
+  // a code change.
   let atomCost: bigint
   let tripleCost: bigint
+  let extraDepositPerUnit: bigint
 
   try {
-    ;[atomCost, tripleCost] = await Promise.all([
-      multiVaultGetAtomCost(readConfig),
-      multiVaultGetTripleCost(readConfig),
+    const generalConfigAbi = parseAbi([
+      'function getGeneralConfig() view returns ((address admin, address protocolMultisig, uint256 feeDenominator, address trustBonding, uint256 minDeposit, uint256 minShare, uint256 atomDataMaxLength, uint256 feeThreshold))',
     ])
+    const [costs, generalConfig] = await Promise.all([
+      Promise.all([
+        multiVaultGetAtomCost(readConfig),
+        multiVaultGetTripleCost(readConfig),
+      ]),
+      publicClient.readContract({
+        address: MULTIVAULT_ADDRESS,
+        abi: generalConfigAbi,
+        functionName: 'getGeneralConfig',
+      }),
+    ])
+    ;[atomCost, tripleCost] = costs
+    extraDepositPerUnit = generalConfig.minDeposit
   } catch {
     // Fallback to safe defaults if chain query fails
-    atomCost = BigInt('400000000000000')   // 0.0004 ETH
-    tripleCost = BigInt('400000000000000') // 0.0004 ETH
+    atomCost = BigInt('400000000000000')   // 0.0004 TRUST
+    tripleCost = BigInt('400000000000000') // 0.0004 TRUST
+    extraDepositPerUnit = BigInt(0)        // skip seed if we can't read minDeposit
   }
+
+  const atomUnit = atomCost + extraDepositPerUnit
+  const tripleUnit = tripleCost + extraDepositPerUnit
 
   const atomsToCreate = atomPlanItems.filter((a) => !a.exists)
   const atomsExisting = atomPlanItems.filter((a) => a.exists)
@@ -251,13 +274,14 @@ export async function resolveExistence(
     estimatedCost: {
       atomCostPerUnit: atomCost,
       tripleCostPerUnit: tripleCost,
-      totalAtomsCost: atomCost * BigInt(atomsToCreate.length),
-      totalTriplesCost: tripleCost * BigInt(triplesToCreate.length),
-      totalProvenanceCost: tripleCost * BigInt(provToCreate.length),
+      extraDepositPerUnit,
+      totalAtomsCost: atomUnit * BigInt(atomsToCreate.length),
+      totalTriplesCost: tripleUnit * BigInt(triplesToCreate.length),
+      totalProvenanceCost: tripleUnit * BigInt(provToCreate.length),
       totalCost:
-        atomCost * BigInt(atomsToCreate.length) +
-        tripleCost * BigInt(triplesToCreate.length) +
-        tripleCost * BigInt(provToCreate.length),
+        atomUnit * BigInt(atomsToCreate.length) +
+        tripleUnit * BigInt(triplesToCreate.length) +
+        tripleUnit * BigInt(provToCreate.length),
     },
     summary: {
       atomsToCreate: atomsToCreate.length,
