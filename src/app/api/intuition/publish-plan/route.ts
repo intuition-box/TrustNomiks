@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
       estimatedCost: {
         atomCostPerUnit: plan.estimatedCost.atomCostPerUnit.toString(),
         tripleCostPerUnit: plan.estimatedCost.tripleCostPerUnit.toString(),
+        extraDepositPerUnit: plan.estimatedCost.extraDepositPerUnit.toString(),
         totalAtomsCost: plan.estimatedCost.totalAtomsCost.toString(),
         totalTriplesCost: plan.estimatedCost.totalTriplesCost.toString(),
         totalProvenanceCost: plan.estimatedCost.totalProvenanceCost.toString(),
