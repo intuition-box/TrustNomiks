@@ -121,6 +121,12 @@ export async function* executePublishPlan(
 
   const atomCost = plan.estimatedCost.atomCostPerUnit
   const tripleCost = plan.estimatedCost.tripleCostPerUnit
+  // Seed deposit added on top of the protocol creation cost so each fresh
+  // vault opens with a real user position (= generalConfig.minDeposit, read
+  // dynamically by the existence-resolver). assets[i] = cost + extraDeposit.
+  const extraDeposit = plan.estimatedCost.extraDepositPerUnit
+  const atomAssetPerUnit = atomCost + extraDeposit
+  const tripleAssetPerUnit = tripleCost + extraDeposit
 
   // ── Phase 1: Batch create atoms ───────────────────────────────────────────
 
@@ -193,8 +199,8 @@ export async function* executePublishPlan(
 
     try {
       const hexDataArray = chunk.map((a) => stringToAtomData(a.normalizedData))
-      const assetsArray = chunk.map(() => atomCost)
-      const totalValue = atomCost * BigInt(chunk.length)
+      const assetsArray = chunk.map(() => atomAssetPerUnit)
+      const totalValue = atomAssetPerUnit * BigInt(chunk.length)
 
       console.log(`Creating atom chunk ${ci + 1}/${atomChunks.length} with ${chunk.length} atoms:`)
       chunk.forEach((atom, idx) => {
@@ -540,8 +546,8 @@ export async function* executePublishPlan(
       const subjectIds = triplesToSubmit.map((et) => et.effSubjectId)
       const predicateIds = triplesToSubmit.map((et) => et.effPredicateId)
       const objectIds = triplesToSubmit.map((et) => et.effObjectId)
-      const assetsArray = triplesToSubmit.map(() => tripleCost)
-      const totalValue = tripleCost * BigInt(triplesToSubmit.length)
+      const assetsArray = triplesToSubmit.map(() => tripleAssetPerUnit)
+      const totalValue = tripleAssetPerUnit * BigInt(triplesToSubmit.length)
 
       console.log(`🚀 About to call createTriples for ${triplesToSubmit.length} triples`)
       console.log(`Triple cost: ${tripleCost}, Total value: ${totalValue}`)
@@ -849,8 +855,8 @@ export async function* executePublishPlan(
       const subjectIds = provsToSubmit.map((ep) => ep.effSubjectId)
       const predicateIds = provsToSubmit.map((ep) => ep.effPredicateId)
       const objectIds = provsToSubmit.map((ep) => ep.effObjectId)
-      const assetsArray = provsToSubmit.map(() => tripleCost)
-      const totalValue = tripleCost * BigInt(provsToSubmit.length)
+      const assetsArray = provsToSubmit.map(() => tripleAssetPerUnit)
+      const totalValue = tripleAssetPerUnit * BigInt(provsToSubmit.length)
 
       const txHash = await multiVaultCreateTriples(config, {
         args: [subjectIds, predicateIds, objectIds, assetsArray],

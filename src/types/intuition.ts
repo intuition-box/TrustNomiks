@@ -14,6 +14,7 @@ export interface PublishPlanSerialized extends Omit<PublishPlan, 'estimatedCost'
   estimatedCost: {
     atomCostPerUnit: string
     tripleCostPerUnit: string
+    extraDepositPerUnit: string
     totalAtomsCost: string
     totalTriplesCost: string
     totalProvenanceCost: string

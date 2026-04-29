@@ -87,8 +87,14 @@ export interface PublishPlan {
     existing: ProvenancePlanItem[]
   }
   estimatedCost: {
+    /** Protocol creation fee per atom (read from getAtomCost). */
     atomCostPerUnit: bigint
+    /** Protocol creation fee per triple/provenance (read from getTripleCost). */
     tripleCostPerUnit: bigint
+    /** Per-item seed deposit added on top of the creation cost; equals
+     *  generalConfig.minDeposit so each fresh vault opens with a real
+     *  user position. assets[i] = costPerUnit + extraDepositPerUnit. */
+    extraDepositPerUnit: bigint
     totalAtomsCost: bigint
     totalTriplesCost: bigint
     totalProvenanceCost: bigint

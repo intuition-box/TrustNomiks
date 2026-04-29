@@ -83,13 +83,19 @@ export function PublishSummary({ plan }: PublishSummaryProps) {
           <div className="rounded-lg border p-3 space-y-2">
             <div className="flex items-baseline justify-between">
               <p className="text-sm font-medium">Estimated cost</p>
-              <p className="text-2xl font-bold">{totalCostEth} ETH</p>
+              <p className="text-2xl font-bold">{totalCostEth} TRUST</p>
             </div>
             <p className="text-xs text-muted-foreground">
-              {summary.atomsToCreate} atoms ({formatEther(BigInt(estimatedCost.totalAtomsCost))} ETH)
+              {summary.atomsToCreate} atoms ({formatEther(BigInt(estimatedCost.totalAtomsCost))} TRUST)
               {' + '}
-              {summary.triplesToCreate + summary.provenanceToCreate} triples ({formatEther(BigInt(estimatedCost.totalTriplesCost) + BigInt(estimatedCost.totalProvenanceCost))} ETH)
+              {summary.triplesToCreate + summary.provenanceToCreate} triples ({formatEther(BigInt(estimatedCost.totalTriplesCost) + BigInt(estimatedCost.totalProvenanceCost))} TRUST)
             </p>
+            {BigInt(estimatedCost.extraDepositPerUnit) > BigInt(0) && (
+              <p className="text-xs text-muted-foreground">
+                Includes {formatEther(BigInt(estimatedCost.extraDepositPerUnit))} TRUST seed deposit per item
+                ({formatEther(BigInt(estimatedCost.atomCostPerUnit))} creation + {formatEther(BigInt(estimatedCost.extraDepositPerUnit))} seed per atom · {formatEther(BigInt(estimatedCost.tripleCostPerUnit))} creation + {formatEther(BigInt(estimatedCost.extraDepositPerUnit))} seed per triple)
+              </p>
+            )}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground border-t pt-2 mt-2">
               <span>
                 Wallet signatures: <strong className="text-foreground">{batchInfo.estimatedWalletSignatures}</strong>

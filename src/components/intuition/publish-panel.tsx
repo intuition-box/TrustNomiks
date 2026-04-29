@@ -137,7 +137,19 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
   // ── Execute publish ─────────────────────────────────────────────────────
 
   const executePublish = useCallback(async () => {
-    if (!walletClient || !publicClient || !plan || !address) return
+    if (!walletClient || !publicClient || !plan || !address) {
+      const missing = {
+        walletClient: !walletClient,
+        publicClient: !publicClient,
+        plan: !plan,
+        address: !address,
+      }
+      console.warn('[publish] aborted — missing prerequisites:', missing)
+      toast.error(
+        `Cannot publish — missing: ${Object.entries(missing).filter(([, v]) => v).map(([k]) => k).join(', ')}`,
+      )
+      return
+    }
 
     setState('publishing')
     setError(null)
@@ -155,6 +167,7 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       estimatedCost: {
         atomCostPerUnit: BigInt(plan.estimatedCost.atomCostPerUnit),
         tripleCostPerUnit: BigInt(plan.estimatedCost.tripleCostPerUnit),
+        extraDepositPerUnit: BigInt(plan.estimatedCost.extraDepositPerUnit),
         totalAtomsCost: BigInt(plan.estimatedCost.totalAtomsCost),
         totalTriplesCost: BigInt(plan.estimatedCost.totalTriplesCost),
         totalProvenanceCost: BigInt(plan.estimatedCost.totalProvenanceCost),
