@@ -14,15 +14,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CanonicalAtom, CanonicalTriple, CanonicalSource } from '@/lib/knowledge-graph/graph-types'
 import {
-  normalizeAtom,
   normalizePredicate,
   normalizeLiteral,
+  predicateNormalizedData,
   filterAtoms,
   filterTriples,
   collectUniquePredicates,
   predicateToAtomId,
   literalToAtomId,
 } from './atom-normalizer'
+import { pinEntity, type EntityPinnerDeps } from './entity-pinner'
 
 // ── Raw bundle (before existence resolution) ────────────────────────────────
 
@@ -89,17 +90,24 @@ export async function buildPublishBundle(
   // 3. Build atom registry (deduplicated)
   const atomMap = new Map<string, RawAtomEntry>()
 
-  // Entity atoms from kg_atoms_v1
+  // Entity atoms from kg_atoms_v1 — pinned to IPFS via Intuition's pinThing
+  // mutation. Pin sequentially so a network error halts cleanly with the
+  // cache consistent.
+  const pinnerDeps: EntityPinnerDeps = {
+    supabase,
+    tokenContext: new Map([[tokenId, { name: tokenName, ticker: tokenTicker }]]),
+  }
   for (const atom of atoms) {
-    const normalizedData = normalizeAtom(atom)
+    const pin = await pinEntity(atom, pinnerDeps)
     atomMap.set(atom.atom_id, {
       atomId: atom.atom_id,
       atomType: atom.atom_type,
-      normalizedData,
+      normalizedData: pin.uri,
     })
   }
 
-  // Predicate atoms (implicit — not in kg_atoms_v1)
+  // Predicate atoms (implicit — not in kg_atoms_v1).
+  // normalizedData = canonical IPFS URI from the registry.
   const predicates = collectUniquePredicates(triples)
   for (const { normalized } of predicates) {
     const atomId = predicateToAtomId(normalized)
@@ -107,19 +115,19 @@ export async function buildPublishBundle(
       atomMap.set(atomId, {
         atomId,
         atomType: 'predicate',
-        normalizedData: normalized,
+        normalizedData: predicateNormalizedData(normalized),
       })
     }
   }
 
-  // Synthetic predicate atoms for name/ticker (always needed)
+  // Synthetic predicate atoms for name/ticker (always needed).
   for (const pred of ['has_name', 'has_ticker']) {
     const atomId = predicateToAtomId(pred)
     if (!atomMap.has(atomId)) {
       atomMap.set(atomId, {
         atomId,
         atomType: 'predicate',
-        normalizedData: pred,
+        normalizedData: predicateNormalizedData(pred),
       })
     }
   }

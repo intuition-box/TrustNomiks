@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Build the raw bundle from canonical views
+    // Build the raw bundle from canonical views (pins entity Things via
+    // Intuition's pinThing GraphQL mutation).
     const bundle = await buildPublishBundle(tokenId, supabase)
 
     // Create a read-only public client for on-chain existence checks

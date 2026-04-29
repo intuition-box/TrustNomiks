@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "intuition:pin-predicates": "tsx scripts/pin-canonical-predicates.ts",
+    "intuition:verify-registry": "tsx scripts/verify-canonical-registry.ts",
+    "intuition:republish-status": "tsx scripts/republish-status.ts"
   },
   "dependencies": {
     "@0xintuition/graphql": "^2.0.2",
@@ -59,6 +62,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5",
     "vitest": "^4.1.0"
   }
