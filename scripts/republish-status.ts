@@ -1,24 +1,25 @@
 /**
- * Diagnostic for the V1 → V2 vocabulary migration.
+ * Diagnostic for the V2 vocabulary migration.
  *
- * Lists tokens that have been published with the legacy snake_case
- * `TextObject` predicates and need to be re-published so their triples
- * land on the new canonical (IPFS-pinned) predicates.
+ * Two failure modes a published token can have:
+ *   1. Predicate term_id in DB does NOT match canonical-registry.json
+ *      (either plain snake_case string, OR an earlier IPFS Thing pinned
+ *      with a non-canonical label — both need republish to align with
+ *      the TrustNomiks canonical registry).
+ *   2. Predicate term_id matches but some triples were created against
+ *      the wrong predicate (rare; covered by 1).
  *
- * Strategy: query intuition_atom_mappings for rows whose normalized_data is
- * a bare snake_case string (no "ipfs://" prefix) AND atom_type='predicate'.
- * Group by token_id (via the bundle's claim_mappings → predicate_term_id
- * back-reference), and print one row per affected token.
- *
- * The script does NOT republish — that runs through the existing publish UI,
- * which now uses the canonical registry automatically. Output is a checklist.
+ * Strategy: for each predicate atom_id in intuition_atom_mappings, look
+ * up its expected term_id from the canonical registry. Diverging rows
+ * are flagged. Tokens whose claims reference any diverging predicate
+ * term_id are listed.
  *
  * Usage:
- *   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
- *     npx tsx scripts/republish-status.ts
+ *   npx tsx --env-file=.env.local scripts/republish-status.ts
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { getCanonicalRegistry } from '../src/lib/intuition/canonical-registry'
 
 function requireEnv(name: string): string {
   const v = process.env[name]
@@ -55,28 +56,56 @@ async function main() {
     { auth: { persistSession: false } },
   )
 
-  console.log('[republish-status] scanning intuition_atom_mappings for legacy predicates…')
+  console.log('[republish-status] comparing predicate term_ids against canonical registry…')
 
-  // 1. Find legacy predicate mappings (snake_case TextObject — no ipfs:// prefix).
-  const { data: legacyMappings, error: e1 } = await supabase
+  // 1. Pull all predicate mappings (both snake_case and earlier-IPFS).
+  const { data: predMappings, error: e1 } = await supabase
     .from('intuition_atom_mappings')
     .select('atom_id, atom_type, normalized_data, term_id')
     .eq('atom_type', 'predicate')
-    .not('normalized_data', 'like', 'ipfs://%')
   if (e1) throw new Error(`atom_mappings query: ${e1.message}`)
 
-  const legacy = (legacyMappings ?? []) as AtomMapping[]
-  if (legacy.length === 0) {
-    console.log('[republish-status] no legacy predicates found — nothing to migrate.')
+  const registry = getCanonicalRegistry().predicates
+  const diverging: AtomMapping[] = []
+  const aligned: AtomMapping[] = []
+
+  for (const m of (predMappings ?? []) as AtomMapping[]) {
+    const internalKey = m.atom_id.replace(/^atom:predicate:/, '')
+    const expected = registry[internalKey]
+    if (!expected) {
+      // Predicate not in registry (excluded V1 like has_status, or unknown).
+      // Treat as diverging so it gets re-evaluated on republish.
+      diverging.push(m)
+      continue
+    }
+    if ((m.term_id ?? '').toLowerCase() === expected.termId.toLowerCase()) {
+      aligned.push(m)
+    } else {
+      diverging.push(m)
+    }
+  }
+
+  console.log(`  ${aligned.length} predicate(s) already aligned with registry`)
+  console.log(`  ${diverging.length} predicate(s) diverging — need republish`)
+  if (diverging.length === 0) {
+    console.log('[republish-status] all predicates aligned — nothing to migrate.')
     return
   }
 
-  console.log(`[republish-status] ${legacy.length} legacy predicate term_id(s) on-chain:`)
-  for (const m of legacy) {
-    console.log(`    ${m.normalized_data.padEnd(36)} ${m.term_id?.slice(0, 10)}…`)
+  console.log('')
+  console.log('Diverging predicates:')
+  for (const m of diverging) {
+    const internalKey = m.atom_id.replace(/^atom:predicate:/, '')
+    const expected = registry[internalKey]
+    const dataPreview = m.normalized_data.startsWith('ipfs://')
+      ? `ipfs://…${m.normalized_data.slice(-12)}`
+      : m.normalized_data
+    console.log(
+      `  ${internalKey.padEnd(32)} db=${m.term_id?.slice(0, 10) ?? '—'} expected=${expected ? expected.termId.slice(0, 10) : '<not in registry>'}…  data=${dataPreview}`,
+    )
   }
 
-  const legacyTermIds = legacy.map((m) => m.term_id).filter(Boolean) as string[]
+  const legacyTermIds = diverging.map((m) => m.term_id).filter(Boolean) as string[]
 
   // 2. Pull triples that reference any legacy predicate.
   const { data: claims, error: e2 } = await supabase
