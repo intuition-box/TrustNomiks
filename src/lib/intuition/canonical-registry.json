@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "network": "testnet",
+  "predicates": {
+    "has_category": {
+      "internalKey": "has_category",
+      "canonicalLabel": "is a",
+      "source": "reused",
+      "cid": null,
+      "uri": "ipfs://QmSbTY2QqhnZdCr7zqdZkFBLfY9FGEtPf8KUYzezDipPyG",
+      "termId": "0xf499d9dc45d6fa45bccf6e85bda76966814d81f4f104ab6e5a52b53c47e7408d",
+      "pinnedAt": "2026-04-29T00:00:00.000Z",
+      "description": "Reused canonical Intuition atom. The TrustNomiks predicate has_category maps to is a (e.g. \"Aave is a Financial token\").",
+      "reusedFrom": "0xf499d9dc45d6fa45bccf6e85bda76966814d81f4f104ab6e5a52b53c47e7408d"
+    },
+    "has_allocation_segment": {
+      "internalKey": "has_allocation_segment",
+      "canonicalLabel": "has allocation segment",
+      "source": "pinned",
+      "cid": "bafkreichtbrf6qdnr2g3p5qp7a2daynn7dmqegg3rguprgzhnedmo7oxdi",
+      "uri": "ipfs://bafkreichtbrf6qdnr2g3p5qp7a2daynn7dmqegg3rguprgzhnedmo7oxdi",
+      "termId": "0x5af4ab6b38ec278ab1abb4d92a5d097c1cd80bc83124418f7dec3018c26619cb",
+      "pinnedAt": "2026-04-29T09:58:22.463Z",
+      "description": "Relates a token to one of its allocation segments (team, treasury, public, etc.)."
+    },
+    "has_vesting_schedule": {
+      "internalKey": "has_vesting_schedule",
+      "canonicalLabel": "has vesting schedule",
+      "source": "pinned",
+      "cid": "bafkreigxetka5gtzdwl55wzwxbtwvgdc7bmbhqkxoz4gln7dmaaz6cr36a",
+      "uri": "ipfs://bafkreigxetka5gtzdwl55wzwxbtwvgdc7bmbhqkxoz4gln7dmaaz6cr36a",
+      "termId": "0xc0286286c4e6924ed65dea194b5f2f4f6cdc1373e75b58072d0ccc1067c8e118",
+      "pinnedAt": "2026-04-29T09:58:23.715Z",
+      "description": "Relates an allocation segment to its vesting schedule."
+    },
+    "has_emission_model": {
+      "internalKey": "has_emission_model",
+      "canonicalLabel": "has emission model",
+      "source": "pinned",
+      "cid": "bafkreigwhxmyunpe7xl6v4fwdrsplhuvily2b6g4enzacnfbrhpudabhq4",
+      "uri": "ipfs://bafkreigwhxmyunpe7xl6v4fwdrsplhuvily2b6g4enzacnfbrhpudabhq4",
+      "termId": "0xe62baa94144b07ba23bd493c2eb0ea5e6b43ff80c04d2d6859368f143d229b19",
+      "pinnedAt": "2026-04-29T09:58:24.410Z",
+      "description": "Relates a token to its emission model (inflation, burn, buyback)."
+    },
+    "has_data_source": {
+      "internalKey": "has_data_source",
+      "canonicalLabel": "has data source",
+      "source": "pinned",
+      "cid": "bafkreigdk7udsmxh2mpacg2wkoks34ee2bjjyb7wpk47th5fuhjsmc24oy",
+      "uri": "ipfs://bafkreigdk7udsmxh2mpacg2wkoks34ee2bjjyb7wpk47th5fuhjsmc24oy",
+      "termId": "0x13c45f618c75d4de887cc51534fe36e5293c7309cf9fdf22621086b4f05f1b52",
+      "pinnedAt": "2026-04-29T09:58:25.067Z",
+      "description": "Relates a claim or entity to its provenance data source."
+    },
+    "has_sector": {
+      "internalKey": "has_sector",
+      "canonicalLabel": "has sector",
+      "source": "pinned",
+      "cid": "bafkreid3kvewxmaxg2bfz6mespt2sp43o5o5u2bd5kue4fghxudfff5zna",
+      "uri": "ipfs://bafkreid3kvewxmaxg2bfz6mespt2sp43o5o5u2bd5kue4fghxudfff5zna",
+      "termId": "0x30cc88abeeffbad2542ab295c685663bcf7a9daab03e7590e656b85b3c39f340",
+      "pinnedAt": "2026-04-29T09:58:25.834Z",
+      "description": "Relates a token to its sector (sub-classification within a category)."
+    },
+    "has_chain": {
+      "internalKey": "has_chain",
+      "canonicalLabel": "has chain",
+      "source": "pinned",
+      "cid": "bafkreieat6kavuuvfcygzrmexjrhmufr4mcge6tjsjjahsl6toz3uqlwiq",
+      "uri": "ipfs://bafkreieat6kavuuvfcygzrmexjrhmufr4mcge6tjsjjahsl6toz3uqlwiq",
+      "termId": "0x3c082c3c8d7924a480753e870417a1e18a26584cce5aa5dbda7438bd3d4bb6f3",
+      "pinnedAt": "2026-04-29T09:58:26.646Z",
+      "description": "Relates a token to the blockchain it is deployed on."
+    },
+    "has_name": {
+      "internalKey": "has_name",
+      "canonicalLabel": "has name",
+      "source": "pinned",
+      "cid": "bafkreibx5tthqi6drpek6w4hguib4jprqqavemjfywgxldkfe75xmuvoji",
+      "uri": "ipfs://bafkreibx5tthqi6drpek6w4hguib4jprqqavemjfywgxldkfe75xmuvoji",
+      "termId": "0x3077c9e6cd8859568480dd2c356ae628fae58c5ff8e16282cbb07c3a8479a306",
+      "pinnedAt": "2026-04-29T09:58:27.405Z",
+      "description": "Relates an entity to its display name."
+    },
+    "has_ticker": {
+      "internalKey": "has_ticker",
+      "canonicalLabel": "has ticker",
+      "source": "pinned",
+      "cid": "bafkreifw5zvq5x3dzpxpbund74woikdg2mzpeqyncy4rrtg4euwsyvjrlu",
+      "uri": "ipfs://bafkreifw5zvq5x3dzpxpbund74woikdg2mzpeqyncy4rrtg4euwsyvjrlu",
+      "termId": "0x2c60b1b3621a8d7212ef6cf4dac0bffa9df8bf09bdf97c337573cf7ed6dfa7ee",
+      "pinnedAt": "2026-04-29T09:58:28.049Z",
+      "description": "Relates a token to its ticker symbol."
+    },
+    "has_contract_address": {
+      "internalKey": "has_contract_address",
+      "canonicalLabel": "has contract address",
+      "source": "pinned",
+      "cid": "bafkreihwfutsvobrwt7avx2tqqbtgwrgtroapxb6fdcyupqgzyewtln7wq",
+      "uri": "ipfs://bafkreihwfutsvobrwt7avx2tqqbtgwrgtroapxb6fdcyupqgzyewtln7wq",
+      "termId": "0x963234e79ebe83cd40d55aae494e509d1e570135127f3ba8cd32252ca6750c7d",
+      "pinnedAt": "2026-04-29T09:58:28.745Z",
+      "description": "Relates a token to its on-chain contract address."
+    },
+    "has_tge_date": {
+      "internalKey": "has_tge_date",
+      "canonicalLabel": "has tge date",
+      "source": "pinned",
+      "cid": "bafkreietwv2lguozewojzfudlj2yoqti2pco56fnjvr4gg3eyn72ni2lgi",
+      "uri": "ipfs://bafkreietwv2lguozewojzfudlj2yoqti2pco56fnjvr4gg3eyn72ni2lgi",
+      "termId": "0xe3cfe5a0416ba25d8842cccc847f9b1123ca51dd9f409e1ba869e3ca8b0f979b",
+      "pinnedAt": "2026-04-29T09:58:29.492Z",
+      "description": "Relates a token to its Token Generation Event date (YYYY-MM-DD)."
+    },
+    "has_max_supply": {
+      "internalKey": "has_max_supply",
+      "canonicalLabel": "has max supply",
+      "source": "pinned",
+      "cid": "bafkreifpwrwmguun2bag645vdzgsua6kqpmneznytctgvfaggc4b5wuthu",
+      "uri": "ipfs://bafkreifpwrwmguun2bag645vdzgsua6kqpmneznytctgvfaggc4b5wuthu",
+      "termId": "0x680080dd94236597c2cc793903893c6259b95dcbdc199c9db1c92e5b23af9b6d",
+      "pinnedAt": "2026-04-29T09:58:30.318Z",
+      "description": "Relates a token to its maximum total supply, expressed as a base-10 integer string."
+    },
+    "has_initial_supply": {
+      "internalKey": "has_initial_supply",
+      "canonicalLabel": "has initial supply",
+      "source": "pinned",
+      "cid": "bafkreibxvllj5oqxyt46rts6rshesldijuub2t3467ylam53vh7f34vn3a",
+      "uri": "ipfs://bafkreibxvllj5oqxyt46rts6rshesldijuub2t3467ylam53vh7f34vn3a",
+      "termId": "0xd0f3cade9155ab2e13dcf0752288130bcf2fc3ec6f4c87eb14f4a0802b15e1f4",
+      "pinnedAt": "2026-04-29T09:58:31.015Z",
+      "description": "Relates a token to its initial supply at launch, expressed as a base-10 integer string."
+    },
+    "has_tge_supply": {
+      "internalKey": "has_tge_supply",
+      "canonicalLabel": "has tge supply",
+      "source": "pinned",
+      "cid": "bafkreidqcpygurngz54h5b6j5d3gw4yjitijt2kmduwobfv5c5s2zx5ele",
+      "uri": "ipfs://bafkreidqcpygurngz54h5b6j5d3gw4yjitijt2kmduwobfv5c5s2zx5ele",
+      "termId": "0x1b4a00638fde6321d50a9180eee9dd1f76a8e83ddf8fc96065e123a2e180def3",
+      "pinnedAt": "2026-04-29T09:58:31.702Z",
+      "description": "Relates a token to its supply at TGE, expressed as a base-10 integer string."
+    },
+    "has_circulating_supply": {
+      "internalKey": "has_circulating_supply",
+      "canonicalLabel": "has circulating supply",
+      "source": "pinned",
+      "cid": "bafkreigxl6cwld7k2t5zkwa3pzla743em6zkrris7ghfnfulwycah3mz6y",
+      "uri": "ipfs://bafkreigxl6cwld7k2t5zkwa3pzla743em6zkrris7ghfnfulwycah3mz6y",
+      "termId": "0x5ee4e9bbab675eee4680a464c404153b3efa3816649023fcba592c0c04db508b",
+      "pinnedAt": "2026-04-29T09:58:32.415Z",
+      "description": "Relates a token to its circulating supply, expressed as a base-10 integer string."
+    },
+    "has_percentage": {
+      "internalKey": "has_percentage",
+      "canonicalLabel": "has percentage",
+      "source": "pinned",
+      "cid": "bafkreigozmxn7rfe5p5nvu5ab4zmuhqshyt75k4zkm24uiw7yxmf64tlye",
+      "uri": "ipfs://bafkreigozmxn7rfe5p5nvu5ab4zmuhqshyt75k4zkm24uiw7yxmf64tlye",
+      "termId": "0xc6492323963e6694446aa3b6aaec35d045777883ae70de110311ec151baae0d7",
+      "pinnedAt": "2026-04-29T09:58:33.271Z",
+      "description": "Relates an allocation segment to its share of total supply, expressed as a percentage."
+    },
+    "has_token_amount": {
+      "internalKey": "has_token_amount",
+      "canonicalLabel": "has token amount",
+      "source": "pinned",
+      "cid": "bafkreiexcjlpoyyozmykydx6sfumoz7lhbqkezmat6qyqi5t6atn4qnlxm",
+      "uri": "ipfs://bafkreiexcjlpoyyozmykydx6sfumoz7lhbqkezmat6qyqi5t6atn4qnlxm",
+      "termId": "0x7fe7cd3cc31246916047160f2eac2fcda3384529c68744fad7a19694b6706bbb",
+      "pinnedAt": "2026-04-29T09:58:33.986Z",
+      "description": "Relates an allocation segment to its absolute token amount, expressed as a base-10 integer string."
+    },
+    "has_wallet_address": {
+      "internalKey": "has_wallet_address",
+      "canonicalLabel": "has wallet address",
+      "source": "pinned",
+      "cid": "bafkreidbn5ya3cxg4jqepmspikhjq4wzl7cux5zotncfho5ioc524evmky",
+      "uri": "ipfs://bafkreidbn5ya3cxg4jqepmspikhjq4wzl7cux5zotncfho5ioc524evmky",
+      "termId": "0xcfb139ff03c9d8bbcf0f3625fc1a2b2460f2e60a64078b64dcd6099718f4941b",
+      "pinnedAt": "2026-04-29T09:58:34.655Z",
+      "description": "Relates an allocation segment to the wallet address holding it."
+    },
+    "has_cliff_months": {
+      "internalKey": "has_cliff_months",
+      "canonicalLabel": "has cliff months",
+      "source": "pinned",
+      "cid": "bafkreihwhpdpoemq6ag5skixuutpabsngxmqp7q7nc34yldpclblmaqene",
+      "uri": "ipfs://bafkreihwhpdpoemq6ag5skixuutpabsngxmqp7q7nc34yldpclblmaqene",
+      "termId": "0x66638b06a36e810ec1136f183264de4f4f308d920fe9aee60e15e4b1383748ce",
+      "pinnedAt": "2026-04-29T09:58:35.368Z",
+      "description": "Relates a vesting schedule to its cliff duration in months."
+    },
+    "has_duration_months": {
+      "internalKey": "has_duration_months",
+      "canonicalLabel": "has duration months",
+      "source": "pinned",
+      "cid": "bafkreid3dg3dbspgure5exnxhjzu6zpjpprcjjwcaa4gntoangna5mke34",
+      "uri": "ipfs://bafkreid3dg3dbspgure5exnxhjzu6zpjpprcjjwcaa4gntoangna5mke34",
+      "termId": "0x3967eac34f64dbb6fe9a0b60ceeaafbcec4263093a9cd61301d45f17c9d81ae2",
+      "pinnedAt": "2026-04-29T09:58:36.082Z",
+      "description": "Relates a vesting schedule to its full duration in months."
+    },
+    "has_frequency": {
+      "internalKey": "has_frequency",
+      "canonicalLabel": "has frequency",
+      "source": "pinned",
+      "cid": "bafkreiebw6qvow42eaqdtbbgunbdutijkifrno5wqsdwcr5ltavehkrsum",
+      "uri": "ipfs://bafkreiebw6qvow42eaqdtbbgunbdutijkifrno5wqsdwcr5ltavehkrsum",
+      "termId": "0x6f8e9e13a86de10c1d63b76e8d6fe6d371cb3adc66ab3cefd019c82895886d3d",
+      "pinnedAt": "2026-04-29T09:58:36.745Z",
+      "description": "Relates a vesting schedule to its unlock frequency (monthly, yearly, etc.)."
+    },
+    "has_tge_percentage": {
+      "internalKey": "has_tge_percentage",
+      "canonicalLabel": "has tge percentage",
+      "source": "pinned",
+      "cid": "bafkreiasd3ux32eu5dtfqxi75p3edwm7yucdbfjgx2tijvivqs5walxjle",
+      "uri": "ipfs://bafkreiasd3ux32eu5dtfqxi75p3edwm7yucdbfjgx2tijvivqs5walxjle",
+      "termId": "0x3217cbf510118609c41a2ae878474e75689f17db73d4a4ea3676fca3344bfcd9",
+      "pinnedAt": "2026-04-29T09:58:37.464Z",
+      "description": "Relates a vesting schedule to the percentage unlocked at TGE."
+    },
+    "has_cliff_unlock_percentage": {
+      "internalKey": "has_cliff_unlock_percentage",
+      "canonicalLabel": "has cliff unlock percentage",
+      "source": "pinned",
+      "cid": "bafkreiblbtiwpo2twg3fwwakhnnffh7gcav7jbzv2ase4zfdklyeonujfy",
+      "uri": "ipfs://bafkreiblbtiwpo2twg3fwwakhnnffh7gcav7jbzv2ase4zfdklyeonujfy",
+      "termId": "0x5ef70ee58d2ca85e8d7825e95b18dd5abed61b36443b690bc10ab08bbbcd7123",
+      "pinnedAt": "2026-04-29T09:58:38.181Z",
+      "description": "Relates a vesting schedule to the percentage unlocked at the end of the cliff."
+    },
+    "has_annual_inflation_rate": {
+      "internalKey": "has_annual_inflation_rate",
+      "canonicalLabel": "has annual inflation rate",
+      "source": "pinned",
+      "cid": "bafkreihtjmexairlt2gnzty7zgoncurzw7j3oyjegh34gdzre5lhcb3qdu",
+      "uri": "ipfs://bafkreihtjmexairlt2gnzty7zgoncurzw7j3oyjegh34gdzre5lhcb3qdu",
+      "termId": "0x7c5a791dba75ea1791470c2f20b0e7a75c6100569bb10f22f63c2aec3d33ae07",
+      "pinnedAt": "2026-04-29T09:58:38.850Z",
+      "description": "Relates an emission model to its annual inflation rate, expressed as a percentage."
+    },
+    "has_url": {
+      "internalKey": "has_url",
+      "canonicalLabel": "has url",
+      "source": "pinned",
+      "cid": "bafkreicei7mg62ylc5cyojmc7czatari3fwknpzw7rbeqaqf3q64jdwu4u",
+      "uri": "ipfs://bafkreicei7mg62ylc5cyojmc7czatari3fwknpzw7rbeqaqf3q64jdwu4u",
+      "termId": "0x504cb0c8c650509ebface1f1d904ad3122f8a8395e34db0dab18d3b6fad5a65e",
+      "pinnedAt": "2026-04-29T09:58:39.564Z",
+      "description": "Relates a data source to its canonical URL."
+    },
+    "has_version": {
+      "internalKey": "has_version",
+      "canonicalLabel": "has version",
+      "source": "pinned",
+      "cid": "bafkreiaj6gasgqfbu6i7jvb4gwiv7avcqbryeyplih6a7xynecemolkivi",
+      "uri": "ipfs://bafkreiaj6gasgqfbu6i7jvb4gwiv7avcqbryeyplih6a7xynecemolkivi",
+      "termId": "0xa0a6412e47f4fb53b51c93ed7a822b11ccc68f0a9609daec6902b9d02585254e",
+      "pinnedAt": "2026-04-29T09:58:40.505Z",
+      "description": "Relates a data source to its document version identifier."
+    },
+    "has_verified_at": {
+      "internalKey": "has_verified_at",
+      "canonicalLabel": "has verified at",
+      "source": "pinned",
+      "cid": "bafkreihjdsq6ijwl7sq5f3lh3oxz3ohqnhmgqixx4bqv7pkf7bkxyntini",
+      "uri": "ipfs://bafkreihjdsq6ijwl7sq5f3lh3oxz3ohqnhmgqixx4bqv7pkf7bkxyntini",
+      "termId": "0x192f70c04d8de7da69b9f35799d3741f70049b47caf485a8901f3e97d9124954",
+      "pinnedAt": "2026-04-29T09:58:41.190Z",
+      "description": "Relates a data source to its verification timestamp (YYYY-MM-DD)."
+    },
+    "based_on": {
+      "internalKey": "based_on",
+      "canonicalLabel": "based on",
+      "source": "pinned",
+      "cid": "bafkreih6ct4ttfzp7y23qxvp5pycrijqx63tngu4ho6zayteudap7ptame",
+      "uri": "ipfs://bafkreih6ct4ttfzp7y23qxvp5pycrijqx63tngu4ho6zayteudap7ptame",
+      "termId": "0x5f75cac1293a3edc2b10305e23642cb68e177f09f810ce502e7e9208fa7f1ce8",
+      "pinnedAt": "2026-04-29T09:58:41.884Z",
+      "description": "Relates a claim to its provenance data source."
+    }
+  }
+}
