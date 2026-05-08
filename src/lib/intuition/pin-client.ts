@@ -65,23 +65,39 @@ interface GraphQLResponse<T> {
   errors?: Array<{ message: string }>
 }
 
+/** Hard timeout per pin call so a slow/unresponsive endpoint doesn't hang the
+ *  whole bundle build. 15s is generous — pinThing typically takes ~500ms. */
+const PIN_TIMEOUT_MS = 15_000
+
 async function postGraphQL<T>(query: string, variables: Record<string, string>): Promise<T> {
-  const res = await fetch(INTUITION_GRAPHQL_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables }),
-  })
-  if (!res.ok) {
-    throw new Error(`[pin-client] HTTP ${res.status} from ${INTUITION_GRAPHQL_ENDPOINT}`)
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), PIN_TIMEOUT_MS)
+  try {
+    const res = await fetch(INTUITION_GRAPHQL_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+      signal: ctrl.signal,
+    })
+    if (!res.ok) {
+      throw new Error(`[pin-client] HTTP ${res.status} from ${INTUITION_GRAPHQL_ENDPOINT}`)
+    }
+    const json = (await res.json()) as GraphQLResponse<T>
+    if (json.errors?.length) {
+      throw new Error(`[pin-client] GraphQL errors: ${json.errors.map((e) => e.message).join('; ')}`)
+    }
+    if (!json.data) {
+      throw new Error('[pin-client] empty response data')
+    }
+    return json.data
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`[pin-client] pin request timed out after ${PIN_TIMEOUT_MS}ms`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
   }
-  const json = (await res.json()) as GraphQLResponse<T>
-  if (json.errors?.length) {
-    throw new Error(`[pin-client] GraphQL errors: ${json.errors.map((e) => e.message).join('; ')}`)
-  }
-  if (!json.data) {
-    throw new Error('[pin-client] empty response data')
-  }
-  return json.data
 }
 
 function assertIpfsUri(uri: unknown, schemaType: string): string {
