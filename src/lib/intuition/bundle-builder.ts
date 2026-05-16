@@ -91,19 +91,30 @@ export async function buildPublishBundle(
   const atomMap = new Map<string, RawAtomEntry>()
 
   // Entity atoms from kg_atoms_v1 — pinned to IPFS via Intuition's pinThing
-  // mutation. Pin sequentially so a network error halts cleanly with the
-  // cache consistent.
+  // mutation. Pin in bounded-concurrency batches so a cold cache doesn't
+  // serialize 15+ network calls (the cache is keyed by content_hash so
+  // concurrent pins of distinct atoms are safe).
   const pinnerDeps: EntityPinnerDeps = {
     supabase,
     tokenContext: new Map([[tokenId, { name: tokenName, ticker: tokenTicker }]]),
   }
-  for (const atom of atoms) {
-    const pin = await pinEntity(atom, pinnerDeps)
-    atomMap.set(atom.atom_id, {
-      atomId: atom.atom_id,
-      atomType: atom.atom_type,
-      normalizedData: pin.uri,
-    })
+  const ENTITY_PIN_CONCURRENCY = 5
+  console.log(`[bundle-builder] pinning ${atoms.length} entity atom(s) for token ${tokenId}…`)
+  for (let i = 0; i < atoms.length; i += ENTITY_PIN_CONCURRENCY) {
+    const batch = atoms.slice(i, i + ENTITY_PIN_CONCURRENCY)
+    const results = await Promise.all(
+      batch.map(async (atom) => {
+        const pin = await pinEntity(atom, pinnerDeps)
+        return { atom, pin }
+      }),
+    )
+    for (const { atom, pin } of results) {
+      atomMap.set(atom.atom_id, {
+        atomId: atom.atom_id,
+        atomType: atom.atom_type,
+        normalizedData: pin.uri,
+      })
+    }
   }
 
   // Predicate atoms (implicit — not in kg_atoms_v1).
