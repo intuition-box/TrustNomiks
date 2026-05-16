@@ -43,6 +43,8 @@ next-env.d.ts
 # claude instructions (local only)
 CLAUDE.local.md
 claude.md
+.claude/
+skills-lock.json
 
 # local task tracker
 /tasks/
