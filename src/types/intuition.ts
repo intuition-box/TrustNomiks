@@ -1,5 +1,89 @@
 import type { PublishPlan, PublishRunResult, PublishStatus, RunStatus } from '@/lib/intuition/types'
 
+// ── Shared Intuition GraphQL response types ──────────────────────────────────
+
+export interface IntuitionAccountSummary {
+  id: string
+  label?: string | null
+  image?: string | null
+}
+
+export interface IntuitionVaultSummary {
+  termId: string
+  curveId: string | null
+  totalShares: string | null
+  totalAssets: string | null
+  currentSharePrice: string | null
+  positionCount: number | string | null
+  marketCap: string | null
+  totalPositionShares: string | null
+}
+
+export interface IntuitionAtomSummary {
+  termId: string
+  label: string | null
+  image: string | null
+  type: string | null
+  data: string | null
+  createdAt: string | null
+  transactionHash: string | null
+  creator: IntuitionAccountSummary | null
+  vault: IntuitionVaultSummary | null
+}
+
+export interface IntuitionTripleSummary {
+  termId: string
+  counterTermId: string | null
+  createdAt: string | null
+  transactionHash: string | null
+  creator: IntuitionAccountSummary | null
+  subject: IntuitionAtomSummary | null
+  predicate: IntuitionAtomSummary | null
+  object: IntuitionAtomSummary | null
+  vault: IntuitionVaultSummary | null
+  counterVault: IntuitionVaultSummary | null
+}
+
+export interface IntuitionPositionSummary {
+  id: string
+  accountId: string
+  shares: string
+  termId: string
+  curveId: string
+  createdAt: string
+  updatedAt: string
+  transactionHash: string
+  vault: IntuitionVaultSummary | null
+  atom: IntuitionAtomSummary | null
+  triple: IntuitionTripleSummary | null
+}
+
+export interface IntuitionAccountActivity {
+  walletAddress: string
+  chainId: number
+  graphqlEndpoint: string
+  fetchedAt: string
+  aggregates: {
+    activePositions: number
+    activePositionShares: string | null
+    atomsCreated: number
+    triplesCreated: number
+  }
+  positions: IntuitionPositionSummary[]
+  createdAtoms: IntuitionAtomSummary[]
+  createdTriples: IntuitionTripleSummary[]
+}
+
+export interface TrustNomiksStakeSummary {
+  walletAddress: string
+  chainId: number
+  graphqlEndpoint: string
+  fetchedAt: string
+  claimCount: number
+  positionCount: number
+  stakedTrustWei: string
+}
+
 // ── API: GET /api/intuition/publish-plan ─────────────────────────────────────
 
 export interface PublishPlanResponse {
@@ -151,6 +235,8 @@ export interface RunClaimMappingRow {
 export interface RunProvenanceMappingRow {
   tripleId: string
   sourceAtomId: string
+  relation?: 'based_on' | 'includes_claim'
+  predicateTermId?: string | null
   provenanceTripleTermId: string | null
   txHash: string | null
   status: PublishStatus
@@ -169,6 +255,8 @@ export interface RunDetailMeta {
   completedAt: string | null
   /** True if the run was created before the `run_id` column existed and was resolved via tx_hash fallback. */
   isLegacy: boolean
+  /** Where the run detail mappings were loaded from. */
+  snapshotSource: 'intuition_graphql' | 'run_snapshot' | 'legacy_run_id' | 'legacy_window' | 'empty'
 }
 
 export interface RunDetailResponse {
