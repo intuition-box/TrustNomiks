@@ -16,8 +16,8 @@ import {
 
 /** Shorthand to find an issue on a specific path in a failed safeParse result. */
 function findIssue(
-  error: { issues: Array<{ path: (string | number)[]; message: string }> },
-  path: (string | number)[]
+  error: { issues: Array<{ path: PropertyKey[]; message: string }> },
+  path: PropertyKey[]
 ) {
   return error.issues.find(
     (issue) =>
