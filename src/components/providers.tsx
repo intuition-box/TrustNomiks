@@ -13,18 +13,18 @@ export function Web3Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const rainbowTheme = resolvedTheme === 'dark' ? darkTheme() : lightTheme()
 
   useEffect(() => {
-    setMounted(true)
+    const timer = window.setTimeout(() => setMounted(true), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         {walletEnabled && mounted ? (
-          <RainbowKitProvider
-            theme={resolvedTheme === 'dark' ? darkTheme() : lightTheme()}
-          >
+          <RainbowKitProvider theme={rainbowTheme}>
             {children}
           </RainbowKitProvider>
         ) : (

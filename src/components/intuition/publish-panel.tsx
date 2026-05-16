@@ -13,8 +13,7 @@ import { PublishedClaimsView } from './published-claims-view'
 import { executePublishPlan } from '@/lib/intuition/publish-executor'
 import { INTUITION_CHAIN_ID } from '@/lib/intuition/config'
 import type { PublishPlanSerialized } from '@/types/intuition'
-import type { PublishPlan, PublishEvent, RunStatus } from '@/lib/intuition/types'
-import type { Hex } from 'viem'
+import type { PublishPlan, PublishEvent, PublishRunResult, RunStatus } from '@/lib/intuition/types'
 
 interface PublishPanelProps {
   tokenId: string
@@ -41,6 +40,12 @@ interface Counters {
   triplesSkipped: number
   provenanceCreated: number
   provenanceFailed: number
+}
+
+interface ExistingSnapshotMappings {
+  atomMappings: PublishRunResult['atomMappings']
+  claimMappings: PublishRunResult['claimMappings']
+  provenanceMappings: PublishRunResult['provenanceMappings']
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -78,7 +83,8 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
     setPlan(null)
 
     try {
-      const res = await fetch(`/api/intuition/publish-plan?tokenId=${tokenId}`)
+      const walletParam = address ? `&wallet=${encodeURIComponent(address)}` : ''
+      const res = await fetch(`/api/intuition/publish-plan?tokenId=${tokenId}${walletParam}`)
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Failed to fetch publish plan')
@@ -90,7 +96,7 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       setError(err instanceof Error ? err.message : 'Failed to generate plan')
       setState('error')
     }
-  }, [tokenId])
+  }, [tokenId, address])
 
   // ── Persist chunk to Supabase ─────────────────────────────────────────
 
@@ -200,6 +206,32 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       }
       const { runId } = await initRes.json()
       runIdRef.current = runId
+
+      const existingSnapshot = buildExistingSnapshotMappings(fullPlan)
+      if (
+        existingSnapshot.atomMappings.length > 0 ||
+        existingSnapshot.claimMappings.length > 0 ||
+        existingSnapshot.provenanceMappings.length > 0
+      ) {
+        const snapshotPersisted = await persistChunk(
+          {
+            type: 'chunk_success',
+            chunkMappings: existingSnapshot,
+          },
+          INTUITION_CHAIN_ID,
+          {
+            atomsCreated: 0,
+            atomsSkipped: plan.atoms.existing.length,
+            atomsFailed: 0,
+            triplesCreated: 0,
+            triplesSkipped: plan.triples.existing.length,
+            triplesFailed: 0,
+          },
+        )
+        if (!snapshotPersisted) {
+          hadTrackingIssues = true
+        }
+      }
 
       // 2. Execute with batching
       for await (const event of executePublishPlan(fullPlan, walletClient, publicClient)) {
@@ -568,4 +600,40 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       </Card>
     </div>
   )
+}
+
+function buildExistingSnapshotMappings(plan: PublishPlan): ExistingSnapshotMappings {
+  const atomMappings: PublishRunResult['atomMappings'] = plan.atoms.existing.map((atom) => ({
+    atomId: atom.atomId,
+    atomType: atom.atomType,
+    normalizedData: atom.normalizedData,
+    termId: atom.computedTermId,
+    txHash: '',
+    status: 'confirmed',
+    errorMessage: 'Already existed on-chain before this run',
+  }))
+
+  const claimMappings: PublishRunResult['claimMappings'] = plan.triples.existing.map((triple) => ({
+    tripleId: triple.tripleId,
+    claimGroup: triple.claimGroup,
+    originRowId: triple.originRowId,
+    subjectTermId: triple.subjectTermId,
+    predicateTermId: triple.predicateTermId,
+    objectTermId: triple.objectTermId,
+    tripleTermId: triple.computedTripleTermId,
+    txHash: '',
+    status: 'confirmed',
+    errorMessage: 'Already existed on-chain before this run',
+  }))
+
+  const provenanceMappings: PublishRunResult['provenanceMappings'] = plan.provenance.existing.map((prov) => ({
+    tripleId: prov.claimTripleId,
+    sourceAtomId: prov.sourceAtomId,
+    provenanceTripleTermId: prov.computedTripleTermId,
+    txHash: '',
+    status: 'confirmed',
+    errorMessage: 'Already existed on-chain before this run',
+  }))
+
+  return { atomMappings, claimMappings, provenanceMappings }
 }

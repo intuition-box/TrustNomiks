@@ -17,6 +17,9 @@ export const NODE_CONFIG: Record<NodeType, NodeVisualConfig> = {
   emission:    { color: '#ef4444', size: 7,  label: 'Emission'    },  // red
   risk_flag:   { color: '#f97316', size: 6,  label: 'Risk Flag'   },  // orange
   data_source: { color: '#3b82f6', size: 6,  label: 'Source'      },  // blue
+  export_run:  { color: '#14b8a6', size: 10, label: 'Export Run'  },  // teal
+  application: { color: '#0f766e', size: 9,  label: 'Application' },  // teal-700
+  wallet:      { color: '#475569', size: 6,  label: 'Wallet'      },  // slate
   category:    { color: '#64748b', size: 8,  label: 'Category'    },  // slate
   sector:      { color: '#a855f7', size: 6,  label: 'Sector'      },  // purple
   chain:       { color: '#0ea5e9', size: 6,  label: 'Chain'       },  // sky

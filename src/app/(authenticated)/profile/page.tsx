@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
+import { AccountActivityCard } from '@/components/intuition/account-activity-card'
 
 type ProfileToken = {
   id: string
@@ -120,6 +121,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </Card>
+
+      <AccountActivityCard limit={10} createdLimit={5} />
 
       {/* Contribution + Leaderboard */}
       <div className="grid gap-6 lg:grid-cols-2">

@@ -16,6 +16,9 @@ export type AtomType =
   | 'emission'
   | 'risk_flag'
   | 'data_source'
+  | 'export_run'
+  | 'application'
+  | 'wallet'
   | 'category'
   | 'sector'
   | 'chain'
@@ -31,6 +34,9 @@ export const NODE_FAMILY_MAP: Record<NodeType, NodeFamily> = {
   emission:    'atom',
   risk_flag:   'atom',
   data_source: 'source',
+  export_run:  'hub',
+  application: 'hub',
+  wallet:      'atom',
   category:    'atom',
   sector:      'atom',
   chain:       'atom',
