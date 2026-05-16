@@ -6,7 +6,6 @@ import type {
   RunClaimMappingRow,
   RunProvenanceMappingRow,
 } from '@/types/intuition'
-import { HUB_NODE_ID } from '@/lib/knowledge-graph/build-graph'
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -25,6 +24,7 @@ function makeRun(overrides: Partial<RunDetailMeta> = {}): RunDetailMeta {
     startedAt: '2026-01-01T00:00:00.000Z',
     completedAt: '2026-01-01T00:05:00.000Z',
     isLegacy: false,
+    snapshotSource: 'run_snapshot',
     ...overrides,
   }
 }
@@ -89,11 +89,16 @@ function baseInput(): BuildRunGraphInput {
 // ── Cases ────────────────────────────────────────────────────────────────────
 
 describe('buildRunGraph', () => {
-  it('empty run → only the hub node, no edges', () => {
+  it('empty run renders a token-named fallback root, no TrustNomiks hub', () => {
     const result = buildRunGraph(baseInput())
 
     expect(result.nodes).toHaveLength(1)
-    expect(result.nodes[0].id).toBe(HUB_NODE_ID)
+    expect(result.nodes[0]).toMatchObject({
+      id: 'run-root:run-1',
+      label: 'TestCoin',
+      type: 'graph_root',
+    })
+    expect(result.pinnedNodeId).toBe('run-root:run-1')
     expect(result.edges).toHaveLength(0)
     expect(result.counts).toEqual({
       atoms: { pending: 0, submitted: 0, confirmed: 0, failed: 0 },
@@ -102,7 +107,7 @@ describe('buildRunGraph', () => {
     })
   })
 
-  it('confirmed-only run with a literal triple renders token + triple, hub edge, onChain metadata', () => {
+  it('confirmed-only run with a literal triple renders token + triple without a TrustNomiks hub', () => {
     const input: BuildRunGraphInput = {
       ...baseInput(),
       atomMappings: [
@@ -149,11 +154,12 @@ describe('buildRunGraph', () => {
 
     const result = buildRunGraph(input)
 
-    // Hub + token + triple = 3 nodes (predicate + literal atoms folded into triple metadata)
-    expect(result.nodes).toHaveLength(3)
+    // Token + triple = 2 nodes (predicate + literal atoms folded into triple metadata)
+    expect(result.nodes).toHaveLength(2)
 
     const tokenNode = result.nodes.find((n) => n.type === 'token')!
     expect(tokenNode.label).toBe('TestCoin')
+    expect(result.pinnedNodeId).toBe(tokenNode.id)
     expect(tokenNode.metadata.onChain).toMatchObject({
       termId: TOKEN_TERM,
       status: 'confirmed',
@@ -165,12 +171,10 @@ describe('buildRunGraph', () => {
     expect(tripleNode.metadata.object_literal).toBe('TestCoin')
     expect(tripleNode.metadata.onChain).toMatchObject({ status: 'confirmed' })
 
-    // Edges: token→hub (belongs_to_graph) + triple→token (subject_of)
-    expect(result.edges).toHaveLength(2)
-    expect(result.edges.map((e) => e.predicate).sort()).toEqual([
-      'belongs_to_graph',
-      'subject_of',
-    ])
+    // Edges: triple→token (subject_of), no belongs_to_graph hub edge
+    expect(result.edges).toHaveLength(1)
+    expect(result.edges.map((e) => e.predicate)).toEqual(['subject_of'])
+    expect(result.nodes.some((n) => n.label === 'TrustNomiks')).toBe(false)
 
     expect(result.counts.atoms.confirmed).toBe(3)
     expect(result.counts.triples.confirmed).toBe(1)
@@ -331,7 +335,7 @@ describe('buildRunGraph', () => {
 
     const result = buildRunGraph(input)
 
-    const provNodeId = `provenance:${CLAIM_TRIPLE_ID}:${SOURCE_ATOM_ID}`
+    const provNodeId = `provenance:based_on:${CLAIM_TRIPLE_ID}:${SOURCE_ATOM_ID}`
     const provNode = result.nodes.find((n) => n.id === provNodeId)
     expect(provNode).toBeDefined()
     expect(provNode!.label).toBe('based_on')
@@ -346,6 +350,75 @@ describe('buildRunGraph', () => {
     expect(provEdges.find((e) => e.predicate === 'object_of')!.target).toBe(SOURCE_ATOM_ID)
 
     expect(result.counts.provenance.confirmed).toBe(1)
+  })
+
+  it('export membership renders includes_claim with export run as subject and claim as object', () => {
+    const CLAIM_TRIPLE_ID = `triple:${TOKEN_ID}:identity`
+    const EXPORT_RUN_ID = 'atom:export_run:run-1'
+
+    const input: BuildRunGraphInput = {
+      ...baseInput(),
+      atomMappings: [
+        atomMapping({
+          atomId: EXPORT_RUN_ID,
+          atomType: 'export_run',
+          normalizedData: 'ipfs://export-run',
+          termId: SOURCE_TERM,
+        }),
+        atomMapping({
+          atomId: `atom:token:${TOKEN_ID}`,
+          atomType: 'token',
+          normalizedData: `trustnomiks:token:${TOKEN_ID}`,
+          termId: TOKEN_TERM,
+        }),
+        atomMapping({
+          atomId: 'atom:predicate:has_name',
+          atomType: 'predicate',
+          normalizedData: 'has_name',
+          termId: PRED_TERM,
+        }),
+        atomMapping({
+          atomId: 'atom:literal:name',
+          atomType: 'literal',
+          normalizedData: 'TestCoin',
+          termId: LITERAL_TERM,
+        }),
+      ],
+      claimMappings: [
+        claimMapping({
+          tripleId: CLAIM_TRIPLE_ID,
+          subjectTermId: TOKEN_TERM,
+          predicateTermId: PRED_TERM,
+          objectTermId: LITERAL_TERM,
+          tripleTermId: '0x' + 'a2'.repeat(32),
+        }),
+      ],
+      provenanceMappings: [
+        provMapping({
+          tripleId: CLAIM_TRIPLE_ID,
+          sourceAtomId: EXPORT_RUN_ID,
+          relation: 'includes_claim',
+          predicateTermId: '0x' + 'b2'.repeat(32),
+          provenanceTripleTermId: '0x' + 'f2'.repeat(32),
+        }),
+      ],
+      canonicalAtoms: [],
+      canonicalTriples: [],
+    }
+
+    const result = buildRunGraph(input)
+    const membershipNodeId = `provenance:includes_claim:${CLAIM_TRIPLE_ID}:${EXPORT_RUN_ID}`
+    const membershipNode = result.nodes.find((n) => n.id === membershipNodeId)
+
+    expect(membershipNode).toBeDefined()
+    expect(membershipNode!.label).toBe('includes_claim')
+    expect(membershipNode!.metadata).toMatchObject({
+      isExportMembership: true,
+      subject_id: EXPORT_RUN_ID,
+      object_id: CLAIM_TRIPLE_ID,
+    })
+    expect(result.edges.find((e) => e.id === `${membershipNodeId}--subject_of--${EXPORT_RUN_ID}`)).toBeDefined()
+    expect(result.edges.find((e) => e.id === `${membershipNodeId}--object_of--${CLAIM_TRIPLE_ID}`)).toBeDefined()
   })
 
   it('provenance is dropped when the claim triple node was skipped (orphan)', () => {
@@ -381,12 +454,82 @@ describe('buildRunGraph', () => {
 
     const result = buildRunGraph(input)
 
-    // Only hub node is rendered — everything else is orphan
+    // Only fallback root node is rendered — everything else is orphan
     expect(result.nodes).toHaveLength(1)
-    expect(result.nodes[0].id).toBe(HUB_NODE_ID)
+    expect(result.nodes[0]).toMatchObject({
+      id: 'run-root:run-1',
+      label: 'TestCoin',
+      type: 'graph_root',
+    })
+    expect(result.pinnedNodeId).toBe('run-root:run-1')
 
     // But counts still reflect the attempted items
     expect(result.counts.triples.confirmed).toBe(1)
     expect(result.counts.provenance.confirmed).toBe(1)
+    expect(result.diagnostics.triplesSkippedMissingSubject).toBe(1)
+    expect(result.diagnostics.provenanceSkippedMissingClaim).toBe(1)
+  })
+
+  it('existing-only snapshot renders token and triple without transaction hashes', () => {
+    const input: BuildRunGraphInput = {
+      ...baseInput(),
+      atomMappings: [
+        atomMapping({
+          atomId: `atom:token:${TOKEN_ID}`,
+          atomType: 'token',
+          normalizedData: `trustnomiks:token:${TOKEN_ID}`,
+          termId: TOKEN_TERM,
+          txHash: '',
+          errorMessage: 'Already existed on-chain before this run',
+        }),
+        atomMapping({
+          atomId: 'atom:predicate:has_name',
+          atomType: 'predicate',
+          normalizedData: 'has_name',
+          termId: PRED_TERM,
+          txHash: '',
+          errorMessage: 'Already existed on-chain before this run',
+        }),
+        atomMapping({
+          atomId: 'atom:literal:triple:has_name',
+          atomType: 'literal',
+          normalizedData: 'TestCoin',
+          termId: LITERAL_TERM,
+          txHash: '',
+          errorMessage: 'Already existed on-chain before this run',
+        }),
+      ],
+      claimMappings: [
+        claimMapping({
+          tripleId: `triple:${TOKEN_ID}:has_name`,
+          subjectTermId: TOKEN_TERM,
+          predicateTermId: PRED_TERM,
+          objectTermId: LITERAL_TERM,
+          tripleTermId: '0x' + 'c1'.repeat(32),
+          txHash: '',
+          errorMessage: 'Already existed on-chain before this run',
+        }),
+      ],
+      provenanceMappings: [],
+      canonicalAtoms: [
+        {
+          atom_id: `atom:token:${TOKEN_ID}`,
+          atom_type: 'token',
+          label: 'TestCoin',
+          token_id: TOKEN_ID,
+          metadata: {},
+        },
+      ],
+      canonicalTriples: [],
+    }
+
+    const result = buildRunGraph(input)
+
+    expect(result.nodes.map((n) => n.type).sort()).toEqual(['token', 'triple'])
+    expect(result.edges).toHaveLength(1)
+    expect(result.counts.atoms.confirmed).toBe(3)
+    expect(result.counts.triples.confirmed).toBe(1)
+    expect(result.diagnostics.triplesSkippedMissingSubject).toBe(0)
+    expect(result.diagnostics.triplesSkippedMissingObject).toBe(0)
   })
 })

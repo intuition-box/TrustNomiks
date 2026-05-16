@@ -5,12 +5,24 @@ import { resolveExistence } from '@/lib/intuition/existence-resolver'
 import { createPublicClient, http } from 'viem'
 import { INTUITION_CHAIN } from '@/lib/intuition/config'
 import type { PublishPlanSerialized } from '@/types/intuition'
+import { normalizeWalletAddress } from '@/lib/intuition/attestation'
 
 export async function GET(request: NextRequest) {
   const tokenId = request.nextUrl.searchParams.get('tokenId')
+  const walletParam = request.nextUrl.searchParams.get('wallet')
 
   if (!tokenId) {
     return NextResponse.json({ error: 'tokenId is required' }, { status: 400 })
+  }
+  if (!walletParam) {
+    return NextResponse.json({ error: 'wallet is required for verifiable TrustNomiks exports' }, { status: 400 })
+  }
+
+  let walletAddress: string
+  try {
+    walletAddress = normalizeWalletAddress(walletParam)
+  } catch {
+    return NextResponse.json({ error: 'wallet must be a valid EVM address' }, { status: 400 })
   }
 
   try {
@@ -40,7 +52,10 @@ export async function GET(request: NextRequest) {
 
     // Build the raw bundle from canonical views (pins entity Things via
     // Intuition's pinThing GraphQL mutation).
-    const bundle = await buildPublishBundle(tokenId, supabase)
+    const bundle = await buildPublishBundle(tokenId, supabase, {
+      exportRunId: crypto.randomUUID(),
+      walletAddress,
+    })
 
     // Create a read-only public client for on-chain existence checks
     const publicClient = createPublicClient({

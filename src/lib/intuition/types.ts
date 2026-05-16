@@ -43,14 +43,24 @@ export interface TriplePlanItem {
 // ── Provenance plan item ────────────────────────────────────────────────────
 
 export interface ProvenancePlanItem {
+  /** Stable local ID for this link/membership triple. */
+  linkId: string
+  /** Link semantics. based_on keeps data-source provenance; includes_claim binds a signed export to a claim. */
+  relation: 'based_on' | 'includes_claim'
   /** The claim triple this provenance links to */
   claimTripleId: string
   claimTripleTermId: Hex
   /** The source atom this provenance links to */
   sourceAtomId: string
   sourceTermId: Hex
-  /** The predicate for provenance ("based_on") */
+  /** The predicate atom for the provenance relation. */
+  predicateAtomId: string
+  /** The predicate for this relation. */
   predicateTermId: Hex
+  /** Actual on-chain triple subject. */
+  subjectTermId: Hex
+  /** Actual on-chain triple object. */
+  objectTermId: Hex
   /** Pre-computed provenance triple term_id */
   computedTripleTermId: Hex
   exists: boolean
@@ -74,6 +84,12 @@ export interface PublishPlan {
   tokenId: string
   tokenName: string
   tokenTicker: string
+  exportRun: {
+    exportRunId: string
+    atomId: string
+    normalizedData: string
+    computedTermId: Hex
+  }
   atoms: {
     toCreate: AtomPlanItem[]
     existing: AtomPlanItem[]
@@ -175,6 +191,8 @@ export interface PublishRunResult {
   provenanceMappings: Array<{
     tripleId: string
     sourceAtomId: string
+    relation?: ProvenancePlanItem['relation']
+    predicateTermId?: string
     provenanceTripleTermId: string
     txHash: string
     status: PublishStatus
