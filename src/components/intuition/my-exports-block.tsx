@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner'
 import { WalletConnectButton } from '@/components/wallet-connect-button'
 import { RunDetailDialog } from './run-detail-dialog'
+import { AccountActivityCard } from './account-activity-card'
 import type { MyRunsResponse, MyRunSummary } from '@/types/intuition'
 import type { RunStatus } from '@/lib/intuition/types'
 
@@ -142,6 +143,10 @@ export function MyExportsBlock() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <AccountActivityCard variant="embedded" limit={10} createdLimit={5} />
+
+        <Separator />
+
         {/* Aggregates */}
         {data && (
           <AggregatesRow

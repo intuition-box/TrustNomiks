@@ -43,6 +43,8 @@ interface GraphCanvasProps {
   linkColor?: string
   /** Optional link width override (default: 0.4). */
   linkWidth?: number
+  /** Optional node to pin at the center. Defaults to the global TrustNomiks hub. */
+  pinnedNodeId?: string
 }
 
 export function GraphCanvas({
@@ -57,6 +59,7 @@ export function GraphCanvas({
   nodeColor,
   linkColor,
   linkWidth,
+  pinnedNodeId = HUB_NODE_ID,
 }: GraphCanvasProps) {
   // Index the full GraphNode map once for fast per-frame lookup in nodeCanvasObject.
   const graphNodesById = useMemo(
@@ -71,7 +74,7 @@ export function GraphCanvas({
   const graphData = useMemo(() => ({
     nodes: data.nodes.map((n) => {
       const base = { ...n } as FGNode & { fx?: number; fy?: number }
-      if (n.id === HUB_NODE_ID) {
+      if (n.id === pinnedNodeId) {
         base.fx = 0
         base.fy = 0
       }
@@ -83,7 +86,7 @@ export function GraphCanvas({
       predicate: e.predicate,
       label: e.label,
     })),
-  }), [data])
+  }), [data, pinnedNodeId])
 
   // ── Token count for dynamic scaling ───────────────────────────────────
   const tokenCount = useMemo(
@@ -209,7 +212,8 @@ export function GraphCanvas({
       const size = config.size
       const visible = isVisible(node)
       const isSelected = node.id === selectedNodeId
-      const isHub = node.id === HUB_NODE_ID
+      const isPinned = node.id === pinnedNodeId
+      const isHub = node.type === 'graph_root'
       const x = node.x ?? 0
       const y = node.y ?? 0
 
@@ -250,6 +254,7 @@ export function GraphCanvas({
       }
 
       const showLabel = isHub
+        || isPinned
         || (node.type === 'token' && globalScale > 0.8)
         || (node.type !== 'triple' && globalScale > 1.5)
       if (showLabel && visible) {
@@ -259,13 +264,13 @@ export function GraphCanvas({
         ctx.font = `${isHub ? 'bold ' : ''}${fontSize}px Inter, sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = isHub ? '#6366f1' : '#94a3b8'
+        ctx.fillStyle = isHub || isPinned ? '#6366f1' : '#94a3b8'
         ctx.fillText(node.label, x, y + size + 2)
       }
 
       ctx.globalAlpha = 1
     },
-    [selectedNodeId, isVisible, nodeColor, graphNodesById],
+    [selectedNodeId, isVisible, nodeColor, graphNodesById, pinnedNodeId],
   )
 
   const handleNodeClick = useCallback(

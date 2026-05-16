@@ -203,12 +203,10 @@ function RunDetailInner({ runId }: { runId: string }) {
             )}
 
             {!loading && !error && graphData && graphData.nodes.length <= 1 && (
-              <div className="absolute inset-0 flex items-center justify-center p-6 text-sm text-muted-foreground">
-                This run has no renderable atoms on-chain yet.
-              </div>
+              <EmptyGraphMessage data={data} graphResult={graphResult} />
             )}
 
-            {graphData && graphData.nodes.length > 1 && canvasSize.width > 0 && canvasSize.height > 0 && (
+            {graphResult && graphData && graphData.nodes.length > 1 && canvasSize.width > 0 && canvasSize.height > 0 && (
               <GraphCanvas
                 data={graphData}
                 width={canvasSize.width}
@@ -221,6 +219,7 @@ function RunDetailInner({ runId }: { runId: string }) {
                 nodeColor={nodeColor}
                 linkColor="rgba(148, 163, 184, 0.4)"
                 linkWidth={1}
+                pinnedNodeId={graphResult.pinnedNodeId}
               />
             )}
 
@@ -309,6 +308,57 @@ function CountsSummary({
           )}
         </span>
       )}
+    </div>
+  )
+}
+
+function EmptyGraphMessage({
+  data,
+  graphResult,
+}: {
+  data: RunDetailResponse | null
+  graphResult: ReturnType<typeof buildRunGraph> | null
+}) {
+  if (!data || !graphResult) return null
+
+  const { diagnostics, counts } = graphResult
+  const totalMappings =
+    diagnostics.atomMappings + diagnostics.claimMappings + diagnostics.provenanceMappings
+  const skippedTriples =
+    diagnostics.triplesSkippedMissingSubject +
+    diagnostics.triplesSkippedMissingObject +
+    diagnostics.triplesSkippedDuplicate
+
+  let title = 'No saved graph snapshot'
+  let message =
+    'This run has no saved graph snapshot. Older runs may need to be republished to capture their per-run graph.'
+
+  if (totalMappings > 0 && skippedTriples > 0) {
+    title = 'Graph snapshot is incomplete'
+    message =
+      'Some triples could not be rendered because their subject or object atoms are missing from this run snapshot.'
+  } else if (counts.atoms.confirmed > 0 && counts.triples.confirmed === 0) {
+    title = 'Only atoms were tracked'
+    message =
+      'This run did not track any confirmed triples, so there are no on-chain relationships to draw yet.'
+  } else if (data.run.snapshotSource !== 'run_snapshot') {
+    title = 'Legacy run data'
+    message =
+      'This run was loaded through legacy mapping data and may not contain a complete per-run graph snapshot.'
+  }
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center p-6">
+      <div className="max-w-md rounded-lg border bg-background p-4 text-sm shadow-sm">
+        <p className="font-medium text-foreground">{title}</p>
+        <p className="mt-1 text-muted-foreground">{message}</p>
+        {totalMappings > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Snapshot: {diagnostics.atomMappings} atoms, {diagnostics.claimMappings} triples,{' '}
+            {diagnostics.provenanceMappings} provenance links.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
