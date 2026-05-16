@@ -27,11 +27,11 @@ declare module 'd3-force-3d' {
     strength(value: number | ((node: T, i: number, nodes: T[]) => number)): RadialForce<T>
   }
 
-  export function forceCollide<T = any>(
+  export function forceCollide<T = unknown>(
     radius?: number | ((node: T, i: number, nodes: T[]) => number),
   ): CollideForce<T>
 
-  export function forceRadial<T = any>(
+  export function forceRadial<T = unknown>(
     radius: number | ((node: T, i: number, nodes: T[]) => number),
     x?: number,
     y?: number,
