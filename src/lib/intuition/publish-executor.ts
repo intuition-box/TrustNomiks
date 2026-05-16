@@ -732,7 +732,7 @@ export async function* executePublishPlan(
     for (const prov of chunk) {
       const claimTermId = createdTripleTermIds.get(prov.claimTripleId)
       const sourceTermId = createdAtomTermIds.get(prov.sourceAtomId)
-      const predTermId = createdAtomTermIds.get('atom:predicate:based_on') ?? prov.predicateTermId
+      const predTermId = createdAtomTermIds.get(prov.predicateAtomId) ?? prov.predicateTermId
 
       if (claimTermId && sourceTermId && predTermId) {
         validProvs.push(prov)
@@ -752,6 +752,8 @@ export async function* executePublishPlan(
     const provenanceMappings: PublishRunResult['provenanceMappings'] = skippedProvs.map((p) => ({
       tripleId: p.claimTripleId,
       sourceAtomId: p.sourceAtomId,
+      relation: p.relation,
+      predicateTermId: p.predicateTermId as string,
       provenanceTripleTermId: p.computedTripleTermId as string,
       txHash: '',
       status: 'failed' as const,
@@ -784,9 +786,11 @@ export async function* executePublishPlan(
       effTripleTermId: Hex
     }
     const effectiveProvs: EffectiveProv[] = validProvs.map((p) => {
-      const sub = createdTripleTermIds.get(p.claimTripleId)!
-      const pred = createdAtomTermIds.get('atom:predicate:based_on') ?? p.predicateTermId
-      const obj = createdAtomTermIds.get(p.sourceAtomId)!
+      const claimTermId = createdTripleTermIds.get(p.claimTripleId)!
+      const pred = createdAtomTermIds.get(p.predicateAtomId) ?? p.predicateTermId
+      const sourceTermId = createdAtomTermIds.get(p.sourceAtomId)!
+      const sub = p.relation === 'includes_claim' ? sourceTermId : claimTermId
+      const obj = p.relation === 'includes_claim' ? claimTermId : sourceTermId
       return {
         planItem: p,
         effSubjectId: sub,
@@ -828,6 +832,8 @@ export async function* executePublishPlan(
       provenanceMappings.push({
         tripleId: ep.planItem.claimTripleId,
         sourceAtomId: ep.planItem.sourceAtomId,
+        relation: ep.planItem.relation,
+        predicateTermId: ep.effPredicateId as string,
         provenanceTripleTermId: ep.effTripleTermId as string,
         txHash: '',
         status: 'confirmed',
@@ -851,7 +857,9 @@ export async function* executePublishPlan(
     }
 
     try {
-      // Provenance triple: [claim_triple] --[based_on]--> [source_atom]
+      // Provenance/membership triples can use either:
+      // [claim_triple] --[based_on]--> [source_atom], or
+      // [export_run] --[includes_claim]--> [claim_triple].
       const subjectIds = provsToSubmit.map((ep) => ep.effSubjectId)
       const predicateIds = provsToSubmit.map((ep) => ep.effPredicateId)
       const objectIds = provsToSubmit.map((ep) => ep.effObjectId)
@@ -872,6 +880,8 @@ export async function* executePublishPlan(
           provenanceMappings.push({
             tripleId: ep.planItem.claimTripleId,
             sourceAtomId: ep.planItem.sourceAtomId,
+            relation: ep.planItem.relation,
+            predicateTermId: ep.effPredicateId as string,
             provenanceTripleTermId: ep.effTripleTermId as string,
             txHash: txHash as string,
             status: 'failed',
@@ -902,6 +912,8 @@ export async function* executePublishPlan(
         provenanceMappings.push({
           tripleId: ep.planItem.claimTripleId,
           sourceAtomId: ep.planItem.sourceAtomId,
+          relation: ep.planItem.relation,
+          predicateTermId: ep.effPredicateId as string,
           provenanceTripleTermId: actualTermId as string,
           txHash: txHash as string,
           status: 'confirmed',
@@ -932,6 +944,8 @@ export async function* executePublishPlan(
           provenanceMappings.push({
             tripleId: ep.planItem.claimTripleId,
             sourceAtomId: ep.planItem.sourceAtomId,
+            relation: ep.planItem.relation,
+            predicateTermId: ep.effPredicateId as string,
             provenanceTripleTermId: ep.effTripleTermId as string,
             txHash: '',
             status: 'confirmed',
@@ -956,6 +970,8 @@ export async function* executePublishPlan(
         provenanceMappings.push({
           tripleId: ep.planItem.claimTripleId,
           sourceAtomId: ep.planItem.sourceAtomId,
+          relation: ep.planItem.relation,
+          predicateTermId: ep.effPredicateId as string,
           provenanceTripleTermId: ep.effTripleTermId as string,
           txHash: '',
           status: 'failed',

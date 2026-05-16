@@ -22,7 +22,6 @@
 
 import type { GraphNode, GraphEdge, NodeType } from '@/lib/knowledge-graph/graph-types'
 import { NODE_FAMILY_MAP } from '@/lib/knowledge-graph/graph-types'
-import { HUB_NODE_ID } from '@/lib/knowledge-graph/build-graph'
 import type {
   RunDetailMeta,
   RunAtomMappingRow,
@@ -53,10 +52,22 @@ export type StatusCounts = Record<PublishStatus, number>
 export interface BuildRunGraphResult {
   nodes: GraphNode[]
   edges: GraphEdge[]
+  pinnedNodeId: string
   counts: {
     atoms: StatusCounts
     triples: StatusCounts
     provenance: StatusCounts
+  }
+  diagnostics: {
+    atomMappings: number
+    claimMappings: number
+    provenanceMappings: number
+    triplesSkippedMissingSubject: number
+    triplesSkippedMissingObject: number
+    triplesSkippedDuplicate: number
+    provenanceSkippedMissingClaim: number
+    provenanceSkippedMissingSource: number
+    unknownAtomTypes: number
   }
 }
 
@@ -66,6 +77,9 @@ const ATOM_TYPE_TO_NODE_TYPE: Record<string, NodeType> = {
   vesting: 'vesting',
   emission: 'emission',
   data_source: 'data_source',
+  export_run: 'export_run',
+  application: 'application',
+  wallet: 'wallet',
   risk_flag: 'risk_flag',
   category: 'category',
   sector: 'sector',
@@ -81,6 +95,7 @@ const ATOM_TYPE_TO_NODE_TYPE: Record<string, NodeType> = {
  * ARE rendered so the user can see exactly what went wrong on-chain.
  */
 const INTERNAL_ATOM_TYPES = new Set(['predicate', 'literal'])
+const RUN_ROOT_PREFIX = 'run-root:'
 
 export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
   const {
@@ -101,6 +116,17 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     triples: emptyStatusCounts(),
     provenance: emptyStatusCounts(),
   }
+  const diagnostics: BuildRunGraphResult['diagnostics'] = {
+    atomMappings: atomMappings.length,
+    claimMappings: claimMappings.length,
+    provenanceMappings: provenanceMappings.length,
+    triplesSkippedMissingSubject: 0,
+    triplesSkippedMissingObject: 0,
+    triplesSkippedDuplicate: 0,
+    provenanceSkippedMissingClaim: 0,
+    provenanceSkippedMissingSource: 0,
+    unknownAtomTypes: 0,
+  }
 
   const canonicalAtomsById = new Map(canonicalAtoms.map((a) => [a.atom_id, a]))
   const canonicalTriplesById = new Map(canonicalTriples.map((t) => [t.triple_id, t]))
@@ -113,20 +139,11 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     if (am.termId) termIdToAtomId.set(am.termId.toLowerCase(), am.atomId)
   }
 
-  // ── 1. Hub node ──────────────────────────────────────────────────────────
-  nodes.push({
-    id: HUB_NODE_ID,
-    label: 'TrustNomiks',
-    type: 'graph_root',
-    family: 'hub',
-    isLiteral: false,
-    metadata: {},
-  })
-  nodeIds.add(HUB_NODE_ID)
-
   const tokenAtomId = `atom:token:${run.tokenId}`
+  const fallbackRootId = `${RUN_ROOT_PREFIX}${run.runId}`
+  let pinnedNodeId = tokenAtomId
 
-  // ── 2. Atom nodes (all statuses) ─────────────────────────────────────────
+  // ── 1. Atom nodes (all statuses) ─────────────────────────────────────────
   for (const am of atomMappings) {
     bumpCount(counts.atoms, am.status)
 
@@ -135,7 +152,10 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     if (INTERNAL_ATOM_TYPES.has(am.atomType) && am.status === 'confirmed') continue
 
     const nodeType = ATOM_TYPE_TO_NODE_TYPE[am.atomType]
-    if (!nodeType) continue
+    if (!nodeType) {
+      diagnostics.unknownAtomTypes += 1
+      continue
+    }
     if (nodeIds.has(am.atomId)) continue
 
     const canonical = canonicalAtomsById.get(am.atomId)
@@ -155,18 +175,26 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     })
     nodeIds.add(am.atomId)
 
-    if (nodeType === 'token' && am.atomId === tokenAtomId) {
-      edges.push({
-        id: `${am.atomId}--belongs_to_graph--${HUB_NODE_ID}`,
-        source: am.atomId,
-        target: HUB_NODE_ID,
-        predicate: 'belongs_to_graph',
-        label: 'belongs to',
-      })
-    }
   }
 
-  // ── 3. Triple (claim) nodes ──────────────────────────────────────────────
+  if (!nodeIds.has(tokenAtomId)) {
+    pinnedNodeId = fallbackRootId
+    nodes.push({
+      id: fallbackRootId,
+      label: run.tokenName,
+      type: 'graph_root',
+      family: 'hub',
+      tokenId: run.tokenId,
+      isLiteral: false,
+      metadata: {
+        tokenTicker: run.tokenTicker,
+        isFallbackRoot: true,
+      },
+    })
+    nodeIds.add(fallbackRootId)
+  }
+
+  // ── 2. Triple (claim) nodes ──────────────────────────────────────────────
   for (const cm of claimMappings) {
     bumpCount(counts.triples, cm.status)
 
@@ -190,9 +218,18 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
       canonical?.object_literal ??
       (objectMapping?.atomType === 'literal' ? objectMapping.normalizedData : null)
 
-    if (!subjectAtomId || !nodeIds.has(subjectAtomId)) continue
-    if (!isLiteralTriple && (!objectAtomId || !nodeIds.has(objectAtomId))) continue
-    if (nodeIds.has(cm.tripleId)) continue
+    if (!subjectAtomId || !nodeIds.has(subjectAtomId)) {
+      diagnostics.triplesSkippedMissingSubject += 1
+      continue
+    }
+    if (!isLiteralTriple && (!objectAtomId || !nodeIds.has(objectAtomId))) {
+      diagnostics.triplesSkippedMissingObject += 1
+      continue
+    }
+    if (nodeIds.has(cm.tripleId)) {
+      diagnostics.triplesSkippedDuplicate += 1
+      continue
+    }
     nodeIds.add(cm.tripleId)
 
     nodes.push({
@@ -237,32 +274,42 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     }
   }
 
-  // ── 4. Provenance as triple nodes ────────────────────────────────────────
+  // ── 3. Provenance as triple nodes ────────────────────────────────────────
   for (const pm of provenanceMappings) {
     bumpCount(counts.provenance, pm.status)
 
-    if (!nodeIds.has(pm.tripleId)) continue
-    if (!nodeIds.has(pm.sourceAtomId)) continue
+    if (!nodeIds.has(pm.tripleId)) {
+      diagnostics.provenanceSkippedMissingClaim += 1
+      continue
+    }
+    if (!nodeIds.has(pm.sourceAtomId)) {
+      diagnostics.provenanceSkippedMissingSource += 1
+      continue
+    }
 
-    const provNodeId = `provenance:${pm.tripleId}:${pm.sourceAtomId}`
+    const relation = pm.relation ?? 'based_on'
+    const provNodeId = `provenance:${relation}:${pm.tripleId}:${pm.sourceAtomId}`
     if (nodeIds.has(provNodeId)) continue
     nodeIds.add(provNodeId)
+    const subjectNodeId = relation === 'includes_claim' ? pm.sourceAtomId : pm.tripleId
+    const objectNodeId = relation === 'includes_claim' ? pm.tripleId : pm.sourceAtomId
 
     nodes.push({
       id: provNodeId,
-      label: 'based_on',
+      label: relation,
       type: 'triple',
       family: 'triple',
       tokenId: run.tokenId,
       isLiteral: false,
       metadata: {
-        predicate: 'based_on',
-        subject_id: pm.tripleId,
-        object_id: pm.sourceAtomId,
+        predicate: relation,
+        subject_id: subjectNodeId,
+        object_id: objectNodeId,
         object_literal: null,
-        claim_group: 'provenance',
+        claim_group: relation === 'includes_claim' ? 'export_membership' : 'provenance',
         origin_row_id: null,
-        isProvenance: true,
+        isProvenance: relation === 'based_on',
+        isExportMembership: relation === 'includes_claim',
         onChain: toOnChainMeta({
           termId: pm.provenanceTripleTermId,
           txHash: pm.txHash,
@@ -273,22 +320,22 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     })
 
     edges.push({
-      id: `${provNodeId}--subject_of--${pm.tripleId}`,
+      id: `${provNodeId}--subject_of--${subjectNodeId}`,
       source: provNodeId,
-      target: pm.tripleId,
+      target: subjectNodeId,
       predicate: 'subject_of',
       label: 'subject',
     })
     edges.push({
-      id: `${provNodeId}--object_of--${pm.sourceAtomId}`,
+      id: `${provNodeId}--object_of--${objectNodeId}`,
       source: provNodeId,
-      target: pm.sourceAtomId,
+      target: objectNodeId,
       predicate: 'object_of',
       label: 'object',
     })
   }
 
-  return { nodes, edges, counts }
+  return { nodes, edges, pinnedNodeId, counts, diagnostics }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

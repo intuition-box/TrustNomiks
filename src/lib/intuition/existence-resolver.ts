@@ -191,28 +191,65 @@ export async function resolveExistence(
         const predicateTermId = atomTermIdLookup.get(prov.predicateAtomId)
 
         if (!claimTripleTermId || !sourceTermId || !predicateTermId) {
-          return { prov, exists: false, claimTripleTermId: '0x0' as Hex, sourceTermId: '0x0' as Hex, predicateTermId: '0x0' as Hex, computedTripleTermId: '0x0' as Hex }
+          return {
+            prov,
+            exists: false,
+            claimTripleTermId: '0x0' as Hex,
+            sourceTermId: '0x0' as Hex,
+            predicateTermId: '0x0' as Hex,
+            subjectTermId: '0x0' as Hex,
+            objectTermId: '0x0' as Hex,
+            computedTripleTermId: '0x0' as Hex,
+          }
         }
 
-        // Provenance triple: [claim_triple] -- [based_on] --> [source_atom]
-        const computedTripleTermId = computeTripleTermId(claimTripleTermId, predicateTermId, sourceTermId)
+        const subjectTermId = prov.relation === 'includes_claim'
+          ? sourceTermId
+          : claimTripleTermId
+        const objectTermId = prov.relation === 'includes_claim'
+          ? claimTripleTermId
+          : sourceTermId
+        const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
 
         try {
           const exists = await multiVaultIsTermCreated(readConfig, { args: [computedTripleTermId] })
-          return { prov, exists, claimTripleTermId, sourceTermId, predicateTermId, computedTripleTermId }
+          return {
+            prov,
+            exists,
+            claimTripleTermId,
+            sourceTermId,
+            predicateTermId,
+            subjectTermId,
+            objectTermId,
+            computedTripleTermId,
+          }
         } catch {
-          return { prov, exists: false, claimTripleTermId, sourceTermId, predicateTermId, computedTripleTermId }
+          return {
+            prov,
+            exists: false,
+            claimTripleTermId,
+            sourceTermId,
+            predicateTermId,
+            subjectTermId,
+            objectTermId,
+            computedTripleTermId,
+          }
         }
       }),
     )
 
     for (const check of provChecks) {
       provenancePlanItems.push({
+        linkId: check.prov.linkId,
+        relation: check.prov.relation,
         claimTripleId: check.prov.claimTripleId,
         claimTripleTermId: check.claimTripleTermId,
         sourceAtomId: check.prov.sourceAtomId,
         sourceTermId: check.sourceTermId,
+        predicateAtomId: check.prov.predicateAtomId,
         predicateTermId: check.predicateTermId,
+        subjectTermId: check.subjectTermId,
+        objectTermId: check.objectTermId,
         computedTripleTermId: check.computedTripleTermId,
         exists: check.exists,
       })
@@ -268,6 +305,12 @@ export async function resolveExistence(
     tokenId: bundle.tokenId,
     tokenName: bundle.tokenName,
     tokenTicker: bundle.tokenTicker,
+    exportRun: {
+      exportRunId: bundle.exportRun.exportRunId,
+      atomId: bundle.exportRun.atomId,
+      normalizedData: bundle.exportRun.normalizedData,
+      computedTermId: atomTermIds.get(bundle.exportRun.atomId)!,
+    },
     atoms: { toCreate: atomsToCreate, existing: atomsExisting },
     triples: { toCreate: triplesToCreate, existing: triplesExisting },
     provenance: { toCreate: provToCreate, existing: provExisting },

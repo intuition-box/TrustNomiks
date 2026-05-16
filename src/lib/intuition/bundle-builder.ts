@@ -12,6 +12,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { calculateAtomId, calculateTripleId } from '@0xintuition/sdk'
+import { toHex, type Address, type Hex } from 'viem'
 import type { CanonicalAtom, CanonicalTriple, CanonicalSource } from '@/lib/knowledge-graph/graph-types'
 import {
   normalizePredicate,
@@ -24,6 +26,19 @@ import {
   literalToAtomId,
 } from './atom-normalizer'
 import { pinEntity, type EntityPinnerDeps } from './entity-pinner'
+import { pinByPayload } from './pin-client'
+import { INTUITION_CHAIN_ID } from './config'
+import {
+  TRUSTNOMIKS_APP_NAME,
+  caip10Uri,
+  createSignedExportRunManifest,
+  createTrustNomiksAttesterAccount,
+  normalizeWalletAddress,
+  type TrustNomiksAttestationPredicateKey,
+  type TrustNomiksExportRunSignedPayload,
+  type TrustNomiksPredicateRef,
+  type TrustNomiksTermRef,
+} from './attestation'
 
 // ── Raw bundle (before existence resolution) ────────────────────────────────
 
@@ -43,18 +58,140 @@ export interface RawTripleEntry {
 }
 
 export interface RawProvenanceEntry {
+  linkId: string
+  relation: 'based_on' | 'includes_claim'
   claimTripleId: string
   sourceAtomId: string
-  predicateAtomId: string // always "atom:predicate:based_on"
+  predicateAtomId: string
 }
 
 export interface RawBundle {
   tokenId: string
   tokenName: string
   tokenTicker: string
+  exportRun: {
+    exportRunId: string
+    atomId: string
+    normalizedData: string
+  }
   atoms: RawAtomEntry[]
   triples: RawTripleEntry[]
   provenance: RawProvenanceEntry[]
+}
+
+export interface BuildPublishBundleOptions {
+  exportRunId: string
+  walletAddress?: string | null
+}
+
+interface AttestationArtifacts {
+  appAtom: TrustNomiksTermRef
+  submitterAtom: TrustNomiksTermRef
+  attesterAtom: TrustNomiksTermRef
+  predicates: Record<TrustNomiksAttestationPredicateKey, TrustNomiksPredicateRef>
+}
+
+const ATTESTATION_PREDICATES: Array<{
+  key: TrustNomiksAttestationPredicateKey
+  internalKey: string
+  label: string
+  description: string
+}> = [
+  {
+    key: 'publishedBy',
+    internalKey: 'published_by',
+    label: 'published by',
+    description: 'Links a TrustNomiks export run to the canonical TrustNomiks application identity.',
+  },
+  {
+    key: 'submittedBy',
+    internalKey: 'submitted_by',
+    label: 'submitted by',
+    description: 'Links a TrustNomiks export run to the wallet that submitted the export.',
+  },
+  {
+    key: 'attestedBy',
+    internalKey: 'attested_by',
+    label: 'attested by',
+    description: 'Links a TrustNomiks export run to the TrustNomiks signer that attested its manifest.',
+  },
+  {
+    key: 'includesClaim',
+    internalKey: 'includes_claim',
+    label: 'includes claim',
+    description: 'Links a TrustNomiks export run to a claim triple included in that signed export.',
+  },
+]
+
+function stringToAtomData(str: string): Hex {
+  return toHex(new TextEncoder().encode(str))
+}
+
+function atomTermId(normalizedData: string): Hex {
+  return calculateAtomId(stringToAtomData(normalizedData))
+}
+
+function tripleTermId(subjectTermId: Hex, predicateTermId: Hex, objectTermId: Hex): Hex {
+  return calculateTripleId(subjectTermId, predicateTermId, objectTermId)
+}
+
+function termRef(atomId: string, uri: string): TrustNomiksTermRef {
+  return { atomId, uri, termId: atomTermId(uri) }
+}
+
+async function buildAttestationArtifacts(
+  submitterAddress: Address,
+  attesterAddress: Address,
+): Promise<AttestationArtifacts> {
+  const appUri = await pinByPayload({
+    schema: 'Organization',
+    data: {
+      name: TRUSTNOMIKS_APP_NAME,
+      description: 'TrustNomiks application authority for signed Intuition export manifests.',
+      image: '',
+      url: 'https://trustnomiks.com',
+      email: '',
+    },
+  })
+
+  const predicateEntries = await Promise.all(
+    ATTESTATION_PREDICATES.map(async (spec) => {
+      const uri = await pinByPayload({
+        schema: 'Thing',
+        data: {
+          name: spec.label,
+          description: spec.description,
+          image: '',
+          url: '',
+        },
+      })
+      return [
+        spec.key,
+        {
+          atomId: `atom:predicate:${spec.internalKey}`,
+          label: spec.label,
+          uri,
+          termId: atomTermId(uri),
+        } satisfies TrustNomiksPredicateRef,
+      ] as const
+    }),
+  )
+
+  return {
+    appAtom: termRef('atom:trustnomiks:app', appUri),
+    submitterAtom: termRef(
+      `atom:wallet:${submitterAddress.toLowerCase()}`,
+      caip10Uri(submitterAddress),
+    ),
+    attesterAtom: termRef(
+      `atom:wallet:${attesterAddress.toLowerCase()}`,
+      caip10Uri(attesterAddress),
+    ),
+    predicates: Object.fromEntries(predicateEntries) as Record<
+      TrustNomiksAttestationPredicateKey,
+      TrustNomiksPredicateRef
+    >,
+  }
 }
 
 // ── Main builder ────────────────────────────────────────────────────────────
@@ -62,6 +199,7 @@ export interface RawBundle {
 export async function buildPublishBundle(
   tokenId: string,
   supabase: SupabaseClient,
+  options: BuildPublishBundleOptions,
 ): Promise<RawBundle> {
   // 1. Fetch canonical data in parallel
   const scopeFilter = `token_id.eq.${tokenId},token_id.is.null`
@@ -82,6 +220,16 @@ export async function buildPublishBundle(
   const rawTriples = (triplesResult.data ?? []) as CanonicalTriple[]
   const claimSources = (sourcesResult.data ?? []) as CanonicalSource[]
   const { name: tokenName, ticker: tokenTicker } = tokenResult.data
+  const exportRunAtomId = `atom:export_run:${options.exportRunId}`
+  if (!options.walletAddress) {
+    throw new Error('walletAddress is required for signed TrustNomiks export manifests')
+  }
+  const submitterAddress = normalizeWalletAddress(options.walletAddress)
+  const attester = createTrustNomiksAttesterAccount()
+  const attestationArtifacts = await buildAttestationArtifacts(
+    submitterAddress,
+    attester.address,
+  )
 
   // 2. Filter excluded types
   const atoms = filterAtoms(rawAtoms)
@@ -141,6 +289,29 @@ export async function buildPublishBundle(
         normalizedData: predicateNormalizedData(pred),
       })
     }
+  }
+
+  atomMap.set(attestationArtifacts.appAtom.atomId, {
+    atomId: attestationArtifacts.appAtom.atomId,
+    atomType: 'application',
+    normalizedData: attestationArtifacts.appAtom.uri,
+  })
+  atomMap.set(attestationArtifacts.submitterAtom.atomId, {
+    atomId: attestationArtifacts.submitterAtom.atomId,
+    atomType: 'wallet',
+    normalizedData: attestationArtifacts.submitterAtom.uri,
+  })
+  atomMap.set(attestationArtifacts.attesterAtom.atomId, {
+    atomId: attestationArtifacts.attesterAtom.atomId,
+    atomType: 'wallet',
+    normalizedData: attestationArtifacts.attesterAtom.uri,
+  })
+  for (const predicate of Object.values(attestationArtifacts.predicates)) {
+    atomMap.set(predicate.atomId, {
+      atomId: predicate.atomId,
+      atomType: 'predicate',
+      normalizedData: predicate.uri,
+    })
   }
 
   // 4. Build triple list + collect literal atoms
@@ -221,6 +392,83 @@ export async function buildPublishBundle(
     })
   }
 
+  const coreClaimTripleIds = tripleEntries.map((triple) => triple.tripleId)
+  const atomTermIds = new Map<string, Hex>()
+  for (const atom of atomMap.values()) {
+    atomTermIds.set(atom.atomId, atomTermId(atom.normalizedData))
+  }
+  const claimTermIds = coreClaimTripleIds.map((tripleId) => {
+    const triple = tripleEntries.find((entry) => entry.tripleId === tripleId)!
+    const subjectTermId = atomTermIds.get(triple.subjectAtomId)
+    const predicateTermId = atomTermIds.get(triple.predicateAtomId)
+    const objectTermId = atomTermIds.get(triple.objectAtomId)
+    if (!subjectTermId || !predicateTermId || !objectTermId) {
+      throw new Error(`Cannot compute claim term id for ${triple.tripleId}: missing atom term id`)
+    }
+    return tripleTermId(subjectTermId, predicateTermId, objectTermId)
+  })
+
+  const createdAt = new Date().toISOString()
+  const signedPayload: TrustNomiksExportRunSignedPayload = {
+    type: 'TrustNomiksExportRun',
+    schemaVersion: 2,
+    app: 'TrustNomiks',
+    exportRunId: options.exportRunId,
+    tokenId,
+    tokenName,
+    tokenTicker,
+    walletAddress: submitterAddress,
+    chainId: INTUITION_CHAIN_ID,
+    createdAt,
+    appAtom: attestationArtifacts.appAtom,
+    submitterAtom: attestationArtifacts.submitterAtom,
+    attesterAtom: attestationArtifacts.attesterAtom,
+    predicates: attestationArtifacts.predicates,
+    claimTermIds,
+  }
+  const manifest = await createSignedExportRunManifest(signedPayload)
+  const exportRunUri = await pinByPayload({
+    schema: 'Thing',
+    data: {
+      name: `TrustNomiks Export: ${tokenName} (${tokenTicker})`,
+      description: JSON.stringify(manifest),
+      image: '',
+      url: `trustnomiks://export-run/${options.exportRunId}`,
+    },
+  })
+  atomMap.set(exportRunAtomId, {
+    atomId: exportRunAtomId,
+    atomType: 'export_run',
+    normalizedData: exportRunUri,
+  })
+
+  tripleEntries.push(
+    {
+      tripleId: `triple:export:${options.exportRunId}:published_by`,
+      claimGroup: 'export_attestation',
+      originRowId: options.exportRunId,
+      subjectAtomId: exportRunAtomId,
+      predicateAtomId: attestationArtifacts.predicates.publishedBy.atomId,
+      objectAtomId: attestationArtifacts.appAtom.atomId,
+    },
+    {
+      tripleId: `triple:export:${options.exportRunId}:submitted_by`,
+      claimGroup: 'export_attestation',
+      originRowId: options.exportRunId,
+      subjectAtomId: exportRunAtomId,
+      predicateAtomId: attestationArtifacts.predicates.submittedBy.atomId,
+      objectAtomId: attestationArtifacts.submitterAtom.atomId,
+    },
+    {
+      tripleId: `triple:export:${options.exportRunId}:attested_by`,
+      claimGroup: 'export_attestation',
+      originRowId: options.exportRunId,
+      subjectAtomId: exportRunAtomId,
+      predicateAtomId: attestationArtifacts.predicates.attestedBy.atomId,
+      objectAtomId: attestationArtifacts.attesterAtom.atomId,
+    },
+  )
+
   // 5. Build provenance entries from claim_sources
   const basedOnPredicateId = predicateToAtomId('based_on')
   const provenanceEntries: RawProvenanceEntry[] = []
@@ -266,6 +514,8 @@ export async function buildPublishBundle(
       seenProvenance.add(provKey)
 
       provenanceEntries.push({
+        linkId: `provenance:${tripleId}:${cs.source_atom_id}`,
+        relation: 'based_on',
         claimTripleId: tripleId,
         sourceAtomId: cs.source_atom_id,
         predicateAtomId: basedOnPredicateId,
@@ -273,10 +523,30 @@ export async function buildPublishBundle(
     }
   }
 
+  const includesClaimPredicateId = attestationArtifacts.predicates.includesClaim.atomId
+  for (const tripleId of coreClaimTripleIds) {
+    const provKey = `${tripleId}:${exportRunAtomId}:includes_claim`
+    if (seenProvenance.has(provKey)) continue
+    seenProvenance.add(provKey)
+
+    provenanceEntries.push({
+      linkId: `membership:${options.exportRunId}:${tripleId}`,
+      relation: 'includes_claim',
+      claimTripleId: tripleId,
+      sourceAtomId: exportRunAtomId,
+      predicateAtomId: includesClaimPredicateId,
+    })
+  }
+
   return {
     tokenId,
     tokenName,
     tokenTicker,
+    exportRun: {
+      exportRunId: options.exportRunId,
+      atomId: exportRunAtomId,
+      normalizedData: exportRunUri,
+    },
     atoms: Array.from(atomMap.values()),
     triples: tripleEntries,
     provenance: provenanceEntries,
