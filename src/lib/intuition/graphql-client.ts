@@ -17,13 +17,7 @@ import type {
   RunDetailResponse,
   TrustNomiksStakeSummary,
 } from '@/types/intuition'
-import {
-  normalizeWalletAddress,
-  parseExportRunManifest,
-  verifyExportRunManifest,
-  type TrustNomiksExportRunManifest,
-  type TrustNomiksExportRunSignedPayload,
-} from './attestation'
+import { normalizeWalletAddress } from './utils'
 
 const DEFAULT_TIMEOUT_MS = 15_000
 const WALLET_REGEX = /^0x[a-fA-F0-9]{40}$/
@@ -184,10 +178,6 @@ interface ExportRunAtomQueryData {
 
 interface ExportRunClaimsQueryData {
   claimTriples: RawTriple[]
-}
-
-interface ExportRunLinksQueryData {
-  triples: RawTriple[]
 }
 
 interface TrustNomiksStakePositionsData {
@@ -417,28 +407,6 @@ const EXPORT_RUN_ATOM_QUERY = /* GraphQL */ `
   }
 `
 
-const EXPORT_RUN_LINKS_QUERY = /* GraphQL */ `
-  query ExportRunLinks($runTermIds: [String!], $predicateIds: [String!]) {
-    triples(
-      where: {
-        subject: { term_id: { _in: $runTermIds } }
-        predicate: { term_id: { _in: $predicateIds } }
-      }
-      limit: 10000
-    ) {
-      term_id
-      subject_id
-      predicate_id
-      object_id
-      created_at
-      transaction_hash
-      subject { term_id label image type data }
-      predicate { term_id label image type data }
-      object { term_id label image type data }
-    }
-  }
-`
-
 const EXPORT_RUN_CLAIMS_QUERY = /* GraphQL */ `
   query ExportRunClaims($claimTermIds: [String!]) {
     claimTriples: triples(where: { term_id: { _in: $claimTermIds } }, limit: 10000) {
@@ -544,26 +512,28 @@ export async function fetchExportRunsByWallet(
     variables,
   )
 
-  const verifiedCandidates = (await verifyExportRunAtoms(data.atoms))
-    .filter(({ payload }) => payload.walletAddress.toLowerCase() === normalizedWallet.toLowerCase())
-  const linksByRun = await fetchLinksByRun(verifiedCandidates)
+  const parsedCandidates = parseExportRunAtoms(data.atoms)
+    .filter(({ payload }) => {
+      if (payload.walletAddress) {
+        return payload.walletAddress.toLowerCase() === normalizedWallet.toLowerCase()
+      }
+      return true
+    })
 
-  const runs: MyRunSummary[] = verifiedCandidates.flatMap((candidate) => {
-    const claimTermIds = verifiedClaimTermIdsForRun(candidate, linksByRun.get(candidate.atom.term_id) ?? [])
-    if (!claimTermIds) return []
-    const { atom, payload } = candidate
+  const runs: MyRunSummary[] = parsedCandidates.map(({ atom, payload }) => {
+    const claimIds = claimTermIdsForRun({ atom, payload })
     return {
       runId: atom.term_id,
       tokenId: payload.tokenId,
       tokenName: payload.tokenName,
       tokenTicker: payload.tokenTicker,
-      walletAddress: payload.walletAddress,
+      walletAddress: payload.walletAddress ?? atom.creator_id ?? '',
       chainId: INTUITION_CHAIN_ID,
       status: 'completed',
       atomsCreated: 1,
       atomsSkipped: 0,
       atomsFailed: 0,
-      triplesCreated: claimTermIds.length,
+      triplesCreated: claimIds.length,
       triplesSkipped: 0,
       triplesFailed: 0,
       txHashCount: atom.transaction_hash ? 1 : 0,
@@ -603,23 +573,18 @@ export async function fetchExportRunDetail(runTermId: string): Promise<RunDetail
     throw new IntuitionGraphQLError('Export run atom not found on Intuition')
   }
 
-  const [candidate] = await verifyExportRunAtoms([detail.atom])
-  if (!candidate) {
-    throw new IntuitionGraphQLError('Export run is not signed by the configured TrustNomiks attester')
+  const payload = parseExportRunPayload(detail.atom.value?.thing?.description)
+  if (!payload) {
+    throw new IntuitionGraphQLError('Export run is not a valid TrustNomiks export')
   }
 
-  const linksByRun = await fetchLinksByRun([candidate])
-  const exportLinks = linksByRun.get(detail.atom.term_id) ?? []
-  const claimTermIds = verifiedClaimTermIdsForRun(candidate, exportLinks)
-  if (!claimTermIds) {
-    throw new IntuitionGraphQLError('Export run is missing required TrustNomiks verification links')
-  }
+  const termIds = payload.claimTermIds.filter((id) => TERM_ID_REGEX.test(id))
 
-  const claims = claimTermIds.length === 0
+  const claims = termIds.length === 0
     ? { claimTriples: [] }
     : await postIntuitionGraphQL<ExportRunClaimsQueryData, { claimTermIds: string[] }>(
       EXPORT_RUN_CLAIMS_QUERY,
-      { claimTermIds },
+      { claimTermIds: termIds },
     )
 
   const atomsByTermId = new Map<string, RawAtom>()
@@ -655,33 +620,28 @@ export async function fetchExportRunDetail(runTermId: string): Promise<RunDetail
     }))
     .filter((mapping) => mapping.subjectTermId && mapping.predicateTermId && mapping.objectTermId)
 
-  const verifiedClaimSet = new Set(claimTermIds.map((id) => id.toLowerCase()))
-  const provenanceMappings = exportLinks
-    .filter((link) => sameTerm(link.predicate_id ?? link.predicate?.term_id, candidate.payload.predicates.includesClaim.termId))
-    .filter((link) => verifiedClaimSet.has((link.object_id ?? link.object?.term_id ?? '').toLowerCase()))
-    .map((link) => ({
-      tripleId: link.object_id ?? link.object?.term_id ?? '',
-      sourceAtomId: detail.atom!.term_id,
-      relation: 'includes_claim' as const,
-      predicateTermId: link.predicate_id ?? link.predicate?.term_id ?? null,
-      provenanceTripleTermId: link.term_id,
-      txHash: link.transaction_hash ?? '',
-      status: 'confirmed' as const,
-      errorMessage: null,
-    }))
-    .filter((mapping) => mapping.tripleId)
+  const provenanceMappings = termIds.map((termId) => ({
+    tripleId: termId,
+    sourceAtomId: detail.atom!.term_id,
+    relation: 'includes_claim' as const,
+    predicateTermId: null,
+    provenanceTripleTermId: null,
+    txHash: '',
+    status: 'confirmed' as const,
+    errorMessage: null,
+  }))
 
   return {
     run: {
       runId: detail.atom.term_id,
-      tokenId: candidate.payload.tokenId,
-      tokenName: candidate.payload.tokenName,
-      tokenTicker: candidate.payload.tokenTicker,
-      walletAddress: candidate.payload.walletAddress,
+      tokenId: payload.tokenId,
+      tokenName: payload.tokenName,
+      tokenTicker: payload.tokenTicker,
+      walletAddress: payload.walletAddress ?? '',
       chainId: INTUITION_CHAIN_ID,
       status: 'completed',
-      startedAt: detail.atom.created_at ?? candidate.payload.createdAt,
-      completedAt: detail.atom.created_at ?? candidate.payload.createdAt,
+      startedAt: detail.atom.created_at ?? payload.createdAt,
+      completedAt: detail.atom.created_at ?? payload.createdAt,
       isLegacy: false,
       snapshotSource: 'intuition_graphql',
     },
@@ -706,16 +666,13 @@ export async function fetchTrustNomiksStakeByWallet(
     limit: 10000,
   })
 
-  const verifiedCandidates = await verifyExportRunAtoms(exportRuns.atoms)
-  if (verifiedCandidates.length === 0) {
+  const parsedRuns = parseExportRunAtoms(exportRuns.atoms)
+  if (parsedRuns.length === 0) {
     return emptyTrustNomiksStake(normalizedWallet)
   }
 
-  const linksByRun = await fetchLinksByRun(verifiedCandidates)
   const claimTermIds = uniqueTermIds(
-    verifiedCandidates.flatMap((candidate) =>
-      verifiedClaimTermIdsForRun(candidate, linksByRun.get(candidate.atom.term_id) ?? []) ?? [],
-    ),
+    parsedRuns.flatMap((run) => claimTermIdsForRun(run)),
   )
   if (claimTermIds.length === 0) {
     return emptyTrustNomiksStake(normalizedWallet)
@@ -747,10 +704,23 @@ export async function fetchTrustNomiksStakeByWallet(
   }
 }
 
-interface VerifiedExportRun {
+interface ExportRunPayload {
+  type: 'TrustNomiksExportRun'
+  schemaVersion: number
+  app: 'TrustNomiks'
+  exportRunId: string
+  tokenId: string
+  tokenName: string
+  tokenTicker: string
+  walletAddress: string | null
+  chainId: number
+  createdAt: string
+  claimTermIds: string[]
+}
+
+interface ParsedExportRun {
   atom: RawAtom
-  manifest: TrustNomiksExportRunManifest
-  payload: TrustNomiksExportRunSignedPayload
+  payload: ExportRunPayload
 }
 
 const TERM_ID_REGEX = /^0x[0-9a-fA-F]{64}$/
@@ -760,80 +730,34 @@ const STAKE_READ_ABI = parseAbi([
   'function convertToAssets(bytes32 termId, uint256 curveId, uint256 shares) view returns (uint256)',
 ])
 
-async function verifyExportRunAtoms(atoms: RawAtom[]): Promise<VerifiedExportRun[]> {
-  const results = await Promise.all(
-    atoms.map(async (atom) => {
-      const manifest = parseExportRunManifest(atom.value?.thing?.description)
-      if (!manifest) return null
-      const verification = await verifyExportRunManifest(manifest)
-      if (!verification.valid || !verification.payload) return null
-      return { atom, manifest, payload: verification.payload }
-    }),
-  )
+function parseExportRunPayload(raw: string | null | undefined): ExportRunPayload | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    if (parsed?.type === 'TrustNomiksExportRun' && parsed?.app === 'TrustNomiks') {
+      return parsed as ExportRunPayload
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function parseExportRunAtoms(atoms: RawAtom[]): ParsedExportRun[] {
+  const results: (ParsedExportRun | null)[] = []
+  for (const atom of atoms) {
+    const payload = parseExportRunPayload(atom.value?.thing?.description)
+    if (!payload) {
+      results.push(null)
+      continue
+    }
+    results.push({ atom, payload })
+  }
   return results.filter(isNonNull)
 }
 
-async function fetchLinksByRun(
-  runs: VerifiedExportRun[],
-): Promise<Map<string, RawTriple[]>> {
-  if (runs.length === 0) return new Map()
-  const runTermIds = runs.map((run) => run.atom.term_id)
-  const predicateIds = uniqueTermIds(runs.flatMap((run) => [
-    run.payload.predicates.publishedBy.termId,
-    run.payload.predicates.submittedBy.termId,
-    run.payload.predicates.attestedBy.termId,
-    run.payload.predicates.includesClaim.termId,
-  ]))
-
-  const data = await postIntuitionGraphQL<
-    ExportRunLinksQueryData,
-    { runTermIds: string[]; predicateIds: string[] }
-  >(EXPORT_RUN_LINKS_QUERY, { runTermIds, predicateIds })
-
-  const linksByRun = new Map<string, RawTriple[]>()
-  for (const link of data.triples) {
-    const runTermId = link.subject_id ?? link.subject?.term_id
-    if (!runTermId) continue
-    const arr = linksByRun.get(runTermId) ?? []
-    arr.push(link)
-    linksByRun.set(runTermId, arr)
-  }
-  return linksByRun
-}
-
-function verifiedClaimTermIdsForRun(
-  run: VerifiedExportRun,
-  links: RawTriple[],
-): string[] | null {
-  const payload = run.payload
-  if (!hasLink(links, payload.predicates.publishedBy.termId, payload.appAtom.termId)) {
-    return null
-  }
-  if (!hasLink(links, payload.predicates.submittedBy.termId, payload.submitterAtom.termId)) {
-    return null
-  }
-  if (!hasLink(links, payload.predicates.attestedBy.termId, payload.attesterAtom.termId)) {
-    return null
-  }
-
-  const signedClaimIds = new Set(payload.claimTermIds.map((id) => id.toLowerCase()))
-  return uniqueTermIds(
-    links
-      .filter((link) => sameTerm(link.predicate_id ?? link.predicate?.term_id, payload.predicates.includesClaim.termId))
-      .map((link) => link.object_id ?? link.object?.term_id ?? '')
-      .filter((id) => signedClaimIds.has(id.toLowerCase())),
-  )
-}
-
-function hasLink(links: RawTriple[], predicateTermId: string, objectTermId: string): boolean {
-  return links.some((link) =>
-    sameTerm(link.predicate_id ?? link.predicate?.term_id, predicateTermId) &&
-    sameTerm(link.object_id ?? link.object?.term_id, objectTermId),
-  )
-}
-
-function sameTerm(left: string | null | undefined, right: string | null | undefined): boolean {
-  return Boolean(left && right && left.toLowerCase() === right.toLowerCase())
+function claimTermIdsForRun(run: ParsedExportRun): string[] {
+  return uniqueTermIds(run.payload.claimTermIds)
 }
 
 function uniqueTermIds(ids: string[]): string[] {

@@ -5,7 +5,7 @@ import { resolveExistence } from '@/lib/intuition/existence-resolver'
 import { createPublicClient, http } from 'viem'
 import { INTUITION_CHAIN } from '@/lib/intuition/config'
 import type { PublishPlanSerialized } from '@/types/intuition'
-import { normalizeWalletAddress } from '@/lib/intuition/attestation'
+import { normalizeWalletAddress } from '@/lib/intuition/utils'
 
 export async function GET(request: NextRequest) {
   const tokenId = request.nextUrl.searchParams.get('tokenId')
