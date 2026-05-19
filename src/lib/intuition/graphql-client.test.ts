@@ -2,19 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   IntuitionGraphQLError,
   fetchAccountActivity,
+  fetchExportRunDetail,
   fetchExportRunsByWallet,
   fetchTrustNomiksStakeByWallet,
   isWalletAddress,
   parsePositiveIntParam,
   postIntuitionGraphQL,
 } from './graphql-client'
-import { createSignedExportRunManifest, type TrustNomiksExportRunSignedPayload } from './attestation'
-import { privateKeyToAccount } from 'viem/accounts'
 import type { Hex, PublicClient } from 'viem'
 
 const WALLET = '0x6AdBC0c9A30923d4E2377171d278E139dFb3D02B'
-const PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945387dc9e86dae876e0603f7b3d44fbc2f96f' as Hex
-const ATTESTER = privateKeyToAccount(PRIVATE_KEY).address
 
 describe('intuition graphql-client', () => {
   beforeEach(() => {
@@ -215,16 +212,10 @@ describe('intuition graphql-client', () => {
       .rejects.toBeInstanceOf(IntuitionGraphQLError)
   })
 
-  it('filters My Exports to signed runs with required TrustNomiks links', async () => {
-    vi.stubEnv('TRUSTNOMIKS_ATTESTATION_PRIVATE_KEY', PRIVATE_KEY)
-    vi.stubEnv('TRUSTNOMIKS_ATTESTER_ADDRESS', ATTESTER)
-
+  it('parses My Exports from plain JSON payloads', async () => {
     const runTermId = term('9')
-    const manifest = await createSignedExportRunManifest(exportPayload())
-    const spoofManifest = {
-      ...manifest,
-      attestation: { ...manifest.attestation, signature: term('8') },
-    }
+    const payload = exportPayload()
+    const badPayload = { ...payload, app: 'FakeApp' }
 
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { query: string }
@@ -232,16 +223,11 @@ describe('intuition graphql-client', () => {
         return new Response(JSON.stringify({
           data: {
             atoms: [
-              exportRunAtom(runTermId, JSON.stringify(manifest)),
-              exportRunAtom(term('7'), JSON.stringify(spoofManifest)),
+              exportRunAtom(runTermId, JSON.stringify(payload)),
+              exportRunAtom(term('7'), JSON.stringify(badPayload)),
             ],
             atoms_aggregate: { aggregate: { count: 2 } },
           },
-        }))
-      }
-      if (body.query.includes('query ExportRunLinks')) {
-        return new Response(JSON.stringify({
-          data: { triples: verificationLinks(runTermId, manifest) },
         }))
       }
       throw new Error('unexpected query')
@@ -259,22 +245,14 @@ describe('intuition graphql-client', () => {
     expect(result.total).toBe(1)
   })
 
-  it('computes TrustNomiks stake only from verified export memberships and on-chain vault reads', async () => {
-    vi.stubEnv('TRUSTNOMIKS_ATTESTATION_PRIVATE_KEY', PRIVATE_KEY)
-    vi.stubEnv('TRUSTNOMIKS_ATTESTER_ADDRESS', ATTESTER)
-
+  it('computes TrustNomiks stake from parsed export payloads', async () => {
     const runTermId = term('9')
-    const manifest = await createSignedExportRunManifest(exportPayload())
+    const payload = exportPayload()
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { query: string }
       if (body.query.includes('query TrustNomiksStakeExportRuns')) {
         return new Response(JSON.stringify({
-          data: { atoms: [exportRunAtom(runTermId, JSON.stringify(manifest))] },
-        }))
-      }
-      if (body.query.includes('query ExportRunLinks')) {
-        return new Response(JSON.stringify({
-          data: { triples: verificationLinks(runTermId, manifest) },
+          data: { atoms: [exportRunAtom(runTermId, JSON.stringify(payload))] },
         }))
       }
       if (body.query.includes('query TrustNomiksStakePositions')) {
@@ -284,7 +262,7 @@ describe('intuition graphql-client', () => {
               {
                 id: 'position-1',
                 shares: '999',
-                term_id: manifest.claimTermIds[0],
+                term_id: payload.claimTermIds[0],
                 vault: { total_shares: '1', total_assets: '1' },
               },
             ],
@@ -318,17 +296,112 @@ describe('intuition graphql-client', () => {
       functionName: 'convertToAssets',
     }))
   })
+
+  it('ignores atoms whose description has wrong type even if app is correct', async () => {
+    const payload = { ...exportPayload(), type: 'NotAnExportRun' }
+
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { query: string }
+      if (body.query.includes('query ExportRuns')) {
+        return new Response(JSON.stringify({
+          data: {
+            atoms: [exportRunAtom(term('9'), JSON.stringify(payload))],
+            atoms_aggregate: { aggregate: { count: 1 } },
+          },
+        }))
+      }
+      throw new Error('unexpected query')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchExportRunsByWallet(WALLET, { page: 1, pageSize: 20 })
+    expect(result.runs).toHaveLength(0)
+  })
+
+  it('fetches run detail from a plain unsigned payload', async () => {
+    const runTermId = term('9')
+    const payload = exportPayload()
+
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { query: string }
+      if (body.query.includes('query ExportRunAtom')) {
+        return new Response(JSON.stringify({
+          data: { atom: exportRunAtom(runTermId, JSON.stringify(payload)) },
+        }))
+      }
+      if (body.query.includes('query ExportRunClaims')) {
+        return new Response(JSON.stringify({
+          data: {
+            claimTriples: [{
+              term_id: term('a'),
+              subject_id: term('s'), predicate_id: term('p'), object_id: term('o'),
+              created_at: '2026-05-15T08:00:00+00:00',
+              transaction_hash: '0xtx',
+              subject: { term_id: term('s'), label: 'S', image: null, type: 'Thing', data: null },
+              predicate: { term_id: term('p'), label: 'P', image: null, type: 'Thing', data: null },
+              object: { term_id: term('o'), label: 'O', image: null, type: 'Thing', data: null },
+            }],
+          },
+        }))
+      }
+      throw new Error('unexpected query')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const detail = await fetchExportRunDetail(runTermId)
+
+    expect(detail.run).toMatchObject({
+      runId: runTermId,
+      tokenName: 'TestCoin',
+      tokenTicker: 'TEST',
+      status: 'completed',
+    })
+    expect(detail.claimMappings).toHaveLength(1)
+    expect(detail.provenanceMappings).toHaveLength(1)
+    expect(detail.provenanceMappings[0]).toMatchObject({
+      tripleId: payload.claimTermIds[0],
+      sourceAtomId: runTermId,
+      relation: 'includes_claim',
+      status: 'confirmed',
+    })
+  })
+
+  it('throws when run detail description is missing', async () => {
+    const runTermId = term('9')
+
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({
+        data: {
+          atom: {
+            term_id: runTermId,
+            label: 'TrustNomiks Export: TestCoin (TEST)',
+            type: 'Thing',
+            data: 'ipfs://export',
+            created_at: '2026-05-15T08:00:00+00:00',
+            transaction_hash: '0xtx',
+            creator: { id: WALLET.toLowerCase(), label: 'you', image: null },
+            value: { thing: { name: 'Test', description: null, url: '' } },
+          },
+        },
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchExportRunDetail(runTermId)).rejects.toThrow(
+      'Export run is not a valid TrustNomiks export',
+    )
+  })
 })
 
 function term(byte: string): Hex {
   return `0x${byte.repeat(64)}` as Hex
 }
 
-function exportPayload(): TrustNomiksExportRunSignedPayload {
+function exportPayload() {
   return {
-    type: 'TrustNomiksExportRun',
+    type: 'TrustNomiksExportRun' as const,
     schemaVersion: 2,
-    app: 'TrustNomiks',
+    app: 'TrustNomiks' as const,
     exportRunId: 'export-run-1',
     tokenId: 'token-1',
     tokenName: 'TestCoin',
@@ -336,15 +409,6 @@ function exportPayload(): TrustNomiksExportRunSignedPayload {
     walletAddress: WALLET,
     chainId: 13579,
     createdAt: '2026-05-15T08:00:00.000Z',
-    appAtom: { atomId: 'atom:trustnomiks:app', uri: 'ipfs://app', termId: term('a') },
-    submitterAtom: { atomId: 'atom:wallet:submitter', uri: `caip10:eip155:13579:${WALLET}`, termId: term('b') },
-    attesterAtom: { atomId: 'atom:wallet:attester', uri: `caip10:eip155:13579:${ATTESTER}`, termId: term('c') },
-    predicates: {
-      publishedBy: { atomId: 'atom:predicate:published_by', label: 'published by', uri: 'ipfs://published-by', termId: term('d') },
-      submittedBy: { atomId: 'atom:predicate:submitted_by', label: 'submitted by', uri: 'ipfs://submitted-by', termId: term('e') },
-      attestedBy: { atomId: 'atom:predicate:attested_by', label: 'attested by', uri: 'ipfs://attested-by', termId: term('f') },
-      includesClaim: { atomId: 'atom:predicate:includes_claim', label: 'includes claim', uri: 'ipfs://includes-claim', termId: term('1') },
-    },
     claimTermIds: [term('2')],
   }
 }
@@ -360,33 +424,4 @@ function exportRunAtom(termId: Hex, description: string) {
     creator: { id: WALLET.toLowerCase(), label: 'you', image: null },
     value: { thing: { name: 'TrustNomiks Export: TestCoin (TEST)', description, url: '' } },
   }
-}
-
-function verificationLinks(runTermId: Hex, manifest: Awaited<ReturnType<typeof createSignedExportRunManifest>>) {
-  return [
-    {
-      term_id: term('3'),
-      subject_id: runTermId,
-      predicate_id: manifest.predicates.publishedBy.termId,
-      object_id: manifest.appAtom.termId,
-    },
-    {
-      term_id: term('4'),
-      subject_id: runTermId,
-      predicate_id: manifest.predicates.submittedBy.termId,
-      object_id: manifest.submitterAtom.termId,
-    },
-    {
-      term_id: term('5'),
-      subject_id: runTermId,
-      predicate_id: manifest.predicates.attestedBy.termId,
-      object_id: manifest.attesterAtom.termId,
-    },
-    {
-      term_id: term('6'),
-      subject_id: runTermId,
-      predicate_id: manifest.predicates.includesClaim.termId,
-      object_id: manifest.claimTermIds[0],
-    },
-  ]
 }
