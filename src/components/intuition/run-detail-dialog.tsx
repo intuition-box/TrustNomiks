@@ -341,7 +341,10 @@ function EmptyGraphMessage({
     title = 'Only atoms were tracked'
     message =
       'This run did not track any confirmed triples, so there are no on-chain relationships to draw yet.'
-  } else if (data.run.snapshotSource !== 'run_snapshot') {
+  } else if (
+    data.run.snapshotSource === 'legacy_run_id' ||
+    data.run.snapshotSource === 'legacy_window'
+  ) {
     title = 'Legacy run data'
     message =
       'This run was loaded through legacy mapping data and may not contain a complete per-run graph snapshot.'
