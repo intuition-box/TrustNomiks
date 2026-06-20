@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "intuition:pin-predicates": "tsx scripts/pin-canonical-predicates.ts",
     "intuition:verify-registry": "tsx scripts/verify-canonical-registry.ts",
-    "intuition:republish-status": "tsx scripts/republish-status.ts"
+    "intuition:republish-status": "tsx scripts/republish-status.ts",
+    "intuition:verify-reads": "tsx scripts/verify-read-batcher-testnet.ts"
   },
   "dependencies": {
     "@0xintuition/graphql": "^2.0.2",
