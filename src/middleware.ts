@@ -36,8 +36,12 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Define route types
-  const isLoginPage = request.nextUrl.pathname === '/login'
-  const isProtectedRoute = !isLoginPage
+  const pathname = request.nextUrl.pathname
+  const isLoginPage = pathname === '/login'
+  // Public routes: the marketing landing (front door). Everything else requires auth.
+  const publicRoutes = ['/']
+  const isPublicRoute = isLoginPage || publicRoutes.includes(pathname)
+  const isProtectedRoute = !isPublicRoute
 
   // Redirect logic
   if (!user && isProtectedRoute) {
