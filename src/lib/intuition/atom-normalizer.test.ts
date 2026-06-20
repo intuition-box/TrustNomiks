@@ -9,7 +9,6 @@ import {
   filterTriples,
   filterAtoms,
   isPredicateExcluded,
-  isAtomTypeExcluded,
   predicateNormalizedData,
 } from './atom-normalizer'
 import { getCanonicalRegistry } from './canonical-registry'
