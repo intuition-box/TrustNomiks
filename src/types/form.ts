@@ -690,6 +690,108 @@ export const BLOCKCHAIN_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
+// Step 7: Risk Flags
+export const RISK_SEVERITIES = ['low', 'medium', 'high'] as const
+
+export type RiskSeverity = (typeof RISK_SEVERITIES)[number]
+
+export const riskFlagSchema = z.object({
+  id: z.string().optional(), // For tracking in UI
+  flag_type: z.string().min(1, 'Risk type is required'),
+  severity: z.enum(RISK_SEVERITIES),
+  is_flagged: z.boolean(),
+  justification: z.string().optional(),
+})
+
+export const riskFlagsSchema = z.object({
+  flags: z.array(riskFlagSchema).min(0),
+})
+
+export type RiskFlag = z.infer<typeof riskFlagSchema>
+export type RiskFlagsFormData = z.infer<typeof riskFlagsSchema>
+
+// Risk flag type options
+export const RISK_FLAG_TYPE_OPTIONS = [
+  {
+    value: 'concentration_risk',
+    label: 'Concentration Risk',
+    description:
+      'A large share of supply is held by a small number of wallets, the team, or early investors, which can enable price manipulation or sudden sell pressure.',
+  },
+  {
+    value: 'unlock_cliff',
+    label: 'Unlock Cliff',
+    description:
+      'A significant portion of locked tokens unlocks at a single point in time, creating a supply shock that can sharply impact price.',
+  },
+  {
+    value: 'high_inflation',
+    label: 'High Inflation',
+    description:
+      'The emission schedule increases circulating supply quickly, diluting holders unless demand grows at a matching pace.',
+  },
+  {
+    value: 'governance_risk',
+    label: 'Governance Risk',
+    description:
+      'Voting power or protocol control is concentrated, allowing a small group to influence decisions against the broader community.',
+  },
+  {
+    value: 'liquidity_risk',
+    label: 'Liquidity Risk',
+    description:
+      'Market depth is thin relative to circulating supply, so even moderate trades can move the price significantly.',
+  },
+  {
+    value: 'unverified_data',
+    label: 'Unverified Data',
+    description:
+      'Key tokenomics figures rely on sources that are unofficial, outdated, or could not be independently confirmed.',
+  },
+  {
+    value: 'other',
+    label: 'Other',
+    description: 'Any other risk signal not covered by the categories above. Describe it in the justification.',
+  },
+] as const
+
+export const RISK_SEVERITY_OPTIONS = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+] as const
+
+export const getRiskFlagTypeOption = (value: string | null | undefined) => {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  return RISK_FLAG_TYPE_OPTIONS.find((option) => option.value === normalized) || null
+}
+
+export const formatRiskFlagTypeLabel = (value: string | null | undefined): string => {
+  const option = getRiskFlagTypeOption(value)
+  if (option) return option.label
+
+  if (!value) return ''
+  return toTitleCaseFromSlug(value)
+}
+
+export const getRiskFlagTypeDescription = (value: string | null | undefined): string => {
+  const option = getRiskFlagTypeOption(value)
+  return option?.description || ''
+}
+
+export const normalizeRiskSeverity = (value: string | null | undefined): RiskSeverity => {
+  const normalized = value?.trim().toLowerCase()
+  return (RISK_SEVERITIES as readonly string[]).includes(normalized ?? '')
+    ? (normalized as RiskSeverity)
+    : 'medium'
+}
+
+export const formatRiskSeverityLabel = (value: string | null | undefined): string => {
+  const severity = normalizeRiskSeverity(value)
+  return RISK_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ?? 'Medium'
+}
+
 // Form steps
 export const FORM_STEPS = [
   { id: 1, name: 'Identity', description: 'Basic token information' },
@@ -698,4 +800,5 @@ export const FORM_STEPS = [
   { id: 4, name: 'Vesting', description: 'Unlock schedules' },
   { id: 5, name: 'Emission', description: 'Inflation & economics' },
   { id: 6, name: 'Sources', description: 'Data references' },
+  { id: 7, name: 'Risk Flags', description: 'Risk signals' },
 ]

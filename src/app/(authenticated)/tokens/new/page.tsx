@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp, Lock } from 'lucide-react'
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp, Lock, ShieldAlert } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { computeScores } from '@/lib/utils/completeness'
 import { Button } from '@/components/ui/button'
@@ -57,6 +57,11 @@ import {
   vestingSchedulesSchema,
   emissionModelSchema,
   dataSourcesSchema,
+  riskFlagsSchema,
+  RISK_FLAG_TYPE_OPTIONS,
+  RISK_SEVERITY_OPTIONS,
+  getRiskFlagTypeDescription,
+  normalizeRiskSeverity,
   BLOCKCHAIN_OPTIONS,
   CATEGORY_OPTIONS,
   getCategoryOption,
@@ -81,6 +86,7 @@ import {
   type VestingSchedulesFormData,
   type EmissionModelFormData,
   type DataSourcesFormData,
+  type RiskFlagsFormData,
   type AllocationSegment,
   type ClaimAttribution,
 } from '@/types/form'
@@ -98,6 +104,9 @@ export default function NewTokenPage() {
   const editTokenId = searchParams.get('id')
   const isEditMode = !!editTokenId
 
+  // Sentinel for the post-save "Token created" screen. Kept distinct from the
+  // real step ids (1..7, Risk Flags is the 7th) so adding steps never collides.
+  const COMPLETION_STEP = 99
   const [currentStep, setCurrentStep] = useState(1)
   const [tokenId, setTokenId] = useState<string | null>(editTokenId)
   const [maxSupply, setMaxSupply] = useState<string>('')
@@ -110,7 +119,7 @@ export default function NewTokenPage() {
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [identityGuideTarget, setIdentityGuideTarget] = useState<'category' | 'sector' | null>(null)
   const [segmentGuideRowIndex, setSegmentGuideRowIndex] = useState<number | null>(null)
-  const [pendingRemoval, setPendingRemoval] = useState<{ type: 'allocation' | 'source'; index: number } | null>(null)
+  const [pendingRemoval, setPendingRemoval] = useState<{ type: 'allocation' | 'source' | 'risk'; index: number } | null>(null)
   const prevScoreRef = useRef(0)
   const [flashPts, setFlashPts] = useState(0)
   const [flashKey, setFlashKey] = useState(0)
@@ -205,6 +214,19 @@ export default function NewTokenPage() {
   const { fields: sourceFields, append: appendSource, remove: removeSource } = useFieldArray({
     control: step6Form.control,
     name: 'sources',
+  })
+
+  // Step 7 Form - Risk Flags
+  const step7Form = useForm<RiskFlagsFormData>({
+    resolver: zodResolver(riskFlagsSchema),
+    defaultValues: {
+      flags: [],
+    },
+  })
+
+  const { fields: riskFields, append: appendRisk, remove: removeRisk } = useFieldArray({
+    control: step7Form.control,
+    name: 'flags',
   })
 
   // Build the default attribution rows.
@@ -515,6 +537,24 @@ export default function NewTokenPage() {
         })
       }
 
+      // Fetch and pre-fill Step 7 - Risk Flags
+      const { data: riskFlagsData } = await supabase
+        .from('risk_flags')
+        .select('*')
+        .eq('token_id', id)
+
+      if (riskFlagsData && riskFlagsData.length > 0) {
+        step7Form.reset({
+          flags: riskFlagsData.map((flag) => ({
+            id: flag.id,
+            flag_type: flag.flag_type,
+            severity: normalizeRiskSeverity(flag.severity),
+            is_flagged: flag.is_flagged ?? true,
+            justification: flag.justification || '',
+          })),
+        })
+      }
+
       toast.success('Token data loaded successfully')
 
       // Calculate completed steps after loading
@@ -554,6 +594,10 @@ export default function NewTokenPage() {
     // Step 6: Check if data sources exist
     const step6Data = step6Form.getValues()
     if (step6Data.sources.length > 0) completed.push(6)
+
+    // Step 7: Check if risk flags exist
+    const step7Data = step7Form.getValues()
+    if (step7Data.flags.length > 0) completed.push(7)
 
     setCompletedSteps(completed)
   }
@@ -1040,14 +1084,85 @@ export default function NewTokenPage() {
       setInitialUpdatedAt(rpcResult.updated_at)
       setFinalScore(finalCompleteness)
 
-      // Move to completion page (step 7)
-      setCurrentStep(7)
+      // Sources saved. Risk Flags is the final (optional) step — guide the user
+      // there rather than taking over with the completion screen, which now
+      // fires only after Risk Flags is saved (onSubmitStep7).
+      toast.success('Data sources saved')
+      document.getElementById('section-risk')?.scrollIntoView({ behavior: 'smooth' })
     } catch (error: unknown) {
       console.error('Error saving data sources:', error)
       const msg = error && typeof error === 'object' && 'message' in error
         ? String((error as { message: unknown }).message)
         : 'Failed to save data sources'
       toast.error(msg || 'Failed to save data sources')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Save Step 7 - Risk Flags (final step).
+  // Uses save_risk_flags_tx, a SECURITY DEFINER RPC that does the destructive
+  // delete -> insert atomically with an ownership check and the same optimistic
+  // lock as the other steps (mirrors save_data_sources_tx). This replaces the
+  // earlier raw client-side delete()+insert(), which was non-atomic and had no
+  // server-side ownership guard.
+  const onSubmitStep7 = async (data: RiskFlagsFormData) => {
+    if (!tokenId) {
+      toast.error('Token ID not found. Please start from step 1.')
+      return
+    }
+
+    if (!initialUpdatedAt) {
+      toast.error('Token state not loaded. Please refresh the page.')
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      const flagsToSave = data.flags.map((flag) => ({
+        flag_type: flag.flag_type,
+        severity: normalizeRiskSeverity(flag.severity),
+        is_flagged: flag.is_flagged,
+        justification: flag.justification || null,
+      }))
+
+      const { data: rpcResult, error } = await supabase.rpc('save_risk_flags_tx', {
+        p_token_id: tokenId,
+        p_flags: flagsToSave,
+        p_expected_updated_at: initialUpdatedAt,
+      })
+
+      if (error) {
+        if (handleRpcError(error)) return
+        throw error
+      }
+
+      setInitialUpdatedAt(rpcResult.updated_at)
+
+      // Sync form state with the freshly persisted rows (new UUIDs, in order)
+      const newFlagIds: string[] = rpcResult.flag_ids || []
+      step7Form.reset({
+        flags: data.flags.map((flag, idx) => ({
+          id: newFlagIds[idx] ?? flag.id,
+          flag_type: flag.flag_type,
+          severity: normalizeRiskSeverity(flag.severity),
+          is_flagged: flag.is_flagged ?? true,
+          justification: flag.justification || '',
+        })),
+      })
+
+      // Show the completion screen only when the core flow is done (Sources
+      // saved this session => finalScore is set). Saving Risk Flags before then
+      // just persists them — avoids a completion screen stuck on "Calculating…".
+      if (finalScore !== null) {
+        setCurrentStep(COMPLETION_STEP)
+      } else {
+        toast.success('Risk flags saved')
+      }
+    } catch (error: unknown) {
+      console.error('Error saving risk flags:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to save risk flags')
     } finally {
       setLoading(false)
     }
@@ -1244,6 +1359,17 @@ export default function NewTokenPage() {
     })
   }
 
+  // Add new risk flag
+  const addRisk = () => {
+    appendRisk({
+      id: crypto.randomUUID(),
+      flag_type: '',
+      severity: 'medium',
+      is_flagged: true,
+      justification: '',
+    })
+  }
+
   // Live token identity values for the page header
   const liveTokenName   = step1Form.watch('name')
   const liveTokenTicker = step1Form.watch('ticker')
@@ -1347,8 +1473,8 @@ export default function NewTokenPage() {
     { key: 'vesting',    label: 'Vesting',    bar: 'bg-emerald-500',text: 'text-emerald-600 dark:text-emerald-400',live: liveVestingScore,    max: 20 },
   ]
 
-  // ── Completion screen (after sources saved) ────────────────────────────────
-  if (currentStep === 7) {
+  // ── Completion screen (after the final step is saved) ──────────────────────
+  if (currentStep === COMPLETION_STEP) {
     return (
       <div className="mx-auto max-w-2xl pb-16 pt-8">
         <div className="rounded-xl border border-primary/20 bg-card overflow-hidden">
@@ -1552,6 +1678,7 @@ export default function NewTokenPage() {
               { id: 'section-vesting',    label: 'Vesting',    icon: '◆', color: 'text-emerald-600 dark:text-emerald-400', done: completedSteps.includes(4) },
               { id: 'section-emission',   label: 'Emission',   icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(5) },
               { id: 'section-sources',    label: 'Sources',    icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(6) },
+              { id: 'section-risk',       label: 'Risk Flags', icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(7) },
             ].map(item => (
               <a
                 key={item.id}
@@ -3250,18 +3377,207 @@ export default function NewTokenPage() {
             )}
           </div>
 
+          {/* ── Section 7: Risk Flags (extra, gray) ──────────────────────────── */}
+          <div id="section-risk" className="rounded-xl border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Risk Flags</span>
+                  <span className="ml-2 text-xs text-muted-foreground">· Risk signals &amp; severity</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {completedSteps.includes(7) && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/50" />}
+              </div>
+            </div>
+            {!tokenId ? lockedSection('Save Identity first to unlock Risk Flags.') : (
+            <div className="px-6 py-6">
+            <Form {...step7Form}>
+              <form onSubmit={step7Form.handleSubmit(onSubmitStep7)} className="space-y-6">
+                {/* Info Banner */}
+                {riskFields.length === 0 && (
+                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
+                    <ShieldAlert className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium">No risk flags added yet</p>
+                      <p className="text-muted-foreground">
+                        Record any risk signals you have identified for this token. This section is optional.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Risk Flags Table */}
+                {riskFields.length > 0 && (
+                  <div className="space-y-4">
+                    {riskFields.map((field, index) => {
+                      const selectedType = step7Form.watch(`flags.${index}.flag_type`)
+                      const typeDescription = getRiskFlagTypeDescription(selectedType)
+                      return (
+                        <Card key={field.id} className="relative">
+                          <CardContent className="pt-6">
+                            {/* Remove button */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-2 right-2"
+                              onClick={() => setPendingRemoval({ type: 'risk', index })}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {/* Risk Type */}
+                              <FormField
+                                control={step7Form.control}
+                                name={`flags.${index}.flag_type`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Risk Type *</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select risk type" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {RISK_FLAG_TYPE_OPTIONS.map((option) => (
+                                          <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {typeDescription && (
+                                      <FormDescription className="text-xs">
+                                        {typeDescription}
+                                      </FormDescription>
+                                    )}
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {/* Severity */}
+                              <FormField
+                                control={step7Form.control}
+                                name={`flags.${index}.severity`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Severity *</FormLabel>
+                                    <Select
+                                      onValueChange={(value) => field.onChange(normalizeRiskSeverity(value))}
+                                      value={field.value}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select severity" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {RISK_SEVERITY_OPTIONS.map((option) => (
+                                          <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {/* Justification */}
+                              <FormField
+                                control={step7Form.control}
+                                name={`flags.${index}.justification`}
+                                render={({ field }) => (
+                                  <FormItem className="md:col-span-2">
+                                    <FormLabel>Justification (optional)</FormLabel>
+                                    <FormControl>
+                                      <Textarea
+                                        placeholder="Explain why this risk applies to the token..."
+                                        className="min-h-[80px]"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              {/* Flagged toggle */}
+                              <FormField
+                                control={step7Form.control}
+                                name={`flags.${index}.is_flagged`}
+                                render={({ field }) => (
+                                  <FormItem className="md:col-span-2 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-base">Active Flag</FormLabel>
+                                      <FormDescription>
+                                        Keep this on if the risk currently applies. Turn it off to record a risk that has been cleared.
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Add Risk Flag Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addRisk}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Risk Flag
+                </Button>
+
+                {/* Actions */}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={loading}>
+                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Risk Flags'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+            </div>
+            )}
+          </div>
+
         </div>{/* end main content */}
       </div>{/* end two-column layout */}
-      {/* Removal confirmation dialog (allocations + sources) */}
+      {/* Removal confirmation dialog (allocations + sources + risk flags) */}
       <AlertDialog open={!!pendingRemoval} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pendingRemoval?.type === 'allocation' ? 'Remove allocation segment?' : 'Remove data source?'}
+              {pendingRemoval?.type === 'allocation'
+                ? 'Remove allocation segment?'
+                : pendingRemoval?.type === 'risk'
+                ? 'Remove risk flag?'
+                : 'Remove data source?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingRemoval?.type === 'allocation'
                 ? 'This will remove the allocation segment and any vesting schedule tied to it. This cannot be undone after saving.'
+                : pendingRemoval?.type === 'risk'
+                ? 'This will remove the risk flag. This cannot be undone after saving.'
                 : 'This will remove the data source and any claim attributions linked to it. This cannot be undone after saving.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -3278,6 +3594,8 @@ export default function NewTokenPage() {
                     setSegmentGuideRowIndex(segmentGuideRowIndex - 1)
                   }
                   remove(index)
+                } else if (pendingRemoval.type === 'risk') {
+                  removeRisk(pendingRemoval.index)
                 } else {
                   removeSource(pendingRemoval.index)
                 }

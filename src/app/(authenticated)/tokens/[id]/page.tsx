@@ -18,6 +18,7 @@ import {
   TrendingUp,
   Database,
   Settings2,
+  ShieldAlert,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,9 @@ import {
   formatCategoryLabel,
   formatSectorLabel,
   formatSegmentTypeLabel,
+  formatRiskFlagTypeLabel,
+  getRiskFlagTypeDescription,
+  normalizeRiskSeverity,
   normalizeVestingFrequency,
 } from '@/types/form'
 import { toast } from 'sonner'
@@ -115,6 +119,13 @@ interface TokenData {
     url: string
     version: string | null
     verified_at: string | null
+  }>
+  risk_flags: Array<{
+    id: string
+    flag_type: string
+    severity: string
+    is_flagged: boolean
+    justification: string | null
   }>
   claim_sources: Array<{
     claim_type: string
@@ -201,6 +212,12 @@ export default function TokenDetailPage() {
         .select('*')
         .eq('token_id', tokenId)
 
+      // Fetch risk flags
+      const { data: riskFlagsData } = await supabase
+        .from('risk_flags')
+        .select('*')
+        .eq('token_id', tokenId)
+
       // Fetch claim_sources (source → claim attribution)
       const { data: claimSourcesData } = await supabase
         .from('claim_sources')
@@ -222,6 +239,7 @@ export default function TokenDetailPage() {
         })),
         emission_models: emissionData || null,
         data_sources: sourcesData || [],
+        risk_flags: riskFlagsData || [],
         claim_sources: (claimSourcesData || []) as TokenData['claim_sources'],
       })
     } catch (error: unknown) {
@@ -250,6 +268,17 @@ export default function TokenDetailPage() {
       validated: { label: 'Validated', className: 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20' },
     }
     const config = configs[status as keyof typeof configs] || configs.draft
+
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
+
+  const getSeverityBadge = (severity: string) => {
+    const configs = {
+      low: { label: 'Low', className: 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' },
+      medium: { label: 'Medium', className: 'bg-orange-100 dark:bg-orange-500/10 text-orange-600 dark:text-orange-500 border-orange-500/20' },
+      high: { label: 'High', className: 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20' },
+    }
+    const config = configs[normalizeRiskSeverity(severity)] || configs.medium
 
     return <Badge className={config.className}>{config.label}</Badge>
   }
@@ -346,7 +375,7 @@ export default function TokenDetailPage() {
         emission: token.emission_models || undefined,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- complex triples-export type
         sources: token.data_sources as any,
-        risk_flags: [],
+        risk_flags: token.risk_flags,
       }
 
       // Convert to triples
@@ -944,6 +973,60 @@ export default function TokenDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Risk Flags */}
+      <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-amber-100 dark:from-amber-500/5 to-transparent">
+          <CardTitle className="flex items-center gap-2.5">
+            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-500/10">
+              <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </span>
+            Risk Flags
+          </CardTitle>
+          <CardDescription>Risk signals identified for this token</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-6">
+          {token.risk_flags.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                <ShieldAlert className="h-5 w-5 text-muted-foreground/50" />
+              </span>
+              <p className="text-sm text-muted-foreground">No risk flags recorded for this token.</p>
+            </div>
+          ) : (
+            token.risk_flags.map((flag) => {
+              const description = getRiskFlagTypeDescription(flag.flag_type)
+              return (
+                <div key={flag.id} className="p-3 bg-muted rounded-lg space-y-2">
+                  {/* Flag header */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getSeverityBadge(flag.severity)}
+                    <p className="font-medium">{formatRiskFlagTypeLabel(flag.flag_type)}</p>
+                    {!flag.is_flagged && (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Cleared
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Description of the risk type */}
+                  {description && (
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                  )}
+
+                  {/* Justification */}
+                  {flag.justification && (
+                    <div className="pt-2 border-t border-border/40">
+                      <p className="text-xs font-medium text-muted-foreground">Justification</p>
+                      <p className="text-sm mt-0.5">{flag.justification}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* Actions */}
       <Card className="border border-rose-500/30 overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.15)]">
