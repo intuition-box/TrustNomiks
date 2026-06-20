@@ -13,7 +13,8 @@
     "intuition:verify-registry": "tsx scripts/verify-canonical-registry.ts",
     "intuition:republish-status": "tsx scripts/republish-status.ts",
     "intuition:verify-reads": "tsx scripts/verify-read-batcher-testnet.ts",
-    "intuition:audit-predicates": "tsx scripts/audit-predicates.ts"
+    "intuition:audit-predicates": "tsx scripts/audit-predicates.ts",
+    "intuition:mint-missing-predicates": "tsx scripts/mint-missing-predicates.ts"
   },
   "dependencies": {
     "@0xintuition/graphql": "^2.0.2",
