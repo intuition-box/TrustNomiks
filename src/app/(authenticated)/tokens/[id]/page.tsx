@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { format } from 'date-fns'
 import {
@@ -11,20 +11,11 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  Tag,
-  BarChart2,
-  PieChart,
-  TrendingUp,
-  Database,
-  Settings2,
-  ShieldAlert,
+  ChevronDown,
+  Plus,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -44,8 +35,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { convertTokenToTriples, downloadTriplesAsJSON } from '@/lib/utils/triples-export'
-import { CLUSTER_LABELS, CLUSTER_MAX } from '@/lib/utils/completeness'
-import type { ClusterScores } from '@/lib/utils/completeness'
+import {
+  computeVestingTimeline,
+  type AllocationWithVesting,
+} from '@/lib/utils/vesting-timeline'
 import { cn } from '@/lib/utils'
 import {
   formatCategoryLabel,
@@ -59,6 +52,15 @@ import {
 import { toast } from 'sonner'
 import { TokenPriceCard } from '@/components/token-price-card'
 import { PublishPanel } from '@/components/intuition/publish-panel'
+import type { NodeType } from '@/lib/knowledge-graph/graph-types'
+import { SectionCard } from '@/components/composite/section-card'
+import { DataBadge, StatusPill, RiskPill, type TokenStatus } from '@/components/composite/data-badge'
+import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { EmptyState } from '@/components/composite/empty-state'
+import { GraphLoader } from '@/components/patterns/graph-loader'
+import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
+import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
+import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 
 interface TokenData {
   id: string
@@ -145,6 +147,7 @@ export default function TokenDetailPage() {
   const [loading, setLoading] = useState(true)
   const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<number | null>(null)
   const [pendingStatus, setPendingStatus] = useState<string | null>(null)
+  const [enrichOpen, setEnrichOpen] = useState(false)
   const router = useRouter()
   const params = useParams()
   const supabase = createClient()
@@ -251,36 +254,14 @@ export default function TokenDetailPage() {
   }
 
   const formatNumber = (value: string | number | null) => {
-    if (!value) return '—'
+    if (!value) return 'Not set'
     const num = value.toString().replace(/,/g, '')
     return num.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   }
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return '—'
+    if (!dateString) return 'Not set'
     return format(new Date(dateString), 'PPP')
-  }
-
-  const getStatusBadge = (status: string) => {
-    const configs = {
-      draft: { label: 'Draft', className: 'bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-500 border-gray-500/20' },
-      in_review: { label: 'In Review', className: 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' },
-      validated: { label: 'Validated', className: 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20' },
-    }
-    const config = configs[status as keyof typeof configs] || configs.draft
-
-    return <Badge className={config.className}>{config.label}</Badge>
-  }
-
-  const getSeverityBadge = (severity: string) => {
-    const configs = {
-      low: { label: 'Low', className: 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20' },
-      medium: { label: 'Medium', className: 'bg-orange-100 dark:bg-orange-500/10 text-orange-600 dark:text-orange-500 border-orange-500/20' },
-      high: { label: 'High', className: 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20' },
-    }
-    const config = configs[normalizeRiskSeverity(severity)] || configs.medium
-
-    return <Badge className={config.className}>{config.label}</Badge>
   }
 
   const STATUS_RANK: Record<string, number> = { draft: 0, in_review: 1, validated: 2 }
@@ -415,7 +396,7 @@ export default function TokenDetailPage() {
       }
       case 'vesting_schedule': {
         const alloc = token?.allocation_segments.find(a => a.id === claimId)
-        return alloc ? `Vesting — ${alloc.label}` : 'Vesting'
+        return alloc ? `Vesting · ${alloc.label}` : 'Vesting'
       }
       default: return claimType
     }
@@ -481,13 +462,96 @@ export default function TokenDetailPage() {
     return colors[index % colors.length]
   }
 
+  // ── Local knowledge-graph: center token + real sub-entities ────────────────
+  const graphData: LiveGraphData | null = useMemo(() => {
+    if (!token) return null
+    const nodes: LiveGraphData['nodes'] = [
+      { id: 'token', type: 'token', label: token.ticker || token.name, size: 7 },
+    ]
+    const links: LiveGraphData['links'] = []
+
+    if (token.chain) {
+      nodes.push({ id: 'chain', type: 'chain', label: token.chain, size: 4 })
+      links.push({ source: 'token', target: 'chain' })
+    }
+    token.allocation_segments.forEach((seg) => {
+      const id = `alloc-${seg.id}`
+      nodes.push({ id, type: 'allocation', label: seg.label, size: 4 })
+      links.push({ source: 'token', target: id })
+    })
+    token.vesting_schedules.forEach((v, i) => {
+      const id = `vesting-${v.allocation_id}-${i}`
+      nodes.push({ id, type: 'vesting', label: v.allocation.label, size: 3.5 })
+      // link vesting to its allocation node when present, else to the token
+      const allocId = `alloc-${v.allocation_id}`
+      links.push({
+        source: nodes.some((n) => n.id === allocId) ? allocId : 'token',
+        target: id,
+      })
+    })
+    if (token.emission_models) {
+      nodes.push({ id: 'emission', type: 'emission', label: 'Emission', size: 4 })
+      links.push({ source: 'token', target: 'emission' })
+    }
+    token.data_sources.forEach((src) => {
+      const id = `source-${src.id}`
+      nodes.push({ id, type: 'data_source', label: src.document_name, size: 3.5 })
+      links.push({ source: 'token', target: id })
+    })
+    token.risk_flags.forEach((flag) => {
+      const id = `risk-${flag.id}`
+      nodes.push({ id, type: 'risk_flag', label: formatRiskFlagTypeLabel(flag.flag_type), size: 3.5 })
+      links.push({ source: 'token', target: id })
+    })
+
+    return { nodes, links }
+  }, [token])
+
+  // ── Vesting unlock timeline (re-housed chart) ──────────────────────────────
+  const vestingResult = useMemo(() => {
+    if (!token) return null
+    const maxSupply = Number((token.supply_metrics?.max_supply ?? '').toString().replace(/,/g, '')) || 0
+    if (maxSupply <= 0 || token.vesting_schedules.length === 0) return null
+
+    const allocationsWithVesting: AllocationWithVesting[] = token.allocation_segments.map((alloc) => {
+      const vesting = token.vesting_schedules.find((v) => v.allocation_id === alloc.id)
+      return {
+        label: alloc.label,
+        segment_type: alloc.segment_type,
+        percentage: alloc.percentage,
+        token_amount:
+          Number((alloc.token_amount ?? '').toString().replace(/,/g, '')) ||
+          (alloc.percentage / 100) * maxSupply,
+        vesting: vesting
+          ? {
+              cliff_months: vesting.cliff_months,
+              duration_months: vesting.duration_months,
+              frequency: vesting.frequency,
+              tge_percentage: vesting.tge_percentage,
+              cliff_unlock_percentage: vesting.cliff_unlock_percentage,
+            }
+          : null,
+      }
+    })
+
+    return computeVestingTimeline({
+      allocations: allocationsWithVesting,
+      maxSupply,
+      tgeDate: token.tge_date,
+    })
+  }, [token])
+
+  const vestingSegmentInfos = useMemo(() => {
+    if (!vestingResult) return []
+    return vestingResult.segmentKeys
+      .filter((sk) => !vestingResult.customSegments.includes(sk.key))
+      .map((sk) => ({ label: sk.key, segment_type: sk.segment_type }))
+  }, [vestingResult])
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Loading...</h1>
-          <p className="text-muted-foreground mt-2">Fetching token data...</p>
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <GraphLoader label="Loading token…" />
       </div>
     )
   }
@@ -507,606 +571,678 @@ export default function TokenDetailPage() {
     )
   }
 
+  const maxSupplyNum =
+    Number((token.supply_metrics?.max_supply ?? '').toString().replace(/,/g, '')) || 0
+  const riskSeverity = (s: string): 'low' | 'med' | 'high' => {
+    const sev = normalizeRiskSeverity(s)
+    return sev === 'medium' ? 'med' : sev
+  }
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-12">
-      {/* Header */}
-      <Card className="overflow-hidden border-border/70">
-        <div className="bg-gradient-to-br from-muted/50 via-muted/20 to-transparent px-6 py-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-3">
-                {token.coingecko_image && (
-                  <img
-                    src={token.coingecko_image}
-                    alt={token.name}
-                    className="h-9 w-9 rounded-full"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                )}
-                <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
-                <span className="text-2xl font-mono text-primary">{token.ticker}</span>
-                {getStatusBadge(token.status)}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                {token.chain && <span>Chain: {token.chain}</span>}
-                {token.chain && <span>•</span>}
-                <span>Created {formatDate(token.created_at)}</span>
-              </div>
+    <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
+      {/* Back link */}
+      <button
+        type="button"
+        onClick={() => router.push('/dashboard')}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to dashboard
+      </button>
+
+      {/* ── Identity header ─────────────────────────────────────────────── */}
+      <header className="overflow-hidden rounded-xl border bg-surface-1">
+        <div className="flex flex-col gap-5 p-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {token.coingecko_image ? (
+                <img
+                  src={token.coingecko_image}
+                  alt={token.name}
+                  className="h-9 w-9 rounded-full"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              ) : (
+                <NodeGlyph type="token" size={20} withGlow />
+              )}
+              <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
+              <span className="font-mono text-2xl text-data-token">{token.ticker}</span>
+              <StatusPill status={(token.status as TokenStatus)} />
             </div>
+
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={() => router.push('/dashboard')}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-              <Button onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Market Data */}
-      <TokenPriceCard coingeckoId={token.coingecko_id} tokenId={token.id} />
-
-      {/* Completeness Score */}
-      <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
-                <BarChart2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              </span>
-              <CardTitle className="text-base">Completeness Score</CardTitle>
-            </div>
-            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{token.completeness}%</span>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <div className="space-y-3">
-            <Progress value={token.completeness} className="h-2" />
-            {/* Cluster badges */}
-            <div className="flex items-center gap-2 flex-wrap pt-1">
-              {(Object.keys(CLUSTER_LABELS) as Array<keyof ClusterScores>).map((key) => {
-                const scores = token.cluster_scores
-                const score = scores?.[key] ?? 0
-                const max = CLUSTER_MAX[key]
-                const complete = key === 'identity'
-                  ? !!(token.name && token.ticker)
-                  : score >= max
-                const colorMap: Record<keyof ClusterScores, { active: string; dot: string }> = {
-                  identity:   { active: 'border-violet-500/20 bg-violet-100 dark:bg-violet-500/5 text-violet-600 dark:text-violet-400/60',   dot: 'bg-violet-600 dark:bg-violet-400/50' },
-                  supply:     { active: 'border-sky-500/20 bg-sky-100 dark:bg-sky-500/5 text-sky-600 dark:text-sky-400/60',            dot: 'bg-sky-600 dark:bg-sky-400/50' },
-                  allocation: { active: 'border-amber-500/20 bg-amber-100 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400/60',      dot: 'bg-amber-600 dark:bg-amber-400/50' },
-                  vesting:    { active: 'border-emerald-500/20 bg-emerald-100 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400/60',dot: 'bg-emerald-600 dark:bg-emerald-400/50' },
-                }
-                const colors = colorMap[key]
-                return (
-                  <div key={key} className="relative group/cluster">
-                    <span className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium cursor-default select-none transition-colors',
-                      complete ? colors.active : 'border-border/30 text-muted-foreground/50'
-                    )}>
-                      <span className={cn('w-1.5 h-1.5 rounded-full', complete ? colors.dot : 'bg-muted-foreground/30')} />
-                      {CLUSTER_LABELS[key]}
-                    </span>
-                    {/* Tooltip */}
-                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 group-hover/cluster:opacity-100 transition-opacity duration-150">
-                      <div className="bg-popover border border-border/60 rounded-md px-2.5 py-1.5 text-xs text-popover-foreground shadow-lg whitespace-nowrap">
-                        <span className="font-semibold">{CLUSTER_LABELS[key]}</span>
-                        <span className="text-muted-foreground ml-1.5">— {score}/{max} pts</span>
-                      </div>
-                      <div className="w-2 h-2 bg-popover border-b border-r border-border/60 rotate-45 mx-auto -mt-1" />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Identity Section */}
-      <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_30px_rgba(139,92,246,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-violet-100 dark:from-violet-500/5 to-transparent">
-          <CardTitle className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-100 dark:bg-violet-500/10">
-              <Tag className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-            </span>
-            Token Identity
-          </CardTitle>
-          <CardDescription>Basic information about the token</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 pt-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Contract Address</p>
-              <p className="text-sm font-mono mt-1">{token.contract_address || '—'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">TGE Date</p>
-              <p className="text-sm mt-1">{formatDate(token.tge_date)}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Category</p>
-              <p className="text-sm mt-1">{token.category ? formatCategoryLabel(token.category) : '—'}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Sector</p>
-              <p className="text-sm mt-1">{token.sector ? formatSectorLabel(token.sector) : '—'}</p>
-            </div>
-          </div>
-          {token.notes && (
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Notes</p>
-              <p className="text-sm mt-1 text-muted-foreground">{token.notes}</p>
-            </div>
-          )}
-          <ClaimSourceBadges claimType="token_identity" />
-        </CardContent>
-      </Card>
-
-      {/* Supply Metrics */}
-      {token.supply_metrics && (
-        <Card className="border border-sky-500/30 overflow-hidden shadow-[0_0_30px_rgba(14,165,233,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-sky-100 dark:from-sky-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-sky-100 dark:bg-sky-500/10">
-                <BarChart2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-              </span>
-              Supply Metrics
-            </CardTitle>
-            <CardDescription>Token supply and circulation data</CardDescription>
-            <ClaimSourceBadges claimType="supply_metrics" />
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 pt-6">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Max Supply</p>
-              <p className="text-2xl font-bold mt-1">{formatNumber(token.supply_metrics.max_supply)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Initial Supply</p>
-              <p className="text-2xl font-bold mt-1">{formatNumber(token.supply_metrics.initial_supply)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">TGE Supply</p>
-              <p className="text-2xl font-bold mt-1">{formatNumber(token.supply_metrics.tge_supply)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Circulating Supply</p>
-              <p className="text-2xl font-bold mt-1">{formatNumber(token.supply_metrics.circulating_supply)}</p>
-              {token.supply_metrics.circulating_date && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  As of {formatDate(token.supply_metrics.circulating_date)}
-                </p>
+              {token.chain && <DataBadge type="chain" label={token.chain} />}
+              {token.category && (
+                <DataBadge type="category" label={formatCategoryLabel(token.category)} />
+              )}
+              {token.sector && (
+                <DataBadge type="sector" label={formatSectorLabel(token.sector)} />
               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Allocations */}
-      {token.allocation_segments.length > 0 && (
-        <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_30px_rgba(99,102,241,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
-                <PieChart className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              </span>
-              Token Allocations
-            </CardTitle>
-            <CardDescription>Distribution breakdown across segments</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            {/* Stacked Bar + Labels + Info strip */}
-            <div className="space-y-1">
-              {/* Bar */}
-              <div className="flex h-6 w-full overflow-hidden rounded-lg border">
-                {token.allocation_segments.map((segment, index) => (
-                  <div
-                    key={segment.id}
-                    className={cn(
-                      getSegmentColor(index),
-                      'cursor-pointer transition-opacity duration-75',
-                      hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
-                        ? 'opacity-25'
-                        : 'opacity-100'
-                    )}
-                    style={{ width: `${segment.percentage}%` }}
-                    onMouseEnter={() => setHoveredAllocationIndex(index)}
-                    onMouseLeave={() => setHoveredAllocationIndex(null)}
-                  />
-                ))}
+            {/* Completeness bar */}
+            <div className="max-w-md space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-muted-foreground">Completeness</span>
+                <span className="tabular font-semibold">{token.completeness}%</span>
               </div>
-
-              {/* Percentage labels below bar — one per segment, same widths */}
-              <div className="flex w-full">
-                {token.allocation_segments.map((segment, index) => (
-                  <div
-                    key={segment.id}
-                    style={{ width: `${segment.percentage}%` }}
-                    className={cn(
-                      'text-center cursor-pointer transition-opacity duration-75',
-                      hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
-                        ? 'opacity-25'
-                        : 'opacity-100'
-                    )}
-                    onMouseEnter={() => setHoveredAllocationIndex(index)}
-                    onMouseLeave={() => setHoveredAllocationIndex(null)}
-                  >
-                    {segment.percentage >= 4 && (
-                      <span className={cn('text-xs font-semibold tabular-nums', getSegmentTextColor(index))}>
-                        {segment.percentage}%
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Info strip — fixed height to avoid layout shift */}
-              <div className="h-6 flex items-center pl-0.5">
-                {hoveredAllocationIndex !== null && (
-                  <div className="flex items-center gap-2">
-                    <div className={cn('w-2 h-2 rounded-full shrink-0', getSegmentColor(hoveredAllocationIndex))} />
-                    <span className="text-sm font-medium">
-                      {token.allocation_segments[hoveredAllocationIndex].label}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {token.allocation_segments[hoveredAllocationIndex].percentage}%
-                    </span>
-                  </div>
-                )}
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full transition-[width] duration-500"
+                  style={{ width: `${Math.min(100, token.completeness)}%`, background: 'var(--gradient-brand)' }}
+                />
               </div>
             </div>
+          </div>
 
-            {/* Segments List */}
-            <div className="space-y-2">
-              {token.allocation_segments.map((segment, index) => (
-                <div
-                  key={segment.id}
-                  className={cn(
-                    'flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between',
-                    'cursor-default transition-all duration-75',
-                    hoveredAllocationIndex === index && 'ring-1 ring-border',
-                    hoveredAllocationIndex !== null && hoveredAllocationIndex !== index && 'opacity-40'
-                  )}
-                  onMouseEnter={() => setHoveredAllocationIndex(index)}
-                  onMouseLeave={() => setHoveredAllocationIndex(null)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={cn('w-3 h-3 rounded-full shrink-0', getSegmentColor(index))} />
-                    <div>
-                      <p className="font-medium">{segment.label}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {formatSegmentTypeLabel(segment.segment_type)}
-                      </p>
-                      <ClaimSourceBadges claimType="allocation_segment" claimId={segment.id} />
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{segment.percentage}%</p>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {formatNumber(segment.token_amount)} tokens
-                    </p>
-                    {segment.wallet_address && (
-                      <p className="text-xs text-muted-foreground font-mono mt-1">
-                        {segment.wallet_address.slice(0, 6)}...{segment.wallet_address.slice(-4)}
-                      </p>
-                    )}
-                  </div>
-                </div>
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Select onValueChange={handleStatusSelect} value={token.status}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Change status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="in_review">In Review</SelectItem>
+                <SelectItem value="validated">Validated</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </Button>
+
+            <Button variant="outline" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+
+            {/* Delete (existing AlertDialog flow) */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="icon" aria-label="Delete token">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the token
+                    <span className="font-semibold"> {token.name} ({token.ticker})</span> and all its associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Two-column body ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        {/* LEFT, sticky graph + publish */}
+        <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+          {/* Local knowledge graph */}
+          <div className="overflow-hidden rounded-xl border bg-surface-1">
+            <div className="flex items-center gap-2.5 border-b px-5 py-4">
+              <NodeGlyph type="token" size={14} />
+              <div>
+                <h2 className="text-base font-semibold leading-tight">Knowledge graph</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {token.ticker} and its sourced sub-entities
+                </p>
+              </div>
+            </div>
+            <div className="h-[360px] w-full bg-surface-2/40">
+              {graphData && <LiveGraph mode="local" data={graphData} />}
+            </div>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t px-5 py-3">
+              {([
+                ['token', 'Token'],
+                ['allocation', 'Allocation'],
+                ['vesting', 'Vesting'],
+                ['emission', 'Emission'],
+                ['data_source', 'Source'],
+                ['risk_flag', 'Risk'],
+                ['chain', 'Chain'],
+              ] as Array<[NodeType, string]>).map(([type, label]) => (
+                <span key={type} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <NodeGlyph type={type} size={10} />
+                  {label}
+                </span>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
 
-      {/* Vesting Schedules */}
-      {token.vesting_schedules.length > 0 && (
-        <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-amber-100 dark:from-amber-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-500/10">
-                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              </span>
-              Vesting Schedules
-            </CardTitle>
-            <CardDescription>Unlock schedules for each allocation</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-6">
-            {token.vesting_schedules.map((schedule, index) => (
-              <div key={index} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
-                <Clock className="h-5 w-5 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-medium">{schedule.allocation.label}</p>
-                  <ClaimSourceBadges claimType="vesting_schedule" claimId={schedule.allocation_id} />
-                  {schedule.frequency === 'immediate' ? (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      100% unlocked immediately at TGE
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {schedule.tge_percentage > 0 && `${schedule.tge_percentage}% at TGE`}
-                      {schedule.cliff_months > 0 && `${schedule.tge_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
-                      {schedule.cliff_unlock_percentage > 0 && ` (${schedule.cliff_unlock_percentage}% released at cliff end)`}
-                      {schedule.duration_months > 0 && ` → ${schedule.duration_months}m ${schedule.frequency} vesting`}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+          {/* Publish, first-class card */}
+          {(token.status === 'validated' || token.status === 'in_review') && (
+            <PublishPanel tokenId={token.id} tokenStatus={token.status} />
+          )}
+        </div>
 
-      {/* Emission Model */}
-      {token.emission_models && (
-        <Card className="border border-emerald-500/30 overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-emerald-100 dark:from-emerald-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-100 dark:bg-emerald-500/10">
-                <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              </span>
-              Emission Model
-            </CardTitle>
-            <CardDescription>Token economics and inflation mechanics</CardDescription>
-            <ClaimSourceBadges claimType="emission_model" />
-          </CardHeader>
-          <CardContent className="space-y-4 pt-6">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Emission Type</p>
-              <p className="text-lg font-semibold mt-1 capitalize">
-                {token.emission_models.type.replace('_', ' ')}
-              </p>
-            </div>
+        {/* RIGHT, data sections */}
+        <div className="space-y-6">
+          {/* Market data */}
+          <TokenPriceCard coingeckoId={token.coingecko_id} tokenId={token.id} />
 
-            {token.emission_models.annual_inflation_rate && (
+          {/* Identity details */}
+          <SectionCard
+            title="Identity"
+            accent="token"
+            description="Core token information"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Annual Inflation Rate</p>
-                <p className="text-lg font-semibold mt-1">{token.emission_models.annual_inflation_rate}%</p>
+                <p className="text-xs font-medium text-muted-foreground">Contract address</p>
+                <p className="mt-1 break-all font-mono text-sm">{token.contract_address || 'Not set'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">TGE date</p>
+                <p className="mt-1 text-sm">{formatDate(token.tge_date)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Category</p>
+                <p className="mt-1 text-sm">{token.category ? formatCategoryLabel(token.category) : 'Not set'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Sector</p>
+                <p className="mt-1 text-sm">{token.sector ? formatSectorLabel(token.sector) : 'Not set'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Created</p>
+                <p className="mt-1 text-sm">{formatDate(token.created_at)}</p>
+              </div>
+            </div>
+            {token.notes && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-muted-foreground">Notes</p>
+                <p className="mt-1 text-sm text-muted-foreground">{token.notes}</p>
               </div>
             )}
+            <ClaimSourceBadges claimType="token_identity" />
+          </SectionCard>
 
-            {token.emission_models.has_burn && (
-              <div className="p-3 bg-orange-100 dark:bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+          {/* Supply, core */}
+          <SectionCard
+            title="Supply"
+            accent="token"
+            description="Token supply and circulation data"
+          >
+            {token.supply_metrics ? (
+              <>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <p className="font-medium text-orange-500">Burn Mechanism Active</p>
-                    {token.emission_models.burn_details && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {token.emission_models.burn_details}
+                    <p className="text-xs font-medium text-muted-foreground">Max supply</p>
+                    <p className="tabular mt-1 font-mono text-2xl font-semibold">
+                      {formatNumber(token.supply_metrics.max_supply)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Initial supply</p>
+                    <p className="tabular mt-1 font-mono text-2xl font-semibold">
+                      {formatNumber(token.supply_metrics.initial_supply)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">TGE supply</p>
+                    <p className="tabular mt-1 font-mono text-2xl font-semibold">
+                      {formatNumber(token.supply_metrics.tge_supply)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Circulating supply</p>
+                    <p className="tabular mt-1 font-mono text-2xl font-semibold">
+                      {formatNumber(token.supply_metrics.circulating_supply)}
+                    </p>
+                    {token.supply_metrics.circulating_date && (
+                      <p className="mt-1 text-xs text-faint-foreground">
+                        As of {formatDate(token.supply_metrics.circulating_date)}
                       </p>
                     )}
                   </div>
                 </div>
-              </div>
+                <ClaimSourceBadges claimType="supply_metrics" />
+              </>
+            ) : (
+              <EmptyState
+                title="No supply data yet"
+                description="Max supply, initial supply and circulation are missing for this token."
+                onboardingHint="Contribute it via the token form (step 2, Supply)."
+                actions={
+                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Contribute it
+                  </Button>
+                }
+              />
             )}
+          </SectionCard>
 
-            {token.emission_models.has_buyback && (
-              <div className="p-3 bg-blue-100 dark:bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-blue-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-blue-500">Buyback Program Active</p>
-                    {token.emission_models.buyback_details && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {token.emission_models.buyback_details}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Data Sources */}
-      {token.data_sources.length > 0 && (
-        <Card className="border border-cyan-500/30 overflow-hidden shadow-[0_0_30px_rgba(6,182,212,0.15)]">
-          <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-cyan-100 dark:from-cyan-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-cyan-100 dark:bg-cyan-500/10">
-                <Database className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-              </span>
-              Data Sources
-            </CardTitle>
-            <CardDescription>References and documentation</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-6">
-            {token.data_sources.map((source, index) => {
-              const claims = getSourceClaims(source.id)
-              return (
-                <div key={index} className="p-3 bg-muted rounded-lg space-y-2">
-                  {/* Source header */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="capitalize shrink-0">
-                      {source.source_type.replace('_', ' ')}
-                    </Badge>
-                    <p className="font-medium">{source.document_name}</p>
-                    {source.version && (
-                      <span className="text-xs text-muted-foreground">v{source.version}</span>
-                    )}
+          {/* Allocation, core */}
+          <SectionCard
+            title="Allocation"
+            accent="allocation"
+            description="Distribution breakdown across segments"
+          >
+            {token.allocation_segments.length > 0 ? (
+              <div className="space-y-6">
+                {/* Donut + interactive stacked bar */}
+                <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-center">
+                  <div className="shrink-0">
+                    <AllocationDonutChart
+                      segments={token.allocation_segments}
+                      maxSupply={token.supply_metrics?.max_supply ?? null}
+                      size="sm"
+                    />
                   </div>
 
-                  {/* URL */}
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline flex items-center gap-1"
-                  >
-                    {source.url.length > 60 ? `${source.url.slice(0, 60)}...` : source.url}
-                    <ExternalLink className="h-3 w-3 shrink-0" />
-                  </a>
+                  <div className="w-full space-y-1">
+                    {/* Stacked bar */}
+                    <div className="flex h-6 w-full overflow-hidden rounded-lg border">
+                      {token.allocation_segments.map((segment, index) => (
+                        <div
+                          key={segment.id}
+                          className={cn(
+                            getSegmentColor(index),
+                            'cursor-pointer transition-opacity duration-75',
+                            hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
+                              ? 'opacity-25'
+                              : 'opacity-100'
+                          )}
+                          style={{ width: `${segment.percentage}%` }}
+                          onMouseEnter={() => setHoveredAllocationIndex(index)}
+                          onMouseLeave={() => setHoveredAllocationIndex(null)}
+                        />
+                      ))}
+                    </div>
 
-                  {/* Footer: verified date + claim chips */}
-                  {(source.verified_at || claims.length > 0) && (
-                    <div className="pt-2 border-t border-border/40 space-y-2">
-                      {source.verified_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Verified {formatDate(source.verified_at)}
-                        </p>
-                      )}
-                      {claims.length > 0 && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs text-muted-foreground shrink-0">Used for:</span>
-                          {claims.map((cs, i) => (
-                            <span
-                              key={i}
-                              className="text-xs rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-primary"
-                            >
-                              {getClaimLabel(cs.claim_type, cs.claim_id)}
+                    {/* Percentage labels below bar */}
+                    <div className="flex w-full">
+                      {token.allocation_segments.map((segment, index) => (
+                        <div
+                          key={segment.id}
+                          style={{ width: `${segment.percentage}%` }}
+                          className={cn(
+                            'text-center cursor-pointer transition-opacity duration-75',
+                            hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
+                              ? 'opacity-25'
+                              : 'opacity-100'
+                          )}
+                          onMouseEnter={() => setHoveredAllocationIndex(index)}
+                          onMouseLeave={() => setHoveredAllocationIndex(null)}
+                        >
+                          {segment.percentage >= 4 && (
+                            <span className={cn('text-xs font-semibold tabular-nums', getSegmentTextColor(index))}>
+                              {segment.percentage}%
                             </span>
-                          ))}
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Info strip */}
+                    <div className="flex h-6 items-center pl-0.5">
+                      {hoveredAllocationIndex !== null && (
+                        <div className="flex items-center gap-2">
+                          <div className={cn('h-2 w-2 shrink-0 rounded-full', getSegmentColor(hoveredAllocationIndex))} />
+                          <span className="text-sm font-medium">
+                            {token.allocation_segments[hoveredAllocationIndex].label}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {token.allocation_segments[hoveredAllocationIndex].percentage}%
+                          </span>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Risk Flags */}
-      <Card className="border border-amber-500/30 overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-amber-100 dark:from-amber-500/5 to-transparent">
-          <CardTitle className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-100 dark:bg-amber-500/10">
-              <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            </span>
-            Risk Flags
-          </CardTitle>
-          <CardDescription>Risk signals identified for this token</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-6">
-          {token.risk_flags.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
-                <ShieldAlert className="h-5 w-5 text-muted-foreground/50" />
-              </span>
-              <p className="text-sm text-muted-foreground">No risk flags recorded for this token.</p>
-            </div>
-          ) : (
-            token.risk_flags.map((flag) => {
-              const description = getRiskFlagTypeDescription(flag.flag_type)
-              return (
-                <div key={flag.id} className="p-3 bg-muted rounded-lg space-y-2">
-                  {/* Flag header */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {getSeverityBadge(flag.severity)}
-                    <p className="font-medium">{formatRiskFlagTypeLabel(flag.flag_type)}</p>
-                    {!flag.is_flagged && (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Cleared
-                      </Badge>
-                    )}
                   </div>
-
-                  {/* Description of the risk type */}
-                  {description && (
-                    <p className="text-xs text-muted-foreground">{description}</p>
-                  )}
-
-                  {/* Justification */}
-                  {flag.justification && (
-                    <div className="pt-2 border-t border-border/40">
-                      <p className="text-xs font-medium text-muted-foreground">Justification</p>
-                      <p className="text-sm mt-0.5">{flag.justification}</p>
-                    </div>
-                  )}
                 </div>
-              )
-            })
+
+                {/* Segments table */}
+                <div className="space-y-2">
+                  {token.allocation_segments.map((segment, index) => (
+                    <div
+                      key={segment.id}
+                      className={cn(
+                        'flex flex-col gap-3 rounded-lg bg-surface-2 p-3 sm:flex-row sm:items-center sm:justify-between',
+                        'cursor-default transition-all duration-75',
+                        hoveredAllocationIndex === index && 'ring-1 ring-border-strong',
+                        hoveredAllocationIndex !== null && hoveredAllocationIndex !== index && 'opacity-40'
+                      )}
+                      onMouseEnter={() => setHoveredAllocationIndex(index)}
+                      onMouseLeave={() => setHoveredAllocationIndex(null)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn('h-3 w-3 shrink-0 rounded-full', getSegmentColor(index))} />
+                        <div>
+                          <p className="font-medium">{segment.label}</p>
+                          <p className="text-xs capitalize text-muted-foreground">
+                            {formatSegmentTypeLabel(segment.segment_type)}
+                          </p>
+                          <ClaimSourceBadges claimType="allocation_segment" claimId={segment.id} />
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="tabular font-semibold">{segment.percentage}%</p>
+                        <p className="tabular font-mono text-xs text-muted-foreground">
+                          {formatNumber(segment.token_amount)} tokens
+                        </p>
+                        {segment.wallet_address && (
+                          <p className="mt-1 font-mono text-xs text-faint-foreground">
+                            {segment.wallet_address.slice(0, 6)}...{segment.wallet_address.slice(-4)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <EmptyState
+                title="No allocation data yet"
+                description="The distribution breakdown across segments has not been recorded."
+                onboardingHint="Contribute it via the token form (step 3, Allocations)."
+                actions={
+                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Contribute it
+                  </Button>
+                }
+              />
+            )}
+          </SectionCard>
+
+          {/* ── Enrich toggle ────────────────────────────────────────────── */}
+          <button
+            type="button"
+            onClick={() => setEnrichOpen((v) => !v)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed bg-surface-1 px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+            aria-expanded={enrichOpen}
+          >
+            {enrichOpen ? 'Hide enrichment' : 'Enrich'}
+            <ChevronDown className={cn('h-4 w-4 transition-transform', enrichOpen && 'rotate-180')} />
+          </button>
+
+          {enrichOpen && (
+            <div className="space-y-6">
+              {/* Vesting */}
+              <SectionCard
+                title="Vesting"
+                accent="vesting"
+                description="Unlock schedules for each allocation"
+              >
+                {token.vesting_schedules.length > 0 ? (
+                  <div className="space-y-5">
+                    {vestingResult && vestingSegmentInfos.length > 0 && maxSupplyNum > 0 && (
+                      <UnlockTimelineChart
+                        data={vestingResult.timeline}
+                        segments={vestingSegmentInfos}
+                        maxSupply={maxSupplyNum}
+                        customSegments={vestingResult.customSegments}
+                        height={280}
+                      />
+                    )}
+                    <div className="space-y-3">
+                      {token.vesting_schedules.map((schedule, index) => (
+                        <div key={index} className="flex items-start gap-3 rounded-lg bg-surface-2 p-3">
+                          <NodeGlyph type="vesting" size={16} className="mt-0.5" />
+                          <div className="flex-1">
+                            <p className="font-medium">{schedule.allocation.label}</p>
+                            <ClaimSourceBadges claimType="vesting_schedule" claimId={schedule.allocation_id} />
+                            {schedule.frequency === 'immediate' ? (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                100% unlocked immediately at TGE
+                              </p>
+                            ) : (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {schedule.tge_percentage > 0 && `${schedule.tge_percentage}% at TGE`}
+                                {schedule.cliff_months > 0 && `${schedule.tge_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
+                                {schedule.cliff_unlock_percentage > 0 && ` (${schedule.cliff_unlock_percentage}% released at cliff end)`}
+                                {schedule.duration_months > 0 && ` → ${schedule.duration_months}m ${schedule.frequency} vesting`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No vesting schedules yet"
+                    description="Unlock schedules per allocation segment have not been recorded."
+                    onboardingHint="Contribute it via the token form (step 4, Vesting)."
+                    actions={
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Contribute it
+                      </Button>
+                    }
+                  />
+                )}
+              </SectionCard>
+
+              {/* Emission */}
+              <SectionCard
+                title="Emission"
+                accent="emission"
+                description="Token economics and inflation mechanics"
+              >
+                {token.emission_models ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Emission type</p>
+                        <p className="mt-1 text-lg font-semibold capitalize">
+                          {token.emission_models.type.replace('_', ' ')}
+                        </p>
+                      </div>
+                      {token.emission_models.annual_inflation_rate != null && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground">Annual inflation rate</p>
+                          <p className="tabular mt-1 text-lg font-semibold">
+                            {token.emission_models.annual_inflation_rate}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {token.emission_models.has_burn && (
+                      <div className="rounded-lg border border-orange-500/20 bg-orange-100 p-3 dark:bg-orange-500/10">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="mt-0.5 h-5 w-5 text-orange-500" />
+                          <div>
+                            <p className="font-medium text-orange-500">Burn mechanism active</p>
+                            {token.emission_models.burn_details && (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {token.emission_models.burn_details}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {token.emission_models.has_buyback && (
+                      <div className="rounded-lg border border-blue-500/20 bg-blue-100 p-3 dark:bg-blue-500/10">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 text-blue-500" />
+                          <div>
+                            <p className="font-medium text-blue-500">Buyback program active</p>
+                            {token.emission_models.buyback_details && (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {token.emission_models.buyback_details}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <ClaimSourceBadges claimType="emission_model" />
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No emission model yet"
+                    description="Inflation, burn and buyback mechanics have not been recorded."
+                    onboardingHint="Contribute it via the token form (step 5, Emission)."
+                    actions={
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Contribute it
+                      </Button>
+                    }
+                  />
+                )}
+              </SectionCard>
+
+              {/* Sources / Provenance */}
+              <SectionCard
+                title="Sources"
+                accent="data_source"
+                description="References and provenance"
+              >
+                {token.data_sources.length > 0 ? (
+                  <div className="space-y-3">
+                    {token.data_sources.map((source, index) => {
+                      const claims = getSourceClaims(source.id)
+                      return (
+                        <div key={index} className="space-y-2 rounded-lg bg-surface-2 p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <DataBadge type="data_source" label={source.source_type.replace('_', ' ')} emphasis="outline" />
+                            <p className="font-medium">{source.document_name}</p>
+                            {source.version && (
+                              <span className="text-xs text-faint-foreground">v{source.version}</span>
+                            )}
+                          </div>
+
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 break-all font-mono text-sm text-primary hover:underline"
+                          >
+                            {source.url.length > 60 ? `${source.url.slice(0, 60)}...` : source.url}
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+
+                          {(source.verified_at || claims.length > 0) && (
+                            <div className="space-y-2 border-t border-border/40 pt-2">
+                              {source.verified_at && (
+                                <p className="text-xs text-faint-foreground">
+                                  Verified {formatDate(source.verified_at)}
+                                </p>
+                              )}
+                              {claims.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="shrink-0 text-xs text-muted-foreground">Used for:</span>
+                                  {claims.map((cs, i) => (
+                                    <span
+                                      key={i}
+                                      className="rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary"
+                                    >
+                                      {getClaimLabel(cs.claim_type, cs.claim_id)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No sources yet"
+                    description="No reference documents have been attached to this token."
+                    onboardingHint="Contribute it via the token form (step 6, Sources)."
+                    actions={
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Contribute it
+                      </Button>
+                    }
+                  />
+                )}
+              </SectionCard>
+
+              {/* Risk flags */}
+              <SectionCard
+                title="Risk flags"
+                accent="risk_flag"
+                description="Risk signals identified for this token"
+              >
+                {token.risk_flags.length > 0 ? (
+                  <div className="space-y-3">
+                    {token.risk_flags.map((flag) => {
+                      const description = getRiskFlagTypeDescription(flag.flag_type)
+                      return (
+                        <div key={flag.id} className="space-y-2 rounded-lg bg-surface-2 p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <RiskPill severity={riskSeverity(flag.severity)} />
+                            <p className="font-medium">{formatRiskFlagTypeLabel(flag.flag_type)}</p>
+                            {!flag.is_flagged && (
+                              <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                                Cleared
+                              </span>
+                            )}
+                          </div>
+                          {description && (
+                            <p className="text-xs text-muted-foreground">{description}</p>
+                          )}
+                          {flag.justification && (
+                            <div className="border-t border-border/40 pt-2">
+                              <p className="text-xs font-medium text-muted-foreground">Justification</p>
+                              <p className="mt-0.5 text-sm">{flag.justification}</p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No risk flags recorded"
+                    description="No risk signals have been identified for this token."
+                    onboardingHint="Add a flag via the token form to surface a risk."
+                    actions={
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Contribute it
+                      </Button>
+                    }
+                  />
+                )}
+              </SectionCard>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Actions */}
-      <Card className="border border-rose-500/30 overflow-hidden shadow-[0_0_30px_rgba(244,63,94,0.15)]">
-        <CardHeader className="border-b border-border/50 pb-5 bg-gradient-to-r from-rose-100 dark:from-rose-500/5 to-transparent">
-          <CardTitle className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-7 h-7 rounded-md bg-rose-100 dark:bg-rose-500/10">
-              <Settings2 className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-            </span>
-            Actions
-          </CardTitle>
-          <CardDescription>Manage token status and data</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3 pt-6">
-          {/* Change Status */}
-          <Select onValueChange={handleStatusSelect} value={token.status}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Change status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="in_review">In Review</SelectItem>
-              <SelectItem value="validated">Validated</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Export */}
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export JSON Triples
-          </Button>
-
-          {/* Delete */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="ml-auto">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Token
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the token
-                  <span className="font-semibold"> {token.name} ({token.ticker})</span> and all its associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* Downgrade confirmation */}
-          <AlertDialog open={!!pendingStatus} onOpenChange={(open) => { if (!open) setPendingStatus(null) }}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Downgrade token status?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You are about to change the status of {token?.name} ({token?.ticker}) from &quot;{token?.status?.replace('_', ' ')}&quot; to &quot;{pendingStatus?.replace('_', ' ')}&quot;. This may require re-validation later.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => { if (pendingStatus) { handleStatusChange(pendingStatus); setPendingStatus(null) } }}>
-                  Confirm Downgrade
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
-
-      {/* Intuition Protocol publish */}
-      {(token.status === 'validated' || token.status === 'in_review') && (
-        <PublishPanel tokenId={token.id} tokenStatus={token.status} />
-      )}
+      {/* Downgrade confirmation (existing pendingStatus flow) */}
+      <AlertDialog open={!!pendingStatus} onOpenChange={(open) => { if (!open) setPendingStatus(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Downgrade token status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to change the status of {token?.name} ({token?.ticker}) from &quot;{token?.status?.replace('_', ' ')}&quot; to &quot;{pendingStatus?.replace('_', ' ')}&quot;. This may require re-validation later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (pendingStatus) { handleStatusChange(pendingStatus); setPendingStatus(null) } }}>
+              Confirm Downgrade
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

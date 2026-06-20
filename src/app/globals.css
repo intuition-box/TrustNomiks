@@ -1,118 +1,366 @@
 @import "tailwindcss";
 
+/* Class-based dark mode (next-themes toggles `.dark` on <html>).
+   Default theme is dark (see ThemeProvider) → `.dark` is present on first paint. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================================
+   TrustNomiks Design System — "Data Observatory" (dark-first)
+   Tokens authored as HSL triplets (`H S% L%`) and consumed via `hsl(var(--x))`
+   through the @theme bridge, so existing shadcn classes AND raw `hsl(var(--x))`
+   consumers (charts) keep working unchanged. Light = `:root`, Dark = `.dark`.
+   See docs/redesign/03-design-tokens-taxonomy.md for the full governance.
+   ============================================================================ */
+
+/* ── LIGHT (base / opt-in via toggle) ─────────────────────────────────────── */
 :root {
-  /* TrustNomiks Light Theme (default) */
   --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --foreground: 240 10% 6%;
 
-  --card: 0 0% 98.5%;
-  --card-foreground: 240 10% 3.9%;
+  /* Elevation ladder */
+  --surface-1: 240 20% 99%;   /* resting card */
+  --surface-2: 240 14% 96%;   /* raised / hover */
+  --surface-3: 0 0% 100%;     /* overlay / dialog */
 
+  --card: 240 20% 99%;
+  --card-foreground: 240 10% 6%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
+  --popover-foreground: 240 10% 6%;
 
-  --primary: 239 84% 67%; /* Indigo #6366F1 */
+  /* Brand */
+  --primary: 239 70% 58%;            /* indigo / graph-root */
   --primary-foreground: 0 0% 100%;
-
-  --secondary: 266 83% 61%; /* Violet #8B5CF6 */
+  --secondary: 258 75% 60%;          /* violet / token */
   --secondary-foreground: 0 0% 100%;
 
   --muted: 240 5% 93%;
-  --muted-foreground: 240 4% 46%;
-
+  --muted-foreground: 240 4% 40%;
+  --faint-foreground: 240 4% 55%;
   --accent: 240 5% 93%;
-  --accent-foreground: 240 10% 3.9%;
+  --accent-foreground: 240 10% 6%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 84% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 160 84% 33%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 45%;
+  --warning-foreground: 240 10% 6%;
+  --info: 217 91% 52%;
+  --info-foreground: 0 0% 100%;
 
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 239 84% 67%;
+  --border: 240 9% 90%;
+  --border-strong: 240 8% 80%;
+  --input: 240 9% 88%;
+  --ring: 239 70% 58%;
 
-  --radius: 0.5rem;
+  /* Workflow status */
+  --status-draft: 215 16% 47%;
+  --status-review: 38 92% 45%;
+  --status-validated: 160 84% 33%;
+
+  /* Risk severity */
+  --risk-low: 160 84% 33%;
+  --risk-med: 38 92% 45%;
+  --risk-high: 25 95% 48%;
+
+  /* ── DATA CATEGORY (graph taxonomy, promoted to first-class) ── */
+  --data-hub: 239 70% 58%;          /* graph_root */
+  --data-token: 258 75% 58%;
+  --data-allocation: 38 92% 45%;
+  --data-vesting: 160 84% 33%;
+  --data-emission: 0 84% 55%;
+  --data-risk: 25 95% 48%;          /* risk_flag */
+  --data-source: 217 91% 52%;       /* data_source */
+  --data-export: 173 80% 34%;       /* export_run */
+  --data-application: 175 77% 26%;
+  --data-wallet: 215 19% 35%;
+  --data-category: 215 16% 42%;
+  --data-sector: 272 80% 56%;
+  --data-chain: 199 89% 42%;
+  --data-triple: 215 16% 50%;       /* triple / predicate / literal */
+
+  /* Graph chrome */
+  --graph-canvas: 240 20% 99%;
+  --graph-edge: 240 6% 78%;
+  --graph-edge-focus: 240 6% 45%;
+
+  --radius: 0.625rem;
 }
 
+/* ── DARK (default — what users see first) ────────────────────────────────── */
 .dark {
-  /* TrustNomiks Dark Theme */
-  --background: 240 10% 3.9%;
+  --background: 240 10% 4%;          /* the void */
   --foreground: 0 0% 98%;
 
-  --card: 240 10% 5%;
-  --card-foreground: 0 0% 98%;
+  --surface-1: 240 8% 7%;
+  --surface-2: 240 7% 10%;
+  --surface-3: 240 7% 13%;
 
-  --popover: 240 10% 5%;
+  --card: 240 8% 7%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 7% 13%;
   --popover-foreground: 0 0% 98%;
 
   --primary: 239 84% 67%;
-  --primary-foreground: 0 0% 98%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 258 90% 70%;
+  --secondary-foreground: 0 0% 100%;
 
-  --secondary: 266 83% 61%;
-  --secondary-foreground: 0 0% 98%;
-
-  --muted: 240 10% 10%;
-  --muted-foreground: 240 5% 64.9%;
-
-  --accent: 240 10% 10%;
+  --muted: 240 7% 12%;
+  --muted-foreground: 240 5% 68%;
+  --faint-foreground: 240 5% 50%;
+  --accent: 240 7% 13%;
   --accent-foreground: 0 0% 98%;
 
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 98%;
+  --success: 160 84% 39%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 240 10% 6%;
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
 
-  --border: 240 10% 15%;
-  --input: 240 10% 15%;
+  --border: 240 6% 16%;
+  --border-strong: 240 6% 26%;
+  --input: 240 6% 20%;
   --ring: 239 84% 67%;
+
+  --status-draft: 215 16% 60%;
+  --status-review: 38 92% 50%;
+  --status-validated: 160 84% 39%;
+
+  --risk-low: 160 84% 39%;
+  --risk-med: 38 92% 50%;
+  --risk-high: 25 95% 53%;
+
+  --data-hub: 239 84% 67%;
+  --data-token: 258 90% 70%;
+  --data-allocation: 38 92% 50%;
+  --data-vesting: 160 84% 39%;
+  --data-emission: 0 84% 60%;
+  --data-risk: 25 95% 53%;
+  --data-source: 217 91% 60%;
+  --data-export: 173 80% 40%;
+  --data-application: 175 70% 38%;
+  --data-wallet: 215 19% 50%;
+  --data-category: 215 16% 58%;
+  --data-sector: 272 88% 65%;
+  --data-chain: 199 89% 48%;
+  --data-triple: 215 20% 65%;
+
+  --graph-canvas: 240 10% 4%;
+  --graph-edge: 240 5% 28%;
+  --graph-edge-focus: 0 0% 80%;
 }
 
+/* ============================================================================
+   @theme — expose tokens to Tailwind utilities (shadcn-compatible bridge).
+   Keeps `hsl(var(--x))` so every existing consumer is untouched.
+   ============================================================================ */
 @theme inline {
-  /* Map shadcn/ui variables to Tailwind v4 theme */
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
+
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-faint-foreground: hsl(var(--faint-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+
   --color-border: hsl(var(--border));
+  --color-border-strong: hsl(var(--border-strong));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  /* Elevation surfaces */
+  --color-surface-1: hsl(var(--surface-1));
+  --color-surface-2: hsl(var(--surface-2));
+  --color-surface-3: hsl(var(--surface-3));
+
+  /* Workflow status / risk */
+  --color-status-draft: hsl(var(--status-draft));
+  --color-status-review: hsl(var(--status-review));
+  --color-status-validated: hsl(var(--status-validated));
+  --color-risk-low: hsl(var(--risk-low));
+  --color-risk-med: hsl(var(--risk-med));
+  --color-risk-high: hsl(var(--risk-high));
+
+  /* Data taxonomy → bg-data-token, text-data-vesting, border-data-source… */
+  --color-data-hub: hsl(var(--data-hub));
+  --color-data-token: hsl(var(--data-token));
+  --color-data-allocation: hsl(var(--data-allocation));
+  --color-data-vesting: hsl(var(--data-vesting));
+  --color-data-emission: hsl(var(--data-emission));
+  --color-data-risk: hsl(var(--data-risk));
+  --color-data-source: hsl(var(--data-source));
+  --color-data-export: hsl(var(--data-export));
+  --color-data-application: hsl(var(--data-application));
+  --color-data-wallet: hsl(var(--data-wallet));
+  --color-data-category: hsl(var(--data-category));
+  --color-data-sector: hsl(var(--data-sector));
+  --color-data-chain: hsl(var(--data-chain));
+  --color-data-triple: hsl(var(--data-triple));
+
+  /* Fonts (loaded via next/font in layout.tsx) */
+  --font-sans: var(--font-geist-sans), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Radius scale (Tailwind rounded-*) */
+  --radius-xs: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
+
+  /* Animation utilities (graph-as-signature) */
+  --animate-node-spawn: node-spawn var(--dur-slow, 320ms) var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1));
+  --animate-edge-particle: edge-particle var(--dur-slower, 480ms) var(--ease-out, cubic-bezier(0.16,1,0.3,1));
+  --animate-stake-swell: stake-swell var(--dur-slow, 320ms) var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1));
+  --animate-graph-breathe: graph-breathe 6s ease-in-out infinite;
+  --animate-count-up: count-up var(--dur-slower, 480ms) var(--ease-out, cubic-bezier(0.16,1,0.3,1));
 }
 
-body {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-feature-settings: "rlig" 1, "calt" 1;
+/* ============================================================================
+   Design constants (motion tokens, gradient) — not theme-swapped
+   ============================================================================ */
+:root {
+  --dur-instant: 80ms;
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --dur-slower: 480ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --stagger-ingest: 64ms;
+
+  /* The owned signature gradient (graph-root → token). Use sparingly. */
+  --gradient-brand: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  --gradient-brand-soft: linear-gradient(135deg, hsl(var(--primary) / 0.16), hsl(var(--secondary) / 0.16));
 }
 
-/* Organic smoke drift animation for logo backdrop */
-@keyframes smoke-a {
-  0%,100% { transform: translate(0px,  0px) scale(1);    opacity: 0.18; }
-  30%      { transform: translate(5px, -4px) scale(1.15); opacity: 0.08; }
-  65%      { transform: translate(-3px, 3px) scale(0.9);  opacity: 0.14; }
-}
-@keyframes smoke-b {
-  0%,100% { transform: translate(0px,  0px) scale(1);    opacity: 0.12; }
-  40%      { transform: translate(-6px,-2px) scale(1.2);  opacity: 0.06; }
-  70%      { transform: translate(4px,  5px) scale(0.85); opacity: 0.10; }
-}
-@keyframes smoke-c {
-  0%,100% { transform: translate(0px, 0px)  scale(1);    opacity: 0.10; }
-  25%      { transform: translate(3px, 5px)  scale(1.1);  opacity: 0.05; }
-  75%      { transform: translate(-5px,-3px) scale(1.05); opacity: 0.13; }
+/* ============================================================================
+   BASE LAYER
+   ============================================================================ */
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  /* Tabular numerics for all data surfaces (supply, %, stake, counts) */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  code, kbd, samp {
+    font-family: var(--font-mono);
+  }
+  /* One strong AA focus ring, every focusable, both themes */
+  :where(a, button, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
 }
 
-/* Score flash animation — fires when completeness points are gained */
-@keyframes score-flash {
-  0%   { opacity: 1; transform: translateY(0px) scale(1.25); }
+/* ============================================================================
+   UTILITIES — brand signature
+   ============================================================================ */
+@layer utilities {
+  .text-gradient-brand {
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-gradient-brand {
+    background: var(--gradient-brand);
+  }
+  .bg-gradient-brand-soft {
+    background: var(--gradient-brand-soft);
+  }
+  /* Luminous: the "data glows on the void" effect. Pass --glow to set hue. */
+  .glow-brand {
+    box-shadow: 0 0 0 1px hsl(var(--primary)), 0 0 24px -4px hsl(var(--primary) / 0.7);
+  }
+  .glow-data {
+    box-shadow: 0 0 0 1px var(--glow, hsl(var(--primary))), 0 0 20px -6px var(--glow, hsl(var(--primary)));
+  }
+  /* Glass / refraction — interactive controls only (stake slider, palette, publish) */
+  .glass {
+    background: color-mix(in oklab, hsl(var(--surface-2)) 70%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid color-mix(in oklab, hsl(var(--border-strong)) 60%, transparent);
+  }
+}
+
+/* ============================================================================
+   MOTION VOCABULARY (graph-as-signature) — replaces the orphaned smoke-* keyframes
+   ============================================================================ */
+@keyframes node-spawn {
+  0%   { transform: scale(0);    opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+@keyframes edge-particle {
+  0%   { offset-distance: 0%;   opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes stake-swell {           /* $TRUST stake → node mass + halo */
+  0%   { transform: scale(1);    filter: brightness(1); }
+  50%  { transform: scale(1.18); filter: brightness(1.4); }
+  100% { transform: scale(1.06); filter: brightness(1.15); }
+}
+@keyframes graph-breathe {         /* idle ambient, very low alpha */
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.7; }
+}
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes score-flash {           /* kept — completeness points gained */
+  0%   { opacity: 1; transform: translateY(0) scale(1.25); }
   50%  { opacity: 1; transform: translateY(-14px) scale(1); }
   100% { opacity: 0; transform: translateY(-22px) scale(0.9); }
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
