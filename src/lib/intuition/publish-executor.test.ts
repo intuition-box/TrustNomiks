@@ -451,3 +451,110 @@ describe('executePublishPlan — atom phase', () => {
     })
   })
 })
+
+// ── Triple phase: MultiVault_TripleExists handling (mirrors the atom fix) ──────
+// The triples phase does NOT abort on a chunk failure (it continues), so the
+// individual-recheck recovery confirms the genuinely-existing triples and marks
+// the rest failed without aborting. (The provenance phase shares the same logic.)
+describe('executePublishPlan — triple phase TripleExists handling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockEventParseAtomCreated.mockResolvedValue([])
+    mockEventParseTripleCreated.mockResolvedValue([])
+  })
+
+  // Atoms exist on the initial recheck → no atom writes, but their term ids land
+  // in createdAtomTermIds so the triple phase can resolve and submit two triples.
+  function planWithTriples() {
+    const atomA = makeAtom('atom:A', 'atom-A')
+    const atomB = makeAtom('atom:B', 'atom-B')
+    return makePlan({
+      atoms: { toCreate: [atomA, atomB], existing: [] },
+      triples: {
+        toCreate: [
+          makeTriple('triple:1', 'atom:A', 'atom:B', 'atom:A'),
+          makeTriple('triple:2', 'atom:B', 'atom:A', 'atom:B'),
+        ],
+        existing: [],
+      },
+    })
+  }
+
+  const atomsExist = () =>
+    existsMap(
+      [atomTermId('atom-A'), atomTermId('atom-B')],
+      [atomTermId('atom-A'), atomTermId('atom-B')],
+    )
+
+  it('on TripleExists revert: confirms triples now-existing, FAILS still-missing, and CONTINUES (no abort)', async () => {
+    const plan = planWithTriples()
+
+    mockBatchIsTermCreated
+      .mockResolvedValueOnce(atomsExist()) // initial atom recheck: both exist → no atom write
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, [])) // triple pre-write recheck: all missing → submit both
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, [termIds[0]])) // post-revert: first exists, rest missing
+
+    mockMultiVaultCreateTriples.mockRejectedValue(
+      new Error('execution reverted: MultiVault_TripleExists()'),
+    )
+
+    const events = await collect(executePublishPlan(plan, walletClient(), publicClient()))
+
+    const failed = events.find((e) => e.type === 'chunk_failed' && e.phase === 'triples')!
+    expect(failed).toBeDefined()
+    const mappings = failed.chunkMappings!.claimMappings!
+    expect(mappings).toHaveLength(2)
+    expect(mappings.filter((m) => m.status === 'confirmed')).toHaveLength(1)
+    expect(mappings.filter((m) => m.status === 'failed')).toHaveLength(1)
+
+    // The confirmed one is exactly the triple the post-revert recheck reported as
+    // existing (termIds[0] = first submitted = triple:1); the other really failed.
+    expect(mappings.find((m) => m.status === 'confirmed')!.tripleId).toBe('triple:1')
+    expect(mappings.find((m) => m.status === 'failed')!.tripleId).toBe('triple:2')
+
+    // The post-revert recheck itself must use assumeMissing: a read failure there
+    // must fail the triple, not silently confirm it.
+    const postRevertOpts = mockBatchIsTermCreated.mock.calls[2][2] as { failureMode: string }
+    expect(postRevertOpts.failureMode).toBe('assumeMissing')
+
+    // The triples phase does NOT abort; the run completes.
+    expect(events.some((e) => e.type === 'abort')).toBe(false)
+    expect(events.some((e) => e.type === 'complete')).toBe(true)
+  })
+
+  it('on TripleExists revert where every submitted triple already exists: chunk_success, all confirmed, no failures', async () => {
+    const plan = planWithTriples()
+
+    mockBatchIsTermCreated
+      .mockResolvedValueOnce(atomsExist())
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, [])) // submit both
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, termIds)) // post-revert: ALL exist
+
+    mockMultiVaultCreateTriples.mockRejectedValue(
+      new Error('execution reverted: MultiVault_TripleExists()'),
+    )
+
+    const events = await collect(executePublishPlan(plan, walletClient(), publicClient()))
+
+    const success = events.find((e) => e.type === 'chunk_success' && e.phase === 'triples')!
+    expect(success).toBeDefined()
+    expect(success.chunkMappings!.claimMappings!.every((m) => m.status === 'confirmed')).toBe(true)
+    expect(events.some((e) => e.type === 'chunk_failed' && e.phase === 'triples')).toBe(false)
+    expect(events.some((e) => e.type === 'complete')).toBe(true)
+  })
+
+  it('uses failureMode "assumeMissing" on the triple pre-write recheck', async () => {
+    const plan = planWithTriples()
+
+    mockBatchIsTermCreated
+      .mockResolvedValueOnce(atomsExist())
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, termIds)) // all exist → nothing submitted
+
+    await collect(executePublishPlan(plan, walletClient(), publicClient()))
+
+    // call 0 = atom initial recheck; call 1 = triple pre-write recheck.
+    const tripleRecheckOpts = mockBatchIsTermCreated.mock.calls[1][2] as { failureMode: string }
+    expect(tripleRecheckOpts.failureMode).toBe('assumeMissing')
+    expect(mockMultiVaultCreateTriples).not.toHaveBeenCalled()
+  })
+})
