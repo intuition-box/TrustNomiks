@@ -94,13 +94,6 @@ const EXCLUDED_ATOM_TYPES = new Set([
   'risk_flag',
 ])
 
-/**
- * Claim groups (origin tables) excluded from V1.
- */
-const EXCLUDED_CLAIM_GROUPS = new Set<string>([
-  // risk_flags triples are excluded
-])
-
 // ── Predicate normalization ─────────────────────────────────────────────────
 
 export function normalizePredicate(rawPredicate: string): string {
