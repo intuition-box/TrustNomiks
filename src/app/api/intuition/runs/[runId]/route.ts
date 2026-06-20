@@ -105,29 +105,19 @@ export async function GET(
 
   // ── 2. Load mappings — prefer immutable per-run snapshots, then legacy paths ─
 
-  const snapshotAttempt = await loadSnapshotMappings(supabase, runId)
-  let atomRows = snapshotAttempt.atomRows
-  let claimRows = snapshotAttempt.claimRows
-  let provRows = snapshotAttempt.provRows
+  const runIdAttempt = await loadMappingsByRunId(supabase, runId)
+  let atomRows = runIdAttempt.atomRows
+  let claimRows = runIdAttempt.claimRows
+  let provRows = runIdAttempt.provRows
   let isLegacy = false
-  let snapshotSource: SnapshotSource = 'run_snapshot'
+  let snapshotSource: SnapshotSource = 'empty'
 
-  const hasAnySnapshotMapping =
+  const hasAnyRunIdMapping =
     atomRows.length > 0 || claimRows.length > 0 || provRows.length > 0
 
-  if (!hasAnySnapshotMapping) {
-    const runIdAttempt = await loadMappingsByRunId(supabase, runId)
-    atomRows = runIdAttempt.atomRows
-    claimRows = runIdAttempt.claimRows
-    provRows = runIdAttempt.provRows
-
-    const hasAnyRunIdMapping =
-      atomRows.length > 0 || claimRows.length > 0 || provRows.length > 0
-
-    if (hasAnyRunIdMapping) {
-      isLegacy = true
-      snapshotSource = 'legacy_run_id'
-    }
+  if (hasAnyRunIdMapping) {
+    isLegacy = true
+    snapshotSource = 'legacy_run_id'
   }
 
   if (atomRows.length === 0 && claimRows.length === 0 && provRows.length === 0) {
@@ -201,31 +191,6 @@ export async function GET(
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-async function loadSnapshotMappings(supabase: SupabaseClient, runId: string) {
-  const [atoms, claims, provs] = await Promise.all([
-    supabase
-      .from('intuition_run_atom_mappings')
-      .select('atom_id, atom_type, normalized_data, term_id, tx_hash, status, error_message')
-      .eq('run_id', runId),
-    supabase
-      .from('intuition_run_claim_mappings')
-      .select(
-        'triple_id, claim_group, origin_row_id, subject_term_id, predicate_term_id, object_term_id, triple_term_id, tx_hash, status, error_message',
-      )
-      .eq('run_id', runId),
-    supabase
-      .from('intuition_run_provenance_mappings')
-      .select('triple_id, source_atom_id, provenance_triple_term_id, tx_hash, status, error_message')
-      .eq('run_id', runId),
-  ])
-
-  return {
-    atomRows: ((atoms.data as AtomMappingDbRow[] | null) ?? []),
-    claimRows: ((claims.data as ClaimMappingDbRow[] | null) ?? []),
-    provRows: ((provs.data as ProvMappingDbRow[] | null) ?? []),
-  }
-}
 
 async function loadMappingsByRunId(supabase: SupabaseClient, runId: string) {
   const [atoms, claims, provs] = await Promise.all([
