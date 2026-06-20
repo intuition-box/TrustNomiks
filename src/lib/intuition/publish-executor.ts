@@ -614,12 +614,15 @@ export async function* executePublishPlan(
     // Batch-check existence for deduped triples
     if (dedupedTriples.length > 0) {
       const recheckTermIds = dedupedTriples.map((et) => et.effTripleTermId)
+      // assumeMissing: a read failure must not mark a triple as already existing
+      // and skip its creation. Treat unknowns as "needs creation"; the
+      // MultiVault_TripleExists handler below confirms anything that truly exists.
       const recheckResults = await batchIsTermCreated(publicClient, recheckTermIds, {
-        failureMode: 'assumeExists',
+        failureMode: 'assumeMissing',
       })
 
       for (const et of dedupedTriples) {
-        const exists = recheckResults.get(et.effTripleTermId.toLowerCase() as Hex) ?? true
+        const exists = recheckResults.get(et.effTripleTermId.toLowerCase() as Hex) ?? false
         if (exists) {
           preConfirmed.push({ et, reason: 'Triple already exists on-chain (skipped)' })
         } else {
@@ -755,37 +758,74 @@ export async function* executePublishPlan(
       const errorMsg = err instanceof Error ? err.message : String(err)
       console.error(`❌ Triple creation failed for chunk ${ci + 1}:`, errorMsg)
 
-      // Residual TripleExists race (recheck → createTriples is not atomic):
-      // mark all triples in the submitted set as confirmed using their
-      // computed term_ids. Same recovery semantics as the AtomExists handler.
+      // MultiVault_TripleExists revert. The batch is atomic: a revert created
+      // NONE of these triples. Only the one(s) that already existed triggered it.
+      // Recheck each individually and confirm ONLY those genuinely on-chain; the
+      // rest are real failures. The triples phase does not abort, so we continue.
       if (errorMsg.includes('MultiVault_TripleExists')) {
-        console.log('Detected TripleExists revert. Marking submitted triples as existing and continuing…')
+        console.log('Detected TripleExists revert. Rechecking each submitted triple individually…')
+        const existsAfterRevert = await batchIsTermCreated(
+          publicClient,
+          triplesToSubmit.map((et) => et.effTripleTermId),
+          { failureMode: 'assumeMissing' },
+        )
+
+        let stillMissing = 0
         for (const et of triplesToSubmit) {
-          createdTripleTermIds.set(et.planItem.tripleId, et.effTripleTermId)
-          confirmedTripleIds.add(et.planItem.tripleId)
-          claimMappings.push({
-            tripleId: et.planItem.tripleId,
-            claimGroup: et.planItem.claimGroup,
-            originRowId: et.planItem.originRowId,
-            subjectTermId: et.effSubjectId as string,
-            predicateTermId: et.effPredicateId as string,
-            objectTermId: et.effObjectId as string,
-            tripleTermId: et.effTripleTermId as string,
-            txHash: '',
-            status: 'confirmed',
-            errorMessage: 'Triple already exists on-chain (recovered from revert)',
-          })
+          const exists = existsAfterRevert.get(et.effTripleTermId.toLowerCase() as Hex) ?? false
+          if (exists) {
+            createdTripleTermIds.set(et.planItem.tripleId, et.effTripleTermId)
+            confirmedTripleIds.add(et.planItem.tripleId)
+            claimMappings.push({
+              tripleId: et.planItem.tripleId,
+              claimGroup: et.planItem.claimGroup,
+              originRowId: et.planItem.originRowId,
+              subjectTermId: et.effSubjectId as string,
+              predicateTermId: et.effPredicateId as string,
+              objectTermId: et.effObjectId as string,
+              tripleTermId: et.effTripleTermId as string,
+              txHash: '',
+              status: 'confirmed',
+              errorMessage: 'Triple already exists on-chain (confirmed after TripleExists revert)',
+            })
+          } else {
+            stillMissing++
+            claimMappings.push({
+              tripleId: et.planItem.tripleId,
+              claimGroup: et.planItem.claimGroup,
+              originRowId: et.planItem.originRowId,
+              subjectTermId: et.effSubjectId as string,
+              predicateTermId: et.effPredicateId as string,
+              objectTermId: et.effObjectId as string,
+              tripleTermId: et.effTripleTermId as string,
+              txHash: '',
+              status: 'failed',
+              errorMessage: 'TripleExists reverted the chunk; this triple is still not on-chain and must be retried',
+            })
+          }
         }
 
         triplesProcessed += chunk.length
-        yield {
-          type: 'chunk_success',
-          phase: 'triples',
-          chunkIndex: ci,
-          totalChunks: tripleChunks.length,
-          txHash: '',
-          progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
-          chunkMappings: { claimMappings },
+        if (stillMissing > 0) {
+          yield {
+            type: 'chunk_failed',
+            phase: 'triples',
+            chunkIndex: ci,
+            totalChunks: tripleChunks.length,
+            error: `MultiVault_TripleExists: ${triplesToSubmit.length - stillMissing} already existed, ${stillMissing} still missing`,
+            progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+            chunkMappings: { claimMappings },
+          }
+        } else {
+          yield {
+            type: 'chunk_success',
+            phase: 'triples',
+            chunkIndex: ci,
+            totalChunks: tripleChunks.length,
+            txHash: '',
+            progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+            chunkMappings: { claimMappings },
+          }
         }
         continue
       }
@@ -940,12 +980,14 @@ export async function* executePublishPlan(
     // Batch-check existence for deduped provenance
     if (dedupedProvs.length > 0) {
       const recheckTermIds = dedupedProvs.map((ep) => ep.effTripleTermId)
+      // assumeMissing: a read failure must not skip a needed provenance creation.
+      // The MultiVault_TripleExists handler below confirms anything that exists.
       const recheckResults = await batchIsTermCreated(publicClient, recheckTermIds, {
-        failureMode: 'assumeExists',
+        failureMode: 'assumeMissing',
       })
 
       for (const ep of dedupedProvs) {
-        const exists = recheckResults.get(ep.effTripleTermId.toLowerCase() as Hex) ?? true
+        const exists = recheckResults.get(ep.effTripleTermId.toLowerCase() as Hex) ?? false
         if (exists) {
           preConfirmedProvs.push({ ep, reason: 'Provenance triple already exists on-chain (skipped)' })
         } else {
@@ -1063,10 +1105,21 @@ export async function* executePublishPlan(
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
 
-      // Residual TripleExists race: mark as confirmed using computed term_ids.
+      // MultiVault_TripleExists revert. Atomic batch: none were created; only the
+      // already-existing one(s) caused it. Recheck each individually; confirm only
+      // those genuinely on-chain, fail the rest. The provenance phase does not abort.
       if (errorMsg.includes('MultiVault_TripleExists')) {
-        console.log('Detected TripleExists revert in provenance. Marking as existing and continuing…')
+        console.log('Detected TripleExists revert in provenance. Rechecking each individually…')
+        const existsAfterRevert = await batchIsTermCreated(
+          publicClient,
+          provsToSubmit.map((ep) => ep.effTripleTermId),
+          { failureMode: 'assumeMissing' },
+        )
+
+        let stillMissing = 0
         for (const ep of provsToSubmit) {
+          const exists = existsAfterRevert.get(ep.effTripleTermId.toLowerCase() as Hex) ?? false
+          if (!exists) stillMissing++
           provenanceMappings.push({
             tripleId: ep.planItem.claimTripleId,
             sourceAtomId: ep.planItem.sourceAtomId,
@@ -1074,20 +1127,34 @@ export async function* executePublishPlan(
             predicateTermId: ep.effPredicateId as string,
             provenanceTripleTermId: ep.effTripleTermId as string,
             txHash: '',
-            status: 'confirmed',
-            errorMessage: 'Provenance triple already exists on-chain (recovered from revert)',
+            status: exists ? 'confirmed' : 'failed',
+            errorMessage: exists
+              ? 'Provenance triple already exists on-chain (confirmed after TripleExists revert)'
+              : 'TripleExists reverted the chunk; this provenance triple is still not on-chain and must be retried',
           })
         }
 
         provenanceProcessed += chunk.length
-        yield {
-          type: 'chunk_success',
-          phase: 'provenance',
-          chunkIndex: ci,
-          totalChunks: provenanceChunks.length,
-          txHash: '',
-          progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
-          chunkMappings: { provenanceMappings },
+        if (stillMissing > 0) {
+          yield {
+            type: 'chunk_failed',
+            phase: 'provenance',
+            chunkIndex: ci,
+            totalChunks: provenanceChunks.length,
+            error: `MultiVault_TripleExists: ${provsToSubmit.length - stillMissing} already existed, ${stillMissing} still missing`,
+            progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+            chunkMappings: { provenanceMappings },
+          }
+        } else {
+          yield {
+            type: 'chunk_success',
+            phase: 'provenance',
+            chunkIndex: ci,
+            totalChunks: provenanceChunks.length,
+            txHash: '',
+            progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+            chunkMappings: { provenanceMappings },
+          }
         }
         continue
       }
