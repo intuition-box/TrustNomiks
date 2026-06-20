@@ -179,16 +179,6 @@ async function handleChunk(
       console.error('Failed to upsert atom mappings:', atomErr)
       return NextResponse.json({ error: 'Failed to persist atom mappings' }, { status: 500 })
     }
-
-    const snapshotErr = await upsertRunAtomSnapshots(supabase, {
-      runId,
-      chainId,
-      userId,
-      atomMappings,
-    })
-    if (snapshotErr) {
-      console.warn('Best-effort run atom snapshot skipped:', snapshotErr)
-    }
   }
 
   // Upsert claim mappings
@@ -217,16 +207,6 @@ async function handleChunk(
       console.error('Failed to upsert claim mappings:', claimErr)
       return NextResponse.json({ error: 'Failed to persist claim mappings' }, { status: 500 })
     }
-
-    const snapshotErr = await upsertRunClaimSnapshots(supabase, {
-      runId,
-      chainId,
-      userId,
-      claimMappings,
-    })
-    if (snapshotErr) {
-      console.warn('Best-effort run claim snapshot skipped:', snapshotErr)
-    }
   }
 
   // Upsert provenance mappings
@@ -250,16 +230,6 @@ async function handleChunk(
     if (provErr) {
       console.error('Failed to upsert provenance mappings:', provErr)
       return NextResponse.json({ error: 'Failed to persist provenance mappings' }, { status: 500 })
-    }
-
-    const snapshotErr = await upsertRunProvenanceSnapshots(supabase, {
-      runId,
-      chainId,
-      userId,
-      provenanceMappings,
-    })
-    if (snapshotErr) {
-      console.warn('Best-effort run provenance snapshot skipped:', snapshotErr)
     }
   }
 
@@ -395,14 +365,6 @@ async function handleLegacyPersist(
     if (atomErr) {
       console.error('Failed to upsert atom mappings:', atomErr)
     }
-
-    const snapshotErr = await upsertRunAtomSnapshots(supabase, {
-      runId: run.id,
-      chainId,
-      userId,
-      atomMappings: result.atomMappings,
-    })
-    if (snapshotErr) console.error('Failed to upsert run atom snapshots:', snapshotErr)
   }
 
   // 3. Upsert claim mappings
@@ -430,14 +392,6 @@ async function handleLegacyPersist(
     if (claimErr) {
       console.error('Failed to upsert claim mappings:', claimErr)
     }
-
-    const snapshotErr = await upsertRunClaimSnapshots(supabase, {
-      runId: run.id,
-      chainId,
-      userId,
-      claimMappings: result.claimMappings,
-    })
-    if (snapshotErr) console.error('Failed to upsert run claim snapshots:', snapshotErr)
   }
 
   // 4. Upsert provenance mappings
@@ -461,107 +415,10 @@ async function handleLegacyPersist(
     if (provErr) {
       console.error('Failed to upsert provenance mappings:', provErr)
     }
-
-    const snapshotErr = await upsertRunProvenanceSnapshots(supabase, {
-      runId: run.id,
-      chainId,
-      userId,
-      provenanceMappings: result.provenanceMappings,
-    })
-    if (snapshotErr) console.error('Failed to upsert run provenance snapshots:', snapshotErr)
   }
 
   return NextResponse.json({
     runId: run.id,
     status: runStatus,
   })
-}
-
-async function upsertRunAtomSnapshots(
-  supabase: SupabaseClient,
-  params: {
-    runId: string
-    chainId: number
-    userId: string
-    atomMappings: PublishRunRequest['result']['atomMappings']
-  },
-) {
-  const rows = params.atomMappings.map((m) => ({
-    run_id: params.runId,
-    atom_id: m.atomId,
-    atom_type: m.atomType,
-    normalized_data: m.normalizedData,
-    term_id: m.termId,
-    chain_id: params.chainId,
-    tx_hash: m.txHash,
-    status: m.status,
-    error_message: m.errorMessage ?? null,
-    created_by: params.userId,
-  }))
-
-  const { error } = await supabase
-    .from('intuition_run_atom_mappings')
-    .upsert(rows, { onConflict: 'run_id,atom_id' })
-
-  return error
-}
-
-async function upsertRunClaimSnapshots(
-  supabase: SupabaseClient,
-  params: {
-    runId: string
-    chainId: number
-    userId: string
-    claimMappings: PublishRunRequest['result']['claimMappings']
-  },
-) {
-  const rows = params.claimMappings.map((m) => ({
-    run_id: params.runId,
-    triple_id: m.tripleId,
-    claim_group: m.claimGroup,
-    origin_row_id: m.originRowId,
-    subject_term_id: m.subjectTermId,
-    predicate_term_id: m.predicateTermId,
-    object_term_id: m.objectTermId,
-    triple_term_id: m.tripleTermId,
-    chain_id: params.chainId,
-    tx_hash: m.txHash,
-    status: m.status,
-    error_message: m.errorMessage ?? null,
-    created_by: params.userId,
-  }))
-
-  const { error } = await supabase
-    .from('intuition_run_claim_mappings')
-    .upsert(rows, { onConflict: 'run_id,triple_id' })
-
-  return error
-}
-
-async function upsertRunProvenanceSnapshots(
-  supabase: SupabaseClient,
-  params: {
-    runId: string
-    chainId: number
-    userId: string
-    provenanceMappings: PublishRunRequest['result']['provenanceMappings']
-  },
-) {
-  const rows = params.provenanceMappings.map((m) => ({
-    run_id: params.runId,
-    triple_id: m.tripleId,
-    source_atom_id: m.sourceAtomId,
-    provenance_triple_term_id: m.provenanceTripleTermId,
-    chain_id: params.chainId,
-    tx_hash: m.txHash,
-    status: m.status,
-    error_message: m.errorMessage ?? null,
-    created_by: params.userId,
-  }))
-
-  const { error } = await supabase
-    .from('intuition_run_provenance_mappings')
-    .upsert(rows, { onConflict: 'run_id,triple_id,source_atom_id' })
-
-  return error
 }
