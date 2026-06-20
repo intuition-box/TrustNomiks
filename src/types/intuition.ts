@@ -256,7 +256,7 @@ export interface RunDetailMeta {
   /** True if the run was created before the `run_id` column existed and was resolved via tx_hash fallback. */
   isLegacy: boolean
   /** Where the run detail mappings were loaded from. */
-  snapshotSource: 'intuition_graphql' | 'run_snapshot' | 'legacy_run_id' | 'legacy_window' | 'empty'
+  snapshotSource: 'intuition_graphql' | 'legacy_run_id' | 'legacy_window' | 'empty'
 }
 
 export interface RunDetailResponse {

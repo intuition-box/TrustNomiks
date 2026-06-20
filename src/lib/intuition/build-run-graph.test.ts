@@ -24,7 +24,7 @@ function makeRun(overrides: Partial<RunDetailMeta> = {}): RunDetailMeta {
     startedAt: '2026-01-01T00:00:00.000Z',
     completedAt: '2026-01-01T00:05:00.000Z',
     isLegacy: false,
-    snapshotSource: 'run_snapshot',
+    snapshotSource: 'intuition_graphql',
     ...overrides,
   }
 }
