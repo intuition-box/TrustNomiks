@@ -33,12 +33,11 @@ import {
   TRIPLE_CHUNK_SIZE,
   PROVENANCE_CHUNK_SIZE,
 } from './config'
-import { recheckAtomExistence } from './existence-resolver'
 import {
   calculateAtomId,
   calculateTripleId,
-  multiVaultIsTermCreated,
 } from '@0xintuition/sdk'
+import { batchIsTermCreated } from './read-batcher'
 import type {
   PublishPlan,
   PublishEvent,
@@ -135,24 +134,41 @@ export async function* executePublishPlan(
   // IMPROVED FIX: Verify which atoms actually exist and get their real term IDs
   console.log('🔧 IMPROVED FIX: Checking which atoms actually exist on-chain...')
 
-  const realExistingAtoms = []
-  const needToCreate = []
+  const realExistingAtoms: typeof atomsToCreate = []
+  const needToCreate: typeof atomsToCreate = []
+  const atomTermIdToAtom = new Map<string, typeof atomsToCreate[0][]>()
 
   for (const atom of atomsToCreate) {
     const computedTermId = computeAtomTermId(atom.normalizedData)
-    try {
-      const exists = await multiVaultIsTermCreated({ address: MULTIVAULT_ADDRESS, publicClient }, { args: [computedTermId] })
+    const key = computedTermId.toLowerCase()
+    if (!atomTermIdToAtom.has(key)) {
+      atomTermIdToAtom.set(key, [])
+    }
+    atomTermIdToAtom.get(key)!.push(atom)
+  }
+
+  const atomRecheckTermIds = Array.from(atomTermIdToAtom.keys()) as Hex[]
+  // assumeMissing: a read failure must NOT mark an atom as already existing —
+  // that would skip its creation forever and break every triple referencing it.
+  // Treat unknowns as "needs creation"; the per-chunk recheck and the
+  // MultiVault_AtomExists handler below are the net against double-creation.
+  // (Restores the legacy "if can't check, try to create" semantics.)
+  const atomRecheckResults = await batchIsTermCreated(publicClient, atomRecheckTermIds, {
+    failureMode: 'assumeMissing',
+  })
+
+  for (const [, atoms] of atomTermIdToAtom) {
+    for (const atom of atoms) {
+      const termId = computeAtomTermId(atom.normalizedData)
+      const exists = atomRecheckResults.get(termId.toLowerCase() as Hex) ?? false
       if (exists) {
-        createdAtomTermIds.set(atom.atomId, computedTermId)
+        createdAtomTermIds.set(atom.atomId, termId)
         realExistingAtoms.push(atom)
         console.log(`✅ FOUND existing atom: "${atom.normalizedData}" (${atom.atomId})`)
       } else {
         needToCreate.push(atom)
         console.log(`❌ NEEDS creation: "${atom.normalizedData}" (${atom.atomId})`)
       }
-    } catch (error) {
-      console.error(`Error checking atom ${atom.atomId}:`, error)
-      needToCreate.push(atom) // If can't check, try to create
     }
   }
 
@@ -165,7 +181,6 @@ export async function* executePublishPlan(
       atomsByData.set(atom.normalizedData, atom)
     } else {
       // Map duplicate atoms to the first instance
-      const originalAtom = atomsByData.get(atom.normalizedData)!
       const termId = computeAtomTermId(atom.normalizedData)
       createdAtomTermIds.set(atom.atomId, termId)
       console.log(`🔄 Mapped duplicate atom: "${atom.normalizedData}" (${atom.atomId}) -> existing instance`)
@@ -197,17 +212,71 @@ export async function* executePublishPlan(
       progress: { currentChunk: ci, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
     }
 
-    try {
-      const hexDataArray = chunk.map((a) => stringToAtomData(a.normalizedData))
-      const assetsArray = chunk.map(() => atomAssetPerUnit)
-      const totalValue = atomAssetPerUnit * BigInt(chunk.length)
+    // ── Per-chunk existence recheck (closes the recheck→write race) ──────────
+    // An atom can be created (by another publisher on the shared testnet, or by
+    // an earlier chunk in this run) between the initial recheck above and this
+    // write. Re-check immediately before submitting and drop atoms that now
+    // exist, so the contract call only ever creates genuinely-missing atoms.
+    // assumeMissing: a read failure here still attempts the write — the
+    // MultiVault_AtomExists handler below is the net against double-creation.
+    const chunkRecheck = await batchIsTermCreated(
+      publicClient,
+      chunk.map((a) => a.computedTermId as Hex),
+      { failureMode: 'assumeMissing' },
+    )
 
-      console.log(`Creating atom chunk ${ci + 1}/${atomChunks.length} with ${chunk.length} atoms:`)
-      chunk.forEach((atom, idx) => {
+    const submitChunk: typeof chunk = []
+    const skippedMappings: PublishRunResult['atomMappings'] = []
+    for (const atom of chunk) {
+      const exists = chunkRecheck.get((atom.computedTermId as string).toLowerCase() as Hex) ?? false
+      if (exists) {
+        createdAtomTermIds.set(atom.atomId, atom.computedTermId)
+        for (const needAtom of needToCreate) {
+          if (needAtom.normalizedData === atom.normalizedData) {
+            createdAtomTermIds.set(needAtom.atomId, atom.computedTermId)
+          }
+        }
+        skippedMappings.push({
+          atomId: atom.atomId,
+          atomType: atom.atomType,
+          normalizedData: atom.normalizedData,
+          termId: atom.computedTermId as string,
+          txHash: '',
+          status: 'confirmed' as const,
+          errorMessage: 'Atom already exists on-chain (skipped before write)',
+        })
+      } else {
+        submitChunk.push(atom)
+      }
+    }
+
+    // Entire chunk already on-chain — no write needed.
+    if (submitChunk.length === 0) {
+      atomsProcessed += chunk.length
+      yield {
+        type: 'chunk_success',
+        phase: 'atoms',
+        chunkIndex: ci,
+        totalChunks: atomChunks.length,
+        txHash: '',
+        progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+        chunkMappings: { atomMappings: skippedMappings },
+      }
+      if (ci < atomChunks.length - 1) {
+        await delay(TX_DELAY_MS)
+      }
+      continue
+    }
+
+    try {
+      const hexDataArray = submitChunk.map((a) => stringToAtomData(a.normalizedData))
+      const assetsArray = submitChunk.map(() => atomAssetPerUnit)
+      const totalValue = atomAssetPerUnit * BigInt(submitChunk.length)
+
+      console.log(`Creating atom chunk ${ci + 1}/${atomChunks.length}: ${submitChunk.length} to create, ${skippedMappings.length} already existed:`)
+      submitChunk.forEach((atom, idx) => {
         console.log(`  [${idx}] "${atom.normalizedData}" (${atom.atomId})`)
       })
-
-      console.log('✓ All atoms verified as needing creation - proceeding with contract call')
 
       const txHash = await multiVaultCreateAtoms(config, {
         args: [hexDataArray, assetsArray],
@@ -218,9 +287,9 @@ export async function* executePublishPlan(
       const events = await eventParseAtomCreated(publicClient, txHash)
 
       // Mismatch: tx mined but can't reliably map events to inputs — treat as failed
-      if (events.length !== chunk.length) {
-        const mismatchErr = `Event count mismatch: expected ${chunk.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
-        const failedMappings: PublishRunResult['atomMappings'] = chunk.map((atom) => ({
+      if (events.length !== submitChunk.length) {
+        const mismatchErr = `Event count mismatch: expected ${submitChunk.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
+        const failedMappings: PublishRunResult['atomMappings'] = submitChunk.map((atom) => ({
           atomId: atom.atomId,
           atomType: atom.atomType,
           normalizedData: atom.normalizedData,
@@ -240,7 +309,7 @@ export async function* executePublishPlan(
           error: mismatchErr,
           txHash: txHash as string,
           progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-          chunkMappings: { atomMappings: failedMappings },
+          chunkMappings: { atomMappings: [...skippedMappings, ...failedMappings] },
         }
 
         atomPhaseAborted = true
@@ -249,9 +318,9 @@ export async function* executePublishPlan(
       }
 
       // Events match — verify each termId against pre-computed value
-      const atomMappings: PublishRunResult['atomMappings'] = []
-      for (let j = 0; j < chunk.length; j++) {
-        const atom = chunk[j]
+      const atomMappings: PublishRunResult['atomMappings'] = [...skippedMappings]
+      for (let j = 0; j < submitChunk.length; j++) {
+        const atom = submitChunk[j]
         const actualTermId = events[j].args.termId as Hex
 
         createdAtomTermIds.set(atom.atomId, actualTermId)
@@ -284,47 +353,95 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: atomChunks.length,
         txHash: txHash as string,
-        progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: atomsToCreate.length },
+        progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
         chunkMappings: { atomMappings },
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       console.error(`Atom chunk ${ci + 1} failed:`, errorMsg)
 
-      // Special handling for MultiVault_AtomExists error
+      // MultiVault_AtomExists revert. The batch call is atomic: a revert means
+      // NONE of the atoms in submitChunk were created this tx. Only the atom(s)
+      // that already existed triggered it — the rest are still missing. Recheck
+      // each one and confirm ONLY those genuinely on-chain; the remainder are
+      // real failures and must not be silently marked confirmed.
       if (errorMsg.includes('MultiVault_AtomExists')) {
-        console.log('Detected atom already exists error. Marking atoms as existing and continuing...')
+        console.log('Detected MultiVault_AtomExists — rechecking each atom in the chunk individually...')
 
-        // Mark these atoms as existing rather than failed
-        const atomMappings: PublishRunResult['atomMappings'] = chunk.map((atom) => ({
-          atomId: atom.atomId,
-          atomType: atom.atomType,
-          normalizedData: atom.normalizedData,
-          termId: atom.computedTermId as string,
-          txHash: '',
-          status: 'confirmed' as const,
-          errorMessage: 'Atom already exists on-chain (skipped)',
-        }))
+        const existsAfterRevert = await batchIsTermCreated(
+          publicClient,
+          submitChunk.map((a) => a.computedTermId as Hex),
+          { failureMode: 'assumeMissing' },
+        )
 
-        // Add these atoms to the created atoms map so triples can reference them
-        for (const atom of chunk) {
-          createdAtomTermIds.set(atom.atomId, atom.computedTermId)
+        const confirmedMappings: PublishRunResult['atomMappings'] = []
+        const stillMissing: typeof submitChunk = []
+        for (const atom of submitChunk) {
+          const exists = existsAfterRevert.get((atom.computedTermId as string).toLowerCase() as Hex) ?? false
+          if (exists) {
+            createdAtomTermIds.set(atom.atomId, atom.computedTermId)
+            for (const needAtom of needToCreate) {
+              if (needAtom.normalizedData === atom.normalizedData) {
+                createdAtomTermIds.set(needAtom.atomId, atom.computedTermId)
+              }
+            }
+            confirmedMappings.push({
+              atomId: atom.atomId,
+              atomType: atom.atomType,
+              normalizedData: atom.normalizedData,
+              termId: atom.computedTermId as string,
+              txHash: '',
+              status: 'confirmed' as const,
+              errorMessage: 'Atom already exists on-chain (confirmed after AtomExists revert)',
+            })
+          } else {
+            stillMissing.push(atom)
+          }
         }
 
         atomsProcessed += chunk.length
 
-        yield {
-          type: 'chunk_success',
-          phase: 'atoms',
-          chunkIndex: ci,
-          totalChunks: atomChunks.length,
-          txHash: '',
-          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-          chunkMappings: { atomMappings },
+        if (stillMissing.length === 0) {
+          // Revert was caused purely by already-existing atoms — safe to continue.
+          yield {
+            type: 'chunk_success',
+            phase: 'atoms',
+            chunkIndex: ci,
+            totalChunks: atomChunks.length,
+            txHash: '',
+            progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+            chunkMappings: { atomMappings: [...skippedMappings, ...confirmedMappings] },
+          }
+        } else {
+          // Some atoms are genuinely still missing: the atomic revert means they
+          // were NOT created. Surface them as failed and abort so the run resumes.
+          const failedMappings: PublishRunResult['atomMappings'] = stillMissing.map((atom) => ({
+            atomId: atom.atomId,
+            atomType: atom.atomType,
+            normalizedData: atom.normalizedData,
+            termId: atom.computedTermId as string,
+            txHash: '',
+            status: 'failed' as const,
+            errorMessage: 'MultiVault_AtomExists reverted the chunk; this atom is still not on-chain and must be retried',
+          }))
+
+          yield {
+            type: 'chunk_failed',
+            phase: 'atoms',
+            chunkIndex: ci,
+            totalChunks: atomChunks.length,
+            error: `MultiVault_AtomExists: ${confirmedMappings.length} already existed, ${stillMissing.length} still missing`,
+            progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+            chunkMappings: { atomMappings: [...skippedMappings, ...confirmedMappings, ...failedMappings] },
+          }
+
+          atomPhaseAborted = true
+          yield { type: 'abort', phase: 'atoms', error: `Atom chunk ${ci + 1}/${atomChunks.length} partially reverted (AtomExists) — aborting before triples phase` }
+          break
         }
       } else {
         // Build failed mappings for all atoms in this chunk
-        const atomMappings: PublishRunResult['atomMappings'] = chunk.map((atom) => ({
+        const failedMappings: PublishRunResult['atomMappings'] = submitChunk.map((atom) => ({
           atomId: atom.atomId,
           atomType: atom.atomType,
           normalizedData: atom.normalizedData,
@@ -343,7 +460,7 @@ export async function* executePublishPlan(
           totalChunks: atomChunks.length,
           error: errorMsg,
           progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-          chunkMappings: { atomMappings },
+          chunkMappings: { atomMappings: [...skippedMappings, ...failedMappings] },
         }
 
         // ABORT: atom chunk failure stops before triples phase
@@ -480,8 +597,10 @@ export async function* executePublishPlan(
 
     const seenInBatch = new Set<string>()
     const triplesToSubmit: EffectiveTriple[] = []
+    const dedupedTriples: EffectiveTriple[] = []
     const preConfirmed: Array<{ et: EffectiveTriple; reason: string }> = []
 
+    // Dedup within batch
     for (const et of effectiveTriples) {
       const key = et.effTripleTermId.toLowerCase()
       if (seenInBatch.has(key)) {
@@ -489,21 +608,23 @@ export async function* executePublishPlan(
         continue
       }
       seenInBatch.add(key)
-      try {
-        const exists = await multiVaultIsTermCreated(
-          { address: MULTIVAULT_ADDRESS, publicClient },
-          { args: [et.effTripleTermId] },
-        )
+      dedupedTriples.push(et)
+    }
+
+    // Batch-check existence for deduped triples
+    if (dedupedTriples.length > 0) {
+      const recheckTermIds = dedupedTriples.map((et) => et.effTripleTermId)
+      const recheckResults = await batchIsTermCreated(publicClient, recheckTermIds, {
+        failureMode: 'assumeExists',
+      })
+
+      for (const et of dedupedTriples) {
+        const exists = recheckResults.get(et.effTripleTermId.toLowerCase() as Hex) ?? true
         if (exists) {
           preConfirmed.push({ et, reason: 'Triple already exists on-chain (skipped)' })
         } else {
           triplesToSubmit.push(et)
         }
-      } catch (err) {
-        // Conservative: assume exists if we can't check. Better than reverting the whole batch.
-        const msg = err instanceof Error ? err.message : String(err)
-        console.warn(`[triples] existence recheck failed for ${et.planItem.tripleId} (${msg}) — assuming exists`)
-        preConfirmed.push({ et, reason: `Existence recheck failed (${msg}); assumed existing` })
       }
     }
 
@@ -802,8 +923,10 @@ export async function* executePublishPlan(
 
     const seenProvInBatch = new Set<string>()
     const provsToSubmit: EffectiveProv[] = []
+    const dedupedProvs: EffectiveProv[] = []
     const preConfirmedProvs: Array<{ ep: EffectiveProv; reason: string }> = []
 
+    // Dedup within batch
     for (const ep of effectiveProvs) {
       const key = ep.effTripleTermId.toLowerCase()
       if (seenProvInBatch.has(key)) {
@@ -811,20 +934,23 @@ export async function* executePublishPlan(
         continue
       }
       seenProvInBatch.add(key)
-      try {
-        const exists = await multiVaultIsTermCreated(
-          { address: MULTIVAULT_ADDRESS, publicClient },
-          { args: [ep.effTripleTermId] },
-        )
+      dedupedProvs.push(ep)
+    }
+
+    // Batch-check existence for deduped provenance
+    if (dedupedProvs.length > 0) {
+      const recheckTermIds = dedupedProvs.map((ep) => ep.effTripleTermId)
+      const recheckResults = await batchIsTermCreated(publicClient, recheckTermIds, {
+        failureMode: 'assumeExists',
+      })
+
+      for (const ep of dedupedProvs) {
+        const exists = recheckResults.get(ep.effTripleTermId.toLowerCase() as Hex) ?? true
         if (exists) {
           preConfirmedProvs.push({ ep, reason: 'Provenance triple already exists on-chain (skipped)' })
         } else {
           provsToSubmit.push(ep)
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        console.warn(`[provenance] existence recheck failed for ${ep.planItem.claimTripleId} (${msg}) — assuming exists`)
-        preConfirmedProvs.push({ ep, reason: `Existence recheck failed (${msg}); assumed existing` })
       }
     }
 

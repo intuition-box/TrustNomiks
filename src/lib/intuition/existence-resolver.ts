@@ -2,21 +2,24 @@
  * Resolves which atoms and triples from a RawBundle already exist on-chain.
  *
  * Uses deterministic ID calculation (Keccak256) to pre-compute term IDs,
- * then checks existence via the Intuition SDK.
+ * then checks existence via batched multicall reads.
  */
 
-import { parseAbi, toHex } from 'viem'
+import { toHex } from 'viem'
 import type { Hex, PublicClient } from 'viem'
 import {
   calculateAtomId,
   calculateTripleId,
-  multiVaultIsTermCreated,
-  multiVaultGetAtomCost,
-  multiVaultGetTripleCost,
 } from '@0xintuition/sdk'
-import { MULTIVAULT_ADDRESS, ATOM_CHUNK_SIZE, TRIPLE_CHUNK_SIZE, PROVENANCE_CHUNK_SIZE } from './config'
-import type { RawBundle, RawAtomEntry, RawTripleEntry, RawProvenanceEntry } from './bundle-builder'
+import { ATOM_CHUNK_SIZE, TRIPLE_CHUNK_SIZE, PROVENANCE_CHUNK_SIZE } from './config'
+import type { RawBundle } from './bundle-builder'
 import type { AtomPlanItem, TriplePlanItem, ProvenancePlanItem, PublishPlan } from './types'
+import {
+  batchIsTermCreated,
+  batchPreviewAtomCreates,
+  batchPreviewTripleCreates,
+  readPublishConfig,
+} from './read-batcher'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,55 +39,12 @@ function computeTripleTermId(
   return calculateTripleId(subjectTermId, predicateTermId, objectTermId)
 }
 
-// ── Additional helper for double-checking atoms before creation ─────────────
-
-export async function recheckAtomExistence(
-  atoms: RawAtomEntry[],
-  publicClient: PublicClient,
-): Promise<Map<string, { exists: boolean; termId: Hex }>> {
-  const readConfig = { address: MULTIVAULT_ADDRESS, publicClient }
-  const resultMap = new Map<string, { exists: boolean; termId: Hex }>()
-
-  // Check atoms in smaller batches to avoid rate limits
-  for (let i = 0; i < atoms.length; i += 10) {
-    const batch = atoms.slice(i, i + 10)
-
-    const checks = await Promise.all(
-      batch.map(async (atom) => {
-        const termId = computeAtomTermId(atom.normalizedData)
-        try {
-          const exists = await multiVaultIsTermCreated(readConfig, { args: [termId] })
-          console.log(`Recheck atom: "${atom.normalizedData}" (${atom.atomId}) => ${exists ? 'EXISTS' : 'NOT_FOUND'}`)
-          return { atomId: atom.atomId, exists, termId }
-        } catch (error) {
-          console.error(`Recheck failed for atom "${atom.normalizedData}" (${atom.atomId}):`, error)
-          // Be conservative - assume it exists if we can't check
-          return { atomId: atom.atomId, exists: true, termId }
-        }
-      })
-    )
-
-    for (const { atomId, exists, termId } of checks) {
-      resultMap.set(atomId, { exists, termId })
-    }
-
-    // Small delay to avoid rate limiting
-    if (i + 10 < atoms.length) {
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-  }
-
-  return resultMap
-}
-
 // ── Main resolver ───────────────────────────────────────────────────────────
 
 export async function resolveExistence(
   bundle: RawBundle,
   publicClient: PublicClient,
 ): Promise<PublishPlan> {
-  const readConfig = { address: MULTIVAULT_ADDRESS, publicClient }
-
   // 1. Compute term IDs for all atoms
   const atomTermIds = new Map<string, Hex>()
   for (const atom of bundle.atoms) {
@@ -92,37 +52,29 @@ export async function resolveExistence(
     atomTermIds.set(atom.atomId, termId)
   }
 
-  // 2. Check atom existence in batches
-  const atomPlanItems: AtomPlanItem[] = []
-  const atomEntries = bundle.atoms
+  // 2. Batch-check atom existence (conservative: assume exists on failure)
+  const allAtomTermIds = Array.from(atomTermIds.values())
+  const atomExistence = await batchIsTermCreated(publicClient, allAtomTermIds, {
+    failureMode: 'assumeExists',
+  })
 
-  for (let i = 0; i < atomEntries.length; i += 20) {
-    const batch = atomEntries.slice(i, i + 20)
-    const existenceChecks = await Promise.all(
-      batch.map(async (atom) => {
-        const termId = atomTermIds.get(atom.atomId)!
-        try {
-          const exists = await multiVaultIsTermCreated(readConfig, { args: [termId] })
-          console.log(`Atom existence check: "${atom.normalizedData}" (${atom.atomId}) => ${exists ? 'EXISTS' : 'NOT_FOUND'}`)
-          return { atom, termId, exists }
-        } catch (error) {
-          console.error(`Failed to check existence for atom "${atom.normalizedData}" (${atom.atomId}):`, error)
-          // On error, be conservative: assume it exists to avoid duplicate creation
-          return { atom, termId, exists: true }
-        }
-      }),
-    )
-
-    for (const { atom, termId, exists } of existenceChecks) {
-      atomPlanItems.push({
-        atomId: atom.atomId,
-        atomType: atom.atomType,
-        normalizedData: atom.normalizedData,
-        computedTermId: termId,
-        exists,
-      })
+  const atomPlanItems: AtomPlanItem[] = bundle.atoms.map((atom) => {
+    const termId = atomTermIds.get(atom.atomId)!
+    const exists = atomExistence.get(termId.toLowerCase() as Hex) ?? true
+    return {
+      atomId: atom.atomId,
+      atomType: atom.atomType,
+      normalizedData: atom.normalizedData,
+      computedTermId: termId,
+      exists,
     }
-  }
+  })
+
+  const existingAtomCount = atomPlanItems.filter((a) => a.exists).length
+  console.log(
+    `Atom existence batch: ${existingAtomCount} exist, ` +
+    `${atomPlanItems.length - existingAtomCount} to create (${atomPlanItems.length} total)`,
+  )
 
   // 3. Build atom lookup for triple resolution
   const atomTermIdLookup = new Map<string, Hex>()
@@ -130,166 +82,148 @@ export async function resolveExistence(
     atomTermIdLookup.set(item.atomId, item.computedTermId)
   }
 
-  // 4. Compute and check triple existence
+  // 4. Compute triple term IDs and batch-check existence
   const triplePlanItems: TriplePlanItem[] = []
+  const validTripleTermIds: Hex[] = []
+  const tripleIndexToTermId = new Map<number, Hex>()
 
-  for (let i = 0; i < bundle.triples.length; i += 20) {
-    const batch = bundle.triples.slice(i, i + 20)
-    const tripleChecks = await Promise.all(
-      batch.map(async (triple) => {
-        const subjectTermId = atomTermIdLookup.get(triple.subjectAtomId)
-        const predicateTermId = atomTermIdLookup.get(triple.predicateAtomId)
-        const objectTermId = atomTermIdLookup.get(triple.objectAtomId)
+  for (let i = 0; i < bundle.triples.length; i++) {
+    const triple = bundle.triples[i]
+    const subjectTermId = atomTermIdLookup.get(triple.subjectAtomId)
+    const predicateTermId = atomTermIdLookup.get(triple.predicateAtomId)
+    const objectTermId = atomTermIdLookup.get(triple.objectAtomId)
 
-        if (!subjectTermId || !predicateTermId || !objectTermId) {
-          return { triple, exists: false, subjectTermId: '0x0' as Hex, predicateTermId: '0x0' as Hex, objectTermId: '0x0' as Hex, computedTripleTermId: '0x0' as Hex }
-        }
-
-        const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
-
-        try {
-          const exists = await multiVaultIsTermCreated(readConfig, { args: [computedTripleTermId] })
-          return { triple, exists, subjectTermId, predicateTermId, objectTermId, computedTripleTermId }
-        } catch {
-          return { triple, exists: false, subjectTermId, predicateTermId, objectTermId, computedTripleTermId }
-        }
-      }),
-    )
-
-    for (const check of tripleChecks) {
+    if (!subjectTermId || !predicateTermId || !objectTermId) {
       triplePlanItems.push({
-        tripleId: check.triple.tripleId,
-        claimGroup: check.triple.claimGroup,
-        originRowId: check.triple.originRowId,
-        subjectAtomId: check.triple.subjectAtomId,
-        predicateAtomId: check.triple.predicateAtomId,
-        objectAtomId: check.triple.objectAtomId,
-        subjectTermId: check.subjectTermId,
-        predicateTermId: check.predicateTermId,
-        objectTermId: check.objectTermId,
-        computedTripleTermId: check.computedTripleTermId,
-        exists: check.exists,
+        tripleId: triple.tripleId,
+        claimGroup: triple.claimGroup,
+        originRowId: triple.originRowId,
+        subjectAtomId: triple.subjectAtomId,
+        predicateAtomId: triple.predicateAtomId,
+        objectAtomId: triple.objectAtomId,
+        subjectTermId: '0x0' as Hex,
+        predicateTermId: '0x0' as Hex,
+        objectTermId: '0x0' as Hex,
+        computedTripleTermId: '0x0' as Hex,
+        exists: false,
       })
+      continue
+    }
+
+    const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
+    validTripleTermIds.push(computedTripleTermId)
+    tripleIndexToTermId.set(i, computedTripleTermId)
+
+    triplePlanItems.push({
+      tripleId: triple.tripleId,
+      claimGroup: triple.claimGroup,
+      originRowId: triple.originRowId,
+      subjectAtomId: triple.subjectAtomId,
+      predicateAtomId: triple.predicateAtomId,
+      objectAtomId: triple.objectAtomId,
+      subjectTermId,
+      predicateTermId,
+      objectTermId,
+      computedTripleTermId,
+      exists: false, // updated below
+    })
+  }
+
+  if (validTripleTermIds.length > 0) {
+    const tripleExistence = await batchIsTermCreated(publicClient, validTripleTermIds, {
+      failureMode: 'assumeMissing',
+    })
+
+    for (const [index, termId] of tripleIndexToTermId) {
+      triplePlanItems[index].exists = tripleExistence.get(termId.toLowerCase() as Hex) ?? false
     }
   }
 
-  // 5. Compute and check provenance triple existence
-  const provenancePlanItems: ProvenancePlanItem[] = []
+  const existingTripleCount = triplePlanItems.filter((t) => t.exists).length
+  console.log(
+    `Triple existence batch: ${existingTripleCount} exist, ` +
+    `${triplePlanItems.length - existingTripleCount} to create (${triplePlanItems.length} total)`,
+  )
 
-  // We need the term IDs from already-resolved claim triples
+  // 5. Compute provenance triple term IDs and batch-check existence
+  const provenancePlanItems: ProvenancePlanItem[] = []
   const claimTripleTermIds = new Map<string, Hex>()
   for (const t of triplePlanItems) {
     claimTripleTermIds.set(t.tripleId, t.computedTripleTermId)
   }
 
-  for (let i = 0; i < bundle.provenance.length; i += 20) {
-    const batch = bundle.provenance.slice(i, i + 20)
-    const provChecks = await Promise.all(
-      batch.map(async (prov) => {
-        const claimTripleTermId = claimTripleTermIds.get(prov.claimTripleId)
-        const sourceTermId = atomTermIdLookup.get(prov.sourceAtomId)
-        const predicateTermId = atomTermIdLookup.get(prov.predicateAtomId)
+  const validProvTermIds: Hex[] = []
+  const provIndexToTermId = new Map<number, Hex>()
 
-        if (!claimTripleTermId || !sourceTermId || !predicateTermId) {
-          return {
-            prov,
-            exists: false,
-            claimTripleTermId: '0x0' as Hex,
-            sourceTermId: '0x0' as Hex,
-            predicateTermId: '0x0' as Hex,
-            subjectTermId: '0x0' as Hex,
-            objectTermId: '0x0' as Hex,
-            computedTripleTermId: '0x0' as Hex,
-          }
-        }
+  for (let i = 0; i < bundle.provenance.length; i++) {
+    const prov = bundle.provenance[i]
+    const claimTripleTermId = claimTripleTermIds.get(prov.claimTripleId)
+    const sourceTermId = atomTermIdLookup.get(prov.sourceAtomId)
+    const predicateTermId = atomTermIdLookup.get(prov.predicateAtomId)
 
-        const subjectTermId = prov.relation === 'includes_claim'
-          ? sourceTermId
-          : claimTripleTermId
-        const objectTermId = prov.relation === 'includes_claim'
-          ? claimTripleTermId
-          : sourceTermId
-        const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
-
-        try {
-          const exists = await multiVaultIsTermCreated(readConfig, { args: [computedTripleTermId] })
-          return {
-            prov,
-            exists,
-            claimTripleTermId,
-            sourceTermId,
-            predicateTermId,
-            subjectTermId,
-            objectTermId,
-            computedTripleTermId,
-          }
-        } catch {
-          return {
-            prov,
-            exists: false,
-            claimTripleTermId,
-            sourceTermId,
-            predicateTermId,
-            subjectTermId,
-            objectTermId,
-            computedTripleTermId,
-          }
-        }
-      }),
-    )
-
-    for (const check of provChecks) {
+    if (!claimTripleTermId || !sourceTermId || !predicateTermId) {
       provenancePlanItems.push({
-        linkId: check.prov.linkId,
-        relation: check.prov.relation,
-        claimTripleId: check.prov.claimTripleId,
-        claimTripleTermId: check.claimTripleTermId,
-        sourceAtomId: check.prov.sourceAtomId,
-        sourceTermId: check.sourceTermId,
-        predicateAtomId: check.prov.predicateAtomId,
-        predicateTermId: check.predicateTermId,
-        subjectTermId: check.subjectTermId,
-        objectTermId: check.objectTermId,
-        computedTripleTermId: check.computedTripleTermId,
-        exists: check.exists,
+        linkId: prov.linkId,
+        relation: prov.relation,
+        claimTripleId: prov.claimTripleId,
+        claimTripleTermId: '0x0' as Hex,
+        sourceAtomId: prov.sourceAtomId,
+        sourceTermId: '0x0' as Hex,
+        predicateAtomId: prov.predicateAtomId,
+        predicateTermId: '0x0' as Hex,
+        subjectTermId: '0x0' as Hex,
+        objectTermId: '0x0' as Hex,
+        computedTripleTermId: '0x0' as Hex,
+        exists: false,
       })
+      continue
+    }
+
+    const subjectTermId = prov.relation === 'includes_claim'
+      ? sourceTermId
+      : claimTripleTermId
+    const objectTermId = prov.relation === 'includes_claim'
+      ? claimTripleTermId
+      : sourceTermId
+    const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
+
+    validProvTermIds.push(computedTripleTermId)
+    provIndexToTermId.set(i, computedTripleTermId)
+
+    provenancePlanItems.push({
+      linkId: prov.linkId,
+      relation: prov.relation,
+      claimTripleId: prov.claimTripleId,
+      claimTripleTermId,
+      sourceAtomId: prov.sourceAtomId,
+      sourceTermId,
+      predicateAtomId: prov.predicateAtomId,
+      predicateTermId,
+      subjectTermId,
+      objectTermId,
+      computedTripleTermId,
+      exists: false, // updated below
+    })
+  }
+
+  if (validProvTermIds.length > 0) {
+    const provExistence = await batchIsTermCreated(publicClient, validProvTermIds, {
+      failureMode: 'assumeMissing',
+    })
+
+    for (const [index, termId] of provIndexToTermId) {
+      provenancePlanItems[index].exists = provExistence.get(termId.toLowerCase() as Hex) ?? false
     }
   }
 
-  // 6. Get cost estimates and the protocol's minDeposit from on-chain config.
-  // The minDeposit is what `deposit` / `depositBatch` would require post-creation;
-  // we use the same floor as the per-item *seed* deposit included in `assets[]`
-  // during creation. This opens each fresh vault with a real user position
-  // instead of zero shares (since assets[i] above creationCost flows into
-  // the vault). Read dynamically so a governance update propagates without
-  // a code change.
-  let atomCost: bigint
-  let tripleCost: bigint
-  let extraDepositPerUnit: bigint
+  const existingProvCount = provenancePlanItems.filter((p) => p.exists).length
+  console.log(
+    `Provenance existence batch: ${existingProvCount} exist, ` +
+    `${provenancePlanItems.length - existingProvCount} to create (${provenancePlanItems.length} total)`,
+  )
 
-  try {
-    const generalConfigAbi = parseAbi([
-      'function getGeneralConfig() view returns ((address admin, address protocolMultisig, uint256 feeDenominator, address trustBonding, uint256 minDeposit, uint256 minShare, uint256 atomDataMaxLength, uint256 feeThreshold))',
-    ])
-    const [costs, generalConfig] = await Promise.all([
-      Promise.all([
-        multiVaultGetAtomCost(readConfig),
-        multiVaultGetTripleCost(readConfig),
-      ]),
-      publicClient.readContract({
-        address: MULTIVAULT_ADDRESS,
-        abi: generalConfigAbi,
-        functionName: 'getGeneralConfig',
-      }),
-    ])
-    ;[atomCost, tripleCost] = costs
-    extraDepositPerUnit = generalConfig.minDeposit
-  } catch {
-    // Fallback to safe defaults if chain query fails
-    atomCost = BigInt('400000000000000')   // 0.0004 TRUST
-    tripleCost = BigInt('400000000000000') // 0.0004 TRUST
-    extraDepositPerUnit = BigInt(0)        // skip seed if we can't read minDeposit
-  }
+  // 6. Get cost estimates via batched config read
+  const { atomCost, tripleCost, extraDepositPerUnit } = await readPublishConfig(publicClient)
 
   const atomUnit = atomCost + extraDepositPerUnit
   const tripleUnit = tripleCost + extraDepositPerUnit
@@ -300,6 +234,35 @@ export async function resolveExistence(
   const triplesExisting = triplePlanItems.filter((t) => t.exists)
   const provToCreate = provenancePlanItems.filter((p) => !p.exists)
   const provExisting = provenancePlanItems.filter((p) => p.exists)
+
+  // 7. Batch-preview creations to catch zero-share edge cases
+  if (atomsToCreate.length > 0) {
+    await batchPreviewAtomCreates(
+      publicClient,
+      atomsToCreate.map((a) => ({
+        id: a.atomId,
+        termId: a.computedTermId,
+        assets: atomUnit,
+      })),
+    )
+  }
+
+  const allTriplesToPreview = [
+    ...triplesToCreate.map((t) => ({
+      id: t.tripleId,
+      termId: t.computedTripleTermId,
+      assets: tripleUnit,
+    })),
+    ...provToCreate.map((p) => ({
+      id: p.linkId,
+      termId: p.computedTripleTermId,
+      assets: tripleUnit,
+    })),
+  ]
+
+  if (allTriplesToPreview.length > 0) {
+    await batchPreviewTripleCreates(publicClient, allTriplesToPreview)
+  }
 
   return {
     tokenId: bundle.tokenId,
