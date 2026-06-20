@@ -11,6 +11,9 @@ import { GraphLegend } from './graph-legend'
 import type { GraphNode, NodeType } from '@/lib/knowledge-graph/graph-types'
 
 const MOBILE_HEIGHT = 400
+// The graph now sits in the dashboard's middle band (not the last element), so cap
+// its height instead of filling the viewport down to the bottom.
+const MAX_HEIGHT = 560
 
 export function DashboardKnowledgeGraphCard() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
@@ -37,7 +40,7 @@ export function DashboardKnowledgeGraphCard() {
       // Distance from the container's top to the bottom of the viewport
       const rect = el.getBoundingClientRect()
       const available = window.innerHeight - rect.top - 16 // 16px bottom margin
-      setGraphHeight(Math.max(MOBILE_HEIGHT, available))
+      setGraphHeight(Math.min(MAX_HEIGHT, Math.max(MOBILE_HEIGHT, available)))
     }
     computeHeight()
     window.addEventListener('resize', computeHeight)

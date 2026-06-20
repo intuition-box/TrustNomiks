@@ -69,24 +69,59 @@ export function GraphCanvas({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(undefined)
   const [showCenterBtn, setShowCenterBtn] = useState(false)
+  // True once the user drags a node — suppresses the auto re-fit so we never
+  // yank the view away from a manual layout.
+  const userInteracted = useRef(false)
+  // Counts engine ticks since the last (re)load, to drive the early "follow" fits.
+  const tickCounter = useRef(0)
 
   // ── Memoize graphData — only rebuild when data identity changes ─────────
-  const graphData = useMemo(() => ({
-    nodes: data.nodes.map((n) => {
-      const base = { ...n } as FGNode & { fx?: number; fy?: number }
-      if (n.id === pinnedNodeId) {
-        base.fx = 0
-        base.fy = 0
+  // Seed INITIAL positions (hub centered, tokens on a ring, their atoms just outside)
+  // so the very first paint is already laid out. The simulation then only refines it,
+  // which makes the auto-fit near-instant instead of watching it expand from the center.
+  const graphData = useMemo(() => {
+    const tokenNodes = data.nodes.filter((n) => n.type === 'token')
+    const tc = tokenNodes.length
+    const orbitRadius = Math.max(300, 200 + tc * 50)
+    const angleById = new Map<string, number>()
+    tokenNodes.forEach((n, i) => angleById.set(n.id, (i / Math.max(1, tc)) * 2 * Math.PI - Math.PI / 2))
+    const tokenIds = new Set(tokenNodes.map((n) => n.id))
+    const childAngle = new Map<string, number>()
+    for (const e of data.edges) {
+      const src = typeof e.source === 'string' ? e.source : (e.source as { id: string }).id
+      const tgt = typeof e.target === 'string' ? e.target : (e.target as { id: string }).id
+      if (tokenIds.has(src) && !tokenIds.has(tgt) && tgt !== pinnedNodeId && angleById.has(src)) {
+        childAngle.set(tgt, angleById.get(src)!)
       }
-      return base
-    }),
-    links: data.edges.map((e) => ({
-      source: e.source,
-      target: e.target,
-      predicate: e.predicate,
-      label: e.label,
-    })),
-  }), [data, pinnedNodeId])
+    }
+    return {
+      nodes: data.nodes.map((n, i) => {
+        const base = { ...n } as FGNode & { fx?: number; fy?: number }
+        if (n.id === pinnedNodeId) {
+          base.fx = 0
+          base.fy = 0
+          base.x = 0
+          base.y = 0
+        } else if (n.type === 'token') {
+          const a = angleById.get(n.id) ?? 0
+          base.x = orbitRadius * Math.cos(a)
+          base.y = orbitRadius * Math.sin(a)
+        } else if (childAngle.has(n.id)) {
+          const a = childAngle.get(n.id)! + ((i % 5) - 2) * 0.09
+          const r = orbitRadius + 80
+          base.x = r * Math.cos(a)
+          base.y = r * Math.sin(a)
+        }
+        return base
+      }),
+      links: data.edges.map((e) => ({
+        source: e.source,
+        target: e.target,
+        predicate: e.predicate,
+        label: e.label,
+      })),
+    }
+  }, [data, pinnedNodeId])
 
   // ── Token count for dynamic scaling ───────────────────────────────────
   const tokenCount = useMemo(
@@ -146,6 +181,18 @@ export function GraphCanvas({
     fg.d3ReheatSimulation()
   }, [tokenCount, data.nodes.length])
 
+  // Follow the layout with an instant fit during the first frames so the graph is
+  // framed almost immediately. zoomToFit only "holds" once the sim is calm, so we
+  // re-apply it every few ticks while it settles. Stops after the early phase, or
+  // once the user drags. onEngineStop still does the final, exact fit.
+  const handleEngineTick = useCallback(() => {
+    applyForces()
+    tickCounter.current += 1
+    if (tickCounter.current <= 80 && tickCounter.current % 5 === 0 && !userInteracted.current) {
+      graphRef.current?.zoomToFit?.(0, 40)
+    }
+  }, [applyForces])
+
   // ── Auto-fit when data shape changes ────────────────────────────────────
   const dataSignature = `${data.nodes.length}:${data.edges.length}`
   const prevSignature = useRef('')
@@ -153,12 +200,23 @@ export function GraphCanvas({
   useEffect(() => {
     if (data.nodes.length > 0 && dataSignature !== prevSignature.current) {
       prevSignature.current = dataSignature
+      userInteracted.current = false // fresh data → re-fit while it settles
+      tickCounter.current = 0 // restart the early "follow" fits
       graphRef.current?.d3ReheatSimulation?.()
-      const fitDelay = 1200 + tokenCount * 20
-      const timer = setTimeout(() => {
-        graphRef.current?.zoomToFit(400, 50)
-      }, fitDelay)
-      return () => clearTimeout(timer)
+      // Nodes are pre-positioned (see graphData), so the layout is good on the first
+      // frame: fit almost immediately (instant, no animation), then re-fit a couple of
+      // times to absorb the simulation's small refinements. onEngineStop does the final fit.
+      const steps: Array<[number, number]> = [
+        [90, 0], // near-instant initial frame
+        [600, 400],
+        [1600, 400],
+      ]
+      const timers = steps.map(([delay, dur]) =>
+        setTimeout(() => {
+          if (!userInteracted.current) graphRef.current?.zoomToFit?.(dur, 40)
+        }, delay),
+      )
+      return () => timers.forEach(clearTimeout)
     }
   }, [dataSignature, data.nodes.length, tokenCount])
 
@@ -168,14 +226,34 @@ export function GraphCanvas({
   useEffect(() => {
     if (resetKey > 0 && resetKey !== prevResetKey.current) {
       prevResetKey.current = resetKey
+      userInteracted.current = false // explicit reset → allow re-fit again
       graphRef.current?.d3ReheatSimulation?.()
-      setTimeout(() => graphRef.current?.zoomToFit(400, 50), 800)
+      setTimeout(() => graphRef.current?.zoomToFit(400, 40), 800)
     }
   }, [resetKey])
 
-  // ── Recovery button ─────────────────────────────────────────────────────
+  // ── Re-fit on container resize ──────────────────────────────────────────
+  // Keeps the whole graph visible inside responsive containers (e.g. the
+  // dashboard's narrowed column). Re-fits to the new viewport without reheating
+  // the simulation, so resizing the window always re-frames the full graph.
+  const prevDims = useRef('')
+  useEffect(() => {
+    if (width === 0 || height === 0 || data.nodes.length === 0) return
+    const dims = `${width}x${height}`
+    if (dims === prevDims.current) return
+    prevDims.current = dims
+    const timer = setTimeout(() => graphRef.current?.zoomToFit?.(400, 40), 250)
+    return () => clearTimeout(timer)
+  }, [width, height, data.nodes.length])
+
+  // ── Recovery button + final fit ──────────────────────────────────────────
+  // When the simulation settles, the graph is fully expanded — this is the
+  // reliable moment to frame the WHOLE graph (the delayed fit fires while nodes
+  // are still spreading from the center, which is why it otherwise stays zoomed
+  // on the hub). Skip if the user already dragged a node.
   const handleEngineStop = useCallback(() => {
     if (data.nodes.length > 0) {
+      if (!userInteracted.current) graphRef.current?.zoomToFit?.(450, 40)
       setTimeout(() => setShowCenterBtn(true), 300)
     }
   }, [data.nodes.length])
@@ -303,18 +381,21 @@ export function GraphCanvas({
           ctx.fill()
         }}
         onNodeClick={handleNodeClick}
-        onNodeDrag={hideCenter}
+        onNodeDrag={() => {
+          userInteracted.current = true
+          hideCenter()
+        }}
         onZoom={hideCenter}
-        onEngineTick={applyForces}
+        onEngineTick={handleEngineTick}
         onEngineStop={handleEngineStop}
         linkColor={() => linkColor ?? 'rgba(148, 163, 184, 0.15)'}
         linkWidth={linkWidth ?? 0.4}
         linkDirectionalArrowLength={2.5}
         linkDirectionalArrowRelPos={1}
         warmupTicks={0}
-        cooldownTicks={300}
-        d3AlphaDecay={0.02}
-        d3VelocityDecay={0.3}
+        cooldownTicks={60}
+        d3AlphaDecay={0.06}
+        d3VelocityDecay={0.4}
         enableNodeDrag={true}
         enableZoomInteraction={true}
         enablePanInteraction={true}
