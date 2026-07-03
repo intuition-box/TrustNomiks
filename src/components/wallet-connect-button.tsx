@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { formatEther } from 'viem'
 import { useBalance } from 'wagmi'
-import { ChevronDown, Wallet } from 'lucide-react'
+import { ChevronDown, TriangleAlert, Wallet } from 'lucide-react'
 import { walletEnabled } from '@/config/wagmi'
 import { INTUITION_CHAIN_ID } from '@/lib/intuition/config'
 import type { TrustNomiksStakeSummary } from '@/types/intuition'
@@ -60,8 +60,9 @@ export function WalletConnectButton() {
             <button
               type="button"
               onClick={openChainModal}
-              className="inline-flex h-10 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 text-sm font-medium text-destructive hover:bg-destructive/15"
             >
+              <TriangleAlert className="h-4 w-4" aria-hidden />
               Wrong network
             </button>
           )
@@ -117,16 +118,16 @@ function ConnectedWalletSummary({
       className="inline-flex min-h-10 max-w-full items-center gap-3 rounded-md border bg-background px-3 py-2 text-left text-sm hover:bg-accent"
     >
       <div className="hidden min-w-0 flex-col leading-tight sm:flex">
-        <span className="truncate font-medium">{displayName}</span>
-        <span className="text-xs text-muted-foreground">
-          {balanceLoading ? 'TRUST ...' : `${formatTrust(balance?.value ?? BigInt(0))} TRUST`}
+        <span className="truncate font-mono text-xs font-medium">{displayName}</span>
+        <span className="tabular text-xs text-muted-foreground">
+          {balanceLoading ? 'TRUST …' : `${formatTrust(balance?.value ?? BigInt(0))} TRUST`}
           <span className="mx-1">/</span>
-          {stakeLoading ? 'staked ...' : `${formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))} staked`}
+          {stakeLoading ? 'staked …' : `${formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))} staked`}
         </span>
       </div>
       <div className="flex min-w-0 flex-col leading-tight sm:hidden">
-        <span className="truncate font-medium">{displayName}</span>
-        <span className="text-xs text-muted-foreground">
+        <span className="truncate font-mono text-xs font-medium">{displayName}</span>
+        <span className="tabular text-xs text-muted-foreground">
           {formatTrust(balance?.value ?? BigInt(0))} / {formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))}
         </span>
       </div>

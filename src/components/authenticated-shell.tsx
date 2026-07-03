@@ -1,11 +1,10 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
+import { useState, useSyncExternalStore } from 'react'
 import { SidebarNav } from '@/components/sidebar-nav'
-import { MobileNav } from '@/components/mobile-nav'
-import { WalletConnectButton } from '@/components/wallet-connect-button'
+import { TopBar } from '@/components/top-bar'
+import { CmdkPalette } from '@/components/patterns/cmdk-palette'
+import { cn } from '@/lib/utils'
 import type { User } from '@supabase/supabase-js'
 
 interface AuthenticatedShellProps {
@@ -32,6 +31,7 @@ function getServerSidebarSnapshot() {
 }
 
 export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) {
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const collapsed = useSyncExternalStore(
     subscribeToSidebar,
     getSidebarSnapshot,
@@ -47,39 +47,27 @@ export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) 
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <aside
-        className={`fixed left-0 top-0 z-30 hidden h-screen border-r border-border bg-card transition-[width] duration-300 lg:block ${collapsed ? 'w-20' : 'w-64'}`}
+        className={cn(
+          'fixed left-0 top-0 z-40 hidden h-screen border-r border-border bg-surface-1 transition-[width] duration-300 lg:block',
+          collapsed ? 'w-20' : 'w-64',
+        )}
       >
-        <SidebarNav user={user} collapsed={collapsed} onToggle={toggleSidebar} />
+        <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
       </aside>
 
-      <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
-        <div className="flex items-center">
-          <MobileNav user={user} />
-          <Link href="/dashboard" className="ml-2 flex items-center">
-            <Image
-              src="/trustnomiks_logo_final.png"
-              alt="TrustNomiks"
-              width={0}
-              height={0}
-              sizes="140px"
-              className="h-8 w-auto max-w-[130px] object-contain"
-              priority
-            />
-          </Link>
-        </div>
-        <WalletConnectButton />
+      <div
+        className={cn(
+          'flex min-h-screen min-w-0 flex-col transition-[margin] duration-300',
+          collapsed ? 'lg:ml-20' : 'lg:ml-64',
+        )}
+      >
+        <TopBar user={user} onSearchOpen={() => setPaletteOpen(true)} />
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
 
-      <main
-        className={`mt-14 min-w-0 flex-1 p-4 transition-[margin] duration-300 sm:p-6 lg:mt-0 lg:p-8 ${collapsed ? 'lg:ml-20' : 'lg:ml-64'}`}
-      >
-        <div className="mb-6 hidden items-center justify-end lg:flex">
-          <WalletConnectButton />
-        </div>
-        {children}
-      </main>
+      <CmdkPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   )
 }

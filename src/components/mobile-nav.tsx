@@ -3,49 +3,21 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
-import { Menu, Home, Coins, Download, LogOut, Building2, Sun, Moon, UserCircle } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { useTheme } from 'next-themes'
-import { createClient } from '@/lib/supabase/client'
+import { NAV_ZONES, isNavItemActive } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
-import type { User } from '@supabase/supabase-js'
 
-interface MobileNavProps {
-  user: User
-}
-
-const navItems = [
-  { href: '/dashboard',   label: 'Dashboard',   icon: Home        },
-  { href: '/tokens',      label: 'Tokens',       icon: Coins       },
-  { href: '/token-house', label: 'Token House',  icon: Building2   },
-  { href: '/export',      label: 'Export',       icon: Download    },
-  { href: '/profile',     label: 'Profile',      icon: UserCircle  },
-]
-
-export function MobileNav({ user }: MobileNavProps) {
+/**
+ * Mobile navigation sheet: the same two zones as the desktop rail.
+ * Account actions (profile, theme, sign out) live in the top-bar user menu.
+ */
+export function MobileNav() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClient()
-  const { theme, setTheme } = useTheme()
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push('/login')
-      router.refresh()
-    } catch (error) {
-      console.error('Logout error:', error)
-      toast.error('Failed to log out')
-    }
-  }
-
-  const initials = user.email ? user.email.substring(0, 2).toUpperCase() : 'U'
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -57,7 +29,6 @@ export function MobileNav({ user }: MobileNavProps) {
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0">
         <div className="flex h-full flex-col">
-          {/* Logo */}
           <div className="px-4 py-5">
             <Link href="/dashboard" onClick={() => setOpen(false)}>
               <Image
@@ -74,60 +45,45 @@ export function MobileNav({ user }: MobileNavProps) {
 
           <Separator />
 
-          {/* Navigation links */}
-          <nav className="flex-1 space-y-1 p-4">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          <nav className="flex-1 space-y-5 p-4" aria-label="Main">
+            {NAV_ZONES.map((zone) => (
+              <div key={zone.label}>
+                <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-faint-foreground">
+                  {zone.label}
+                </p>
+                <div className="space-y-0.5">
+                  {zone.items.map((item) => {
+                    const Icon = item.icon
+                    const isActive = isNavItemActive(pathname, item.href)
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </Link>
-              )
-            })}
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={cn(
+                          'relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                          isActive
+                            ? 'bg-surface-2 font-medium text-foreground'
+                            : 'text-muted-foreground hover:bg-surface-2/60 hover:text-foreground',
+                        )}
+                      >
+                        {isActive && (
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
+                          />
+                        )}
+                        <Icon className={cn('h-5 w-5', isActive && 'text-primary')} aria-hidden />
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
-
-          <Separator />
-
-          {/* User info + Theme toggle + Logout */}
-          <div className="p-4 space-y-2">
-            <div className="flex items-center gap-3 rounded-lg p-2">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-sm">{initials}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium truncate flex-1 min-w-0">
-                {user.email}
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            >
-              {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Log Out
-            </Button>
-          </div>
         </div>
       </SheetContent>
     </Sheet>
