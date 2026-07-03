@@ -744,6 +744,15 @@ export default function NewTokenPage() {
   const delta = 100 - totalPercentage
   const isComplete = totalPercentage === 100
 
+  // One swell when the allocation sum first seals at 100 (motion vocabulary:
+  // stake-swell; frozen automatically under prefers-reduced-motion).
+  const prevSealRef = useRef(false)
+  const [sealKey, setSealKey] = useState(0)
+  useEffect(() => {
+    if (isComplete && !prevSealRef.current) setSealKey((k) => k + 1)
+    prevSealRef.current = isComplete
+  }, [isComplete])
+
   const handleRpcError = (error: { code?: string; message?: string }): boolean => {
     if (error.message?.includes('FORBIDDEN') || error.code === '42501') {
       toast.error('You do not have permission to modify this token.')
@@ -2698,7 +2707,18 @@ export default function NewTokenPage() {
                       ? 'hsl(var(--destructive))'
                       : 'hsl(var(--warning))'
                   return (
-                    <div className="space-y-2 rounded-lg border bg-surface-2/60 p-4">
+                    <div
+                      key={sealKey}
+                      className="space-y-2 rounded-lg border bg-surface-2/60 p-4"
+                      style={
+                        isComplete && sealKey > 0
+                          ? {
+                              animation:
+                                'stake-swell var(--dur-slow, 320ms) var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1))',
+                            }
+                          : undefined
+                      }
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-medium">Total allocated</span>
                         <span className="tabular inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: sumColor }}>
