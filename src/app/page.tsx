@@ -6,11 +6,23 @@ import { ArrowRight, Compass, PenLine, ShieldCheck, Layers, Scale, Bot, Plug, Co
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LiveGraph } from '@/components/brand/live-graph'
+import { createClient } from '@/lib/supabase/client'
 
 const TARGET = 300
 
 export default function Landing() {
-  const count = useCountUp(TARGET, 1600)
+  // The counter states a fact, so it counts the real registry. If anonymous
+  // reads are not allowed, it stays a goal statement instead of a fake 300.
+  const [total, setTotal] = useState<number | null>(null)
+  useEffect(() => {
+    createClient()
+      .from('tokens')
+      .select('id', { count: 'exact', head: true })
+      .then(({ count: c, error }) => {
+        if (!error && typeof c === 'number') setTotal(c)
+      })
+  }, [])
+  const count = useCountUp(total ?? 0, 1600)
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
@@ -93,15 +105,22 @@ export default function Landing() {
           <div className="max-w-md space-y-2 pt-2">
             <div className="flex items-baseline justify-between text-sm">
               <span className="text-muted-foreground">The collective goal</span>
-              <span className="tabular font-mono text-foreground">
-                <span className="text-gradient-brand font-semibold">{count}</span>
-                <span className="text-muted-foreground"> / {TARGET} tokens structured</span>
-              </span>
+              {total === null ? (
+                <span className="tabular font-mono text-muted-foreground">{TARGET} tokens structured</span>
+              ) : (
+                <span className="tabular font-mono text-foreground">
+                  <span className="text-gradient-brand font-semibold">{count}</span>
+                  <span className="text-muted-foreground"> / {TARGET} tokens structured</span>
+                </span>
+              )}
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
               <div
                 className="h-full rounded-full transition-[width] duration-1000 ease-out"
-                style={{ width: `${(count / TARGET) * 100}%`, background: 'var(--gradient-brand)' }}
+                style={{
+                  width: `${total === null ? 3 : (count / TARGET) * 100}%`,
+                  background: 'var(--gradient-brand)',
+                }}
               />
             </div>
             <p className="pt-1 text-xs text-faint-foreground">
