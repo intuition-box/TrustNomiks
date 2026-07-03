@@ -40,7 +40,7 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
     try {
       const res = await fetch(`/api/coingecko/price?id=${encodeURIComponent(coingeckoId)}`)
       if (!res.ok) {
-        throw new Error(res.status === 429 ? 'Rate limit — please wait' : 'Failed to fetch price')
+        throw new Error(res.status === 429 ? 'Rate limit reached, wait a moment' : 'Failed to fetch price')
       }
       const data: CoinGeckoPriceData = await res.json()
       setPrice(data)
@@ -60,7 +60,7 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
       <Card className="border-dashed">
         <CardContent className="flex items-center justify-between py-4">
           <div className="text-sm text-muted-foreground">
-            No CoinGecko link — price data unavailable
+            No CoinGecko link, price data unavailable
           </div>
           <Button variant="outline" size="sm" asChild>
             <a href={`/tokens/new?id=${tokenId}`}>Link to CoinGecko</a>
@@ -151,12 +151,12 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
           <div>
             <div className="text-xs text-muted-foreground mb-1">24h Change</div>
             {change !== null ? (
-              <div className={cn('text-lg font-semibold flex items-center gap-1', isPositive ? 'text-emerald-500' : 'text-red-500')}>
+              <div className={cn('text-lg font-semibold flex items-center gap-1', isPositive ? 'text-success' : 'text-destructive')}>
                 {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                 {isPositive ? '+' : ''}{change.toFixed(2)}%
               </div>
             ) : (
-              <div className="text-lg text-muted-foreground">—</div>
+              <div className="text-lg text-muted-foreground">Not set</div>
             )}
           </div>
 
@@ -164,7 +164,7 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
           <div>
             <div className="text-xs text-muted-foreground mb-1">Market Cap</div>
             <div className="text-lg font-semibold">
-              {price.usd_market_cap ? formatCompactUSD(price.usd_market_cap) : '—'}
+              {price.usd_market_cap ? formatCompactUSD(price.usd_market_cap) : 'Not set'}
             </div>
           </div>
 
@@ -172,7 +172,7 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
           <div>
             <div className="text-xs text-muted-foreground mb-1">24h Volume</div>
             <div className="text-lg font-semibold">
-              {price.usd_24h_vol ? formatCompactUSD(price.usd_24h_vol) : '—'}
+              {price.usd_24h_vol ? formatCompactUSD(price.usd_24h_vol) : 'Not set'}
             </div>
           </div>
         </div>

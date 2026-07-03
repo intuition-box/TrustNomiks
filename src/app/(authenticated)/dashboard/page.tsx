@@ -129,24 +129,26 @@ export default function DashboardPage() {
             <StatTile
               label="Validated"
               value={stats.validated}
-              hint="ready to explore & export"
+              hint="ready to explore & publish"
               icon={CheckCircle2}
-              accentVar="--data-vesting"
+              accentVar="--status-validated"
+              onClick={() => router.push('/tokens?status=validated')}
             />
             <StatTile
               label="In review"
               value={stats.in_review}
               hint="under validation"
               icon={Clock}
-              accentVar="--data-allocation"
+              accentVar="--status-review"
+              onClick={() => router.push('/tokens?status=in_review')}
             />
             <StatTile
               label="Drafts"
               value={stats.draft}
               hint="resume to complete"
               icon={FileText}
-              accentVar="--data-chain"
-              onClick={() => router.push('/tokens')}
+              accentVar="--status-draft"
+              onClick={() => router.push('/tokens?status=draft')}
             />
           </div>
 
@@ -318,13 +320,13 @@ function GettingStarted({
               )}
             >
               {item.done ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-data-vesting" />
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
               ) : item.action ? (
                 <Rocket className="h-4 w-4 shrink-0 text-data-token" />
               ) : (
                 <Circle className="h-4 w-4 shrink-0 text-faint-foreground" />
               )}
-              <span className={cn(item.done && 'text-muted-foreground line-through')}>{item.label}</span>
+              <span className={cn(item.done && 'text-muted-foreground')}>{item.label}</span>
             </button>
           </li>
         ))}

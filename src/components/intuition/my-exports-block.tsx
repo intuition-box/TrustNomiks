@@ -203,7 +203,7 @@ export function MyExportsBlock() {
         {data && data.total > data.pageSize && (
           <div className="flex items-center justify-between border-t pt-3">
             <p className="text-sm text-muted-foreground">
-              Page {data.page} of {totalPages} — {data.total} run{data.total === 1 ? '' : 's'} total
+              Page {data.page} of {totalPages} · {data.total} run{data.total === 1 ? '' : 's'} total
             </p>
             <div className="flex gap-2">
               <Button

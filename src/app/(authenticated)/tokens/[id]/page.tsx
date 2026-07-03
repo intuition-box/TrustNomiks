@@ -61,6 +61,7 @@ import { GraphLoader } from '@/components/patterns/graph-loader'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
+import { getSegmentChartColor } from '@/lib/utils/chart-colors'
 
 interface TokenData {
   id: string
@@ -430,37 +431,10 @@ export default function TokenDetailPage() {
     )
   }
 
-  const getSegmentColor = (index: number) => {
-    const colors = [
-      'bg-blue-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-orange-500',
-      'bg-green-500',
-      'bg-teal-500',
-      'bg-indigo-500',
-      'bg-red-500',
-      'bg-yellow-500',
-      'bg-cyan-500',
-    ]
-    return colors[index % colors.length]
-  }
-
-  const getSegmentTextColor = (index: number) => {
-    const colors = [
-      'text-blue-600 dark:text-blue-400',
-      'text-purple-600 dark:text-purple-400',
-      'text-pink-600 dark:text-pink-400',
-      'text-orange-600 dark:text-orange-400',
-      'text-green-600 dark:text-green-400',
-      'text-teal-600 dark:text-teal-400',
-      'text-indigo-600 dark:text-indigo-400',
-      'text-red-600 dark:text-red-400',
-      'text-yellow-600 dark:text-yellow-400',
-      'text-cyan-600 dark:text-cyan-400',
-    ]
-    return colors[index % colors.length]
-  }
+  // Chart space: the stacked bar shares the donut's segment-type palette, so
+  // the same segment reads as the same color in every chart (DESIGN-RULES §2).
+  const segmentColor = (segment: { segment_type: string }, index: number) =>
+    getSegmentChartColor(segment.segment_type, index)
 
   // ── Local knowledge-graph: center token + real sub-entities ────────────────
   const graphData: LiveGraphData | null = useMemo(() => {
@@ -815,9 +789,9 @@ export default function TokenDetailPage() {
               <EmptyState
                 title="No supply data yet"
                 description="Max supply, initial supply and circulation are missing for this token."
-                onboardingHint="Contribute it via the token form (step 2, Supply)."
+                onboardingHint="Contribute it in the studio, Supply section."
                 actions={
-                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=supply`)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Contribute it
                   </Button>
@@ -851,13 +825,12 @@ export default function TokenDetailPage() {
                         <div
                           key={segment.id}
                           className={cn(
-                            getSegmentColor(index),
                             'cursor-pointer transition-opacity duration-75',
                             hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
                               ? 'opacity-25'
                               : 'opacity-100'
                           )}
-                          style={{ width: `${segment.percentage}%` }}
+                          style={{ width: `${segment.percentage}%`, backgroundColor: segmentColor(segment, index) }}
                           onMouseEnter={() => setHoveredAllocationIndex(index)}
                           onMouseLeave={() => setHoveredAllocationIndex(null)}
                         />
@@ -880,7 +853,10 @@ export default function TokenDetailPage() {
                           onMouseLeave={() => setHoveredAllocationIndex(null)}
                         >
                           {segment.percentage >= 4 && (
-                            <span className={cn('text-xs font-semibold tabular-nums', getSegmentTextColor(index))}>
+                            <span
+                              className="tabular text-xs font-semibold"
+                              style={{ color: segmentColor(segment, index) }}
+                            >
                               {segment.percentage}%
                             </span>
                           )}
@@ -892,7 +868,15 @@ export default function TokenDetailPage() {
                     <div className="flex h-6 items-center pl-0.5">
                       {hoveredAllocationIndex !== null && (
                         <div className="flex items-center gap-2">
-                          <div className={cn('h-2 w-2 shrink-0 rounded-full', getSegmentColor(hoveredAllocationIndex))} />
+                          <div
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor: segmentColor(
+                                token.allocation_segments[hoveredAllocationIndex],
+                                hoveredAllocationIndex
+                              ),
+                            }}
+                          />
                           <span className="text-sm font-medium">
                             {token.allocation_segments[hoveredAllocationIndex].label}
                           </span>
@@ -920,7 +904,10 @@ export default function TokenDetailPage() {
                       onMouseLeave={() => setHoveredAllocationIndex(null)}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={cn('h-3 w-3 shrink-0 rounded-full', getSegmentColor(index))} />
+                        <div
+                          className="h-3 w-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: segmentColor(segment, index) }}
+                        />
                         <div>
                           <p className="font-medium">{segment.label}</p>
                           <p className="text-xs capitalize text-muted-foreground">
@@ -948,9 +935,9 @@ export default function TokenDetailPage() {
               <EmptyState
                 title="No allocation data yet"
                 description="The distribution breakdown across segments has not been recorded."
-                onboardingHint="Contribute it via the token form (step 3, Allocations)."
+                onboardingHint="Contribute it in the studio, Allocation section."
                 actions={
-                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=allocation`)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Contribute it
                   </Button>
@@ -1017,9 +1004,9 @@ export default function TokenDetailPage() {
                   <EmptyState
                     title="No vesting schedules yet"
                     description="Unlock schedules per allocation segment have not been recorded."
-                    onboardingHint="Contribute it via the token form (step 4, Vesting)."
+                    onboardingHint="Contribute it in the studio, Vesting section."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=vesting`)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
@@ -1054,11 +1041,11 @@ export default function TokenDetailPage() {
                     </div>
 
                     {token.emission_models.has_burn && (
-                      <div className="rounded-lg border border-orange-500/20 bg-orange-100 p-3 dark:bg-orange-500/10">
+                      <div className="rounded-lg border border-warning/25 bg-warning/10 p-3">
                         <div className="flex items-start gap-2">
-                          <AlertCircle className="mt-0.5 h-5 w-5 text-orange-500" />
+                          <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
                           <div>
-                            <p className="font-medium text-orange-500">Burn mechanism active</p>
+                            <p className="font-medium text-warning">Burn mechanism active</p>
                             {token.emission_models.burn_details && (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {token.emission_models.burn_details}
@@ -1070,11 +1057,11 @@ export default function TokenDetailPage() {
                     )}
 
                     {token.emission_models.has_buyback && (
-                      <div className="rounded-lg border border-blue-500/20 bg-blue-100 p-3 dark:bg-blue-500/10">
+                      <div className="rounded-lg border border-info/25 bg-info/10 p-3">
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="mt-0.5 h-5 w-5 text-blue-500" />
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 text-info" />
                           <div>
-                            <p className="font-medium text-blue-500">Buyback program active</p>
+                            <p className="font-medium text-info">Buyback program active</p>
                             {token.emission_models.buyback_details && (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {token.emission_models.buyback_details}
@@ -1091,9 +1078,9 @@ export default function TokenDetailPage() {
                   <EmptyState
                     title="No emission model yet"
                     description="Inflation, burn and buyback mechanics have not been recorded."
-                    onboardingHint="Contribute it via the token form (step 5, Emission)."
+                    onboardingHint="Contribute it in the studio, Emission section."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=emission`)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
@@ -1162,9 +1149,9 @@ export default function TokenDetailPage() {
                   <EmptyState
                     title="No sources yet"
                     description="No reference documents have been attached to this token."
-                    onboardingHint="Contribute it via the token form (step 6, Sources)."
+                    onboardingHint="Contribute it in the studio, Sources section."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=sources`)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
@@ -1211,9 +1198,9 @@ export default function TokenDetailPage() {
                   <EmptyState
                     title="No risk flags recorded"
                     description="No risk signals have been identified for this token."
-                    onboardingHint="Add a flag via the token form to surface a risk."
+                    onboardingHint="Add a flag in the studio to surface a risk."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=risk`)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
