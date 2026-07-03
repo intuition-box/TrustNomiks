@@ -32,5 +32,5 @@ export interface TokenFilters {
   status: TokenStatus | 'all'
 }
 
-export type SortField = 'name' | 'chain' | 'completeness' | 'status' | 'created_at'
+export type SortField = 'name' | 'chain' | 'completeness' | 'status' | 'created_at' | 'updated_at'
 export type SortDirection = 'asc' | 'desc'

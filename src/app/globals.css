@@ -77,6 +77,7 @@
   --data-category: 215 16% 42%;
   --data-sector: 272 80% 56%;
   --data-chain: 199 89% 42%;
+  --data-supply: 187 85% 32%;       /* supply cluster (form + meters) */
   --data-triple: 215 16% 50%;       /* triple / predicate / literal */
 
   /* Graph chrome */
@@ -147,6 +148,7 @@
   --data-category: 215 16% 58%;
   --data-sector: 272 88% 65%;
   --data-chain: 199 89% 48%;
+  --data-supply: 187 80% 45%;       /* supply cluster (form + meters) */
   --data-triple: 215 20% 65%;
 
   --graph-canvas: 240 10% 4%;
@@ -218,6 +220,7 @@
   --color-data-category: hsl(var(--data-category));
   --color-data-sector: hsl(var(--data-sector));
   --color-data-chain: hsl(var(--data-chain));
+  --color-data-supply: hsl(var(--data-supply));
   --color-data-triple: hsl(var(--data-triple));
 
   /* Fonts (loaded via next/font in layout.tsx) */
