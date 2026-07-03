@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Globe, Loader2, AlertCircle, CheckCircle2, RotateCcw, XCircle } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, RotateCcw, XCircle } from 'lucide-react'
+import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { PublishSummary } from './publish-summary'
 import { PublishedClaimsView } from './published-claims-view'
@@ -52,6 +53,31 @@ const PHASE_LABELS: Record<string, string> = {
   atoms: 'Atoms',
   triples: 'Triples',
   provenance: 'Provenance',
+}
+
+/** Semantic notice styles: same tone = same tokens, both themes for free. */
+const NOTICE_CLASS: Record<'warning' | 'info' | 'destructive' | 'success', string> = {
+  warning: 'border-warning/30 bg-warning/10 text-warning',
+  info: 'border-info/30 bg-info/10 text-info',
+  destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
+  success: 'border-success/30 bg-success/10 text-success',
+}
+
+function Notice({
+  tone,
+  icon: Icon,
+  children,
+}: {
+  tone: keyof typeof NOTICE_CLASS
+  icon: typeof AlertCircle
+  children: React.ReactNode
+}) {
+  return (
+    <div className={cn('flex items-center gap-2 rounded-lg border p-3 text-sm', NOTICE_CLASS[tone])}>
+      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </div>
+  )
 }
 
 export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
@@ -129,13 +155,13 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         console.error('Chunk persistence failed:', res.status, body.error ?? '')
-        toast.warning(`Chunk tracking failed (HTTP ${res.status}) — on-chain data is safe, tracking may be incomplete`)
+        toast.warning(`Chunk tracking failed (HTTP ${res.status}). On-chain data is safe; tracking may be incomplete.`)
         return false
       }
       return true
     } catch (err) {
       console.error('Failed to persist chunk:', err)
-      toast.warning('Chunk tracking failed (network error) — on-chain data is safe, tracking may be incomplete')
+      toast.warning('Chunk tracking failed (network error). On-chain data is safe; tracking may be incomplete.')
       return false
     }
   }, [])
@@ -150,9 +176,9 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
         plan: !plan,
         address: !address,
       }
-      console.warn('[publish] aborted — missing prerequisites:', missing)
+      console.warn('[publish] aborted, missing prerequisites:', missing)
       toast.error(
-        `Cannot publish — missing: ${Object.entries(missing).filter(([, v]) => v).map(([k]) => k).join(', ')}`,
+        `Cannot publish yet. Missing: ${Object.entries(missing).filter(([, v]) => v).map(([k]) => k).join(', ')}`,
       )
       return
     }
@@ -335,7 +361,7 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       if (!finalizeRes.ok) {
         const body = await finalizeRes.json().catch(() => ({}))
         console.error('Finalize failed:', finalizeRes.status, body.error ?? '')
-        const message = 'Run finalization failed — on-chain data is safe but run status may be outdated'
+        const message = 'Run finalization failed. On-chain data is safe but the run status may be outdated.'
         setError(message)
         setState('error')
         toast.warning(message)
@@ -352,7 +378,7 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       }
 
       if (wasAborted) {
-        toast.error('Publication aborted — atom batch failed')
+        toast.error('Publication aborted: an atom batch failed')
       } else if (finalStatus === 'completed') {
         toast.success(`Published ${atomsCreated} atoms, ${triplesCreated} triples, ${provenanceCreated} provenance`)
       } else {
@@ -420,46 +446,42 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
     <div className="space-y-4">
       <PublishedClaimsView tokenId={tokenId} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Globe className="h-5 w-5" />
+      <section className="glass space-y-4 rounded-xl border p-5">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <NodeGlyph type="graph_root" size={16} aria-hidden />
             Publish to Intuition
             <Badge variant="outline" className="text-xs">testnet</Badge>
-          </CardTitle>
-          <CardDescription>
-            Publish this token&apos;s knowledge graph on-chain to the Intuition Protocol testnet.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Put this token&apos;s claims on-chain. The graph lights up as each batch confirms.
+          </p>
+        </div>
+        <div className="space-y-4">
           {/* Connection warnings */}
           {!isConnected && (
-            <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              Connect your wallet to publish on-chain.
-            </div>
+            <Notice tone="warning" icon={AlertCircle}>
+              Connect your wallet (top bar) to publish on-chain. Preparing the plan works without it.
+            </Notice>
           )}
 
           {isWrongChain && (
-            <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950 dark:text-yellow-200">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <Notice tone="warning" icon={AlertCircle}>
               Switch to Intuition Testnet (chain {INTUITION_CHAIN_ID}) to publish.
-            </div>
+            </Notice>
           )}
 
           {!isEligible && tokenStatus === 'in_review' && (
-            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              Token is in review. You can preview the plan but publishing requires &quot;validated&quot; status.
-            </div>
+            <Notice tone="info" icon={AlertCircle}>
+              This token is in review. Preview the plan now; publishing opens once it is validated.
+            </Notice>
           )}
 
           {/* Error display */}
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <Notice tone="destructive" icon={AlertCircle}>
               {error}
-            </div>
+            </Notice>
           )}
 
           {/* Plan display */}
@@ -467,60 +489,57 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
           {/* Batch progress display */}
           {state === 'publishing' && progress && (
-            <div className="space-y-3 rounded-lg border p-4">
+            <div className="space-y-3 rounded-lg border bg-surface-2/60 p-4" aria-live="polite">
               {/* Phase indicator */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  {(['atoms', 'triples', 'provenance'] as const).map((phase) => (
+              <div className="flex items-center gap-1.5">
+                {(['atoms', 'triples', 'provenance'] as const).map((phase) => {
+                  const isDone =
+                    ['atoms', 'triples', 'provenance'].indexOf(phase) <
+                    ['atoms', 'triples', 'provenance'].indexOf(progress.phase)
+                  return (
                     <Badge
                       key={phase}
                       variant={progress.phase === phase ? 'default' : 'outline'}
-                      className={
-                        progress.phase === phase
-                          ? ''
-                          : (['atoms', 'triples', 'provenance'].indexOf(phase) <
-                              ['atoms', 'triples', 'provenance'].indexOf(progress.phase))
-                            ? 'border-green-300 text-green-700 dark:border-green-800 dark:text-green-400'
-                            : ''
-                      }
+                      className={cn(isDone && 'border-success/40 text-success')}
                     >
+                      {isDone && <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden />}
                       {PHASE_LABELS[phase]}
                     </Badge>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
 
               {/* Chunk progress */}
               <div className="flex items-center gap-2 text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 <span className="font-medium">{PHASE_LABELS[progress.phase]}</span>
-                <span className="text-muted-foreground">
-                  — Chunk {progress.currentChunk + (progress.chunkStatus === 'processing' ? 1 : 0)}/{progress.totalChunks}
-                  {progress.chunkStatus === 'processing' && ' — Waiting for wallet...'}
+                <span className="tabular text-muted-foreground">
+                  chunk {progress.currentChunk + (progress.chunkStatus === 'processing' ? 1 : 0)}/{progress.totalChunks}
+                  {progress.chunkStatus === 'processing' && ', waiting for your wallet signature…'}
                 </span>
               </div>
 
               {/* Phase progress bar */}
               <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="tabular flex justify-between text-xs text-muted-foreground">
                   <span>{progress.itemsProcessed}/{progress.totalItems} items</span>
                   <span>{totalProgress}% overall</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full bg-primary transition-all duration-300"
-                    style={{ width: `${totalProgress}%` }}
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${totalProgress}%`, background: 'var(--gradient-brand)' }}
                   />
                 </div>
               </div>
 
               {/* Live counters */}
-              <div className="flex gap-4 text-xs text-muted-foreground">
+              <div className="tabular flex gap-4 text-xs text-muted-foreground">
                 {counters.atomsCreated > 0 && <span>{counters.atomsCreated} atoms created</span>}
                 {counters.triplesCreated > 0 && <span>{counters.triplesCreated} triples created</span>}
                 {counters.provenanceCreated > 0 && <span>{counters.provenanceCreated} provenance created</span>}
                 {(counters.atomsFailed + counters.triplesFailed + counters.provenanceFailed) > 0 && (
-                  <span className="text-red-500">
+                  <span className="text-destructive">
                     {counters.atomsFailed + counters.triplesFailed + counters.provenanceFailed} failed
                   </span>
                 )}
@@ -530,17 +549,19 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
           {/* Completion */}
           {state === 'complete' && !aborted && (
-            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              Publication complete — {counters.atomsCreated} atoms, {counters.triplesCreated} triples, {counters.provenanceCreated} provenance.
-            </div>
+            <Notice tone="success" icon={CheckCircle2}>
+              <span className="tabular">
+                Publication complete: {counters.atomsCreated} atoms, {counters.triplesCreated} triples, {counters.provenanceCreated} provenance.
+              </span>
+            </Notice>
           )}
 
           {state === 'complete' && aborted && (
-            <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-200">
-              <XCircle className="h-4 w-4 shrink-0" />
-              Publication aborted after atom failure — {counters.atomsCreated} atoms were created before abort. Re-run to continue.
-            </div>
+            <Notice tone="warning" icon={XCircle}>
+              <span className="tabular">
+                Publication stopped after an atom failure. {counters.atomsCreated} atoms made it on-chain; run again to continue.
+              </span>
+            </Notice>
           )}
 
           <Separator />
@@ -556,21 +577,22 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
               {state === 'loading_plan' ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
+                  Analyzing…
                 </>
               ) : plan ? (
                 <>
                   <RotateCcw className="mr-2 h-4 w-4" />
-                  Refresh Plan
+                  Refresh plan
                 </>
               ) : (
-                'Prepare Publish'
+                'Prepare publish'
               )}
             </Button>
 
             {/* Publish */}
             {plan && (
               <Button
+                variant="brand"
                 onClick={executePublish}
                 disabled={
                   !isConnected ||
@@ -585,19 +607,16 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
                 {state === 'publishing' ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Publishing...
+                    Publishing…
                   </>
                 ) : (
-                  <>
-                    <Globe className="mr-2 h-4 w-4" />
-                    Publish On-Chain
-                  </>
+                  'Publish on-chain'
                 )}
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }
