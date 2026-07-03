@@ -1,31 +1,45 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { PageHeader } from '@/components/composite/page-header'
+import { StatTile } from '@/components/composite/stat-tile'
+import { EmptyState } from '@/components/composite/empty-state'
+import { ErrorState } from '@/components/composite/error-state'
+import { GraphLoader } from '@/components/patterns/graph-loader'
+import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { cn } from '@/lib/utils'
-import {
-  Trophy,
-  Users,
-  Zap,
-  UserCircle,
-} from 'lucide-react'
+import { CheckCircle2, Coins, Hexagon, Loader2, Percent } from 'lucide-react'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 import { AccountActivityCard } from '@/components/intuition/account-activity-card'
 
 type ProfileToken = {
   id: string
+  name: string
+  ticker: string
   completeness: number
   created_by: string
 }
 
+interface ProfileRow {
+  user_id: string
+  display_name: string | null
+  role: string | null
+  organization: string | null
+}
+
+// Contribution tiers: same thresholds as before, re-cut in the product's own
+// vocabulary. The glyph is a filling node (non-color cue = fill level).
 const TIERS = [
-  { label: 'Novice',      emoji: '🌱', min: 0,  max: 2,        color: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/40', bg: 'bg-emerald-100 dark:bg-emerald-500/10' },
-  { label: 'Contributor', emoji: '🏅', min: 3,  max: 9,        color: 'text-violet-600 dark:text-violet-400',  border: 'border-violet-500/40',  bg: 'bg-violet-100 dark:bg-violet-500/10'  },
-  { label: 'Expert',      emoji: '⭐', min: 10, max: 24,       color: 'text-sky-600 dark:text-sky-400',        border: 'border-sky-500/40',     bg: 'bg-sky-100 dark:bg-sky-500/10'        },
-  { label: 'Master',      emoji: '🔥', min: 25, max: 49,       color: 'text-orange-600 dark:text-orange-400',  border: 'border-orange-500/40',  bg: 'bg-orange-100 dark:bg-orange-500/10'  },
-  { label: 'Legend',      emoji: '👑', min: 50, max: Infinity, color: 'text-yellow-600 dark:text-yellow-400',  border: 'border-yellow-500/40',  bg: 'bg-yellow-100 dark:bg-yellow-500/10'  },
+  { label: 'Observer', min: 0, max: 2 },
+  { label: 'Contributor', min: 3, max: 9 },
+  { label: 'Curator', min: 10, max: 24 },
+  { label: 'Cartographer', min: 25, max: 49 },
+  { label: 'Architect', min: 50, max: Infinity },
 ]
 
 function getTierIndex(count: number) {
@@ -33,265 +47,405 @@ function getTierIndex(count: number) {
   return idx >= 0 ? idx : 0
 }
 
+/** A node filling up: ○ → ◔ → ◑ → ◕ → ● in the primary color. */
+function TierGlyph({ level, size = 14, className }: { level: number; size?: number; className?: string }) {
+  const fraction = level / (TIERS.length - 1)
+  const r = size * 0.36
+  const c = size / 2
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className={cn('shrink-0 text-primary', className)}>
+      <circle cx={c} cy={c} r={r} fill="none" stroke="currentColor" strokeWidth={size * 0.12} />
+      {fraction > 0 && (
+        <path d={pieSlice(c, c, r * 0.82, fraction)} fill="currentColor" />
+      )}
+    </svg>
+  )
+}
+
+function pieSlice(cx: number, cy: number, r: number, fraction: number): string {
+  if (fraction >= 1) {
+    return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0`
+  }
+  const angle = fraction * Math.PI * 2 - Math.PI / 2
+  const x = cx + r * Math.cos(angle)
+  const y = cy + r * Math.sin(angle)
+  const largeArc = fraction > 0.5 ? 1 : 0
+  return `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 ${largeArc} 1 ${x} ${y} Z`
+}
+
 export default function ProfilePage() {
   const [tokens, setTokens] = useState<ProfileToken[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [profiles, setProfiles] = useState<Map<string, ProfileRow>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [fetchFailed, setFetchFailed] = useState(false)
+
+  // Identity form
+  const [displayName, setDisplayName] = useState('')
+  const [role, setRole] = useState('')
+  const [organization, setOrganization] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileDirty, setProfileDirty] = useState(false)
 
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchData()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   const fetchData = async () => {
+    setLoading(true)
+    setFetchFailed(false)
     try {
-      setLoading(true)
-      const [tokensResult, userResult] = await Promise.all([
+      const [tokensResult, userResult, profilesResult] = await Promise.all([
         supabase
           .from('tokens')
-          .select('id, completeness, created_by')
+          .select('id, name, ticker, completeness, created_by')
           .order('created_at', { ascending: false }),
         supabase.auth.getUser(),
+        // Leaderboard names; RLS may narrow this to the own row, we degrade gracefully.
+        supabase.from('profiles').select('user_id, display_name, role, organization'),
       ])
       if (tokensResult.error) throw tokensResult.error
       setTokens(tokensResult.data || [])
       setCurrentUser(userResult.data.user)
+
+      const map = new Map<string, ProfileRow>()
+      for (const row of profilesResult.data ?? []) map.set(row.user_id, row)
+      setProfiles(map)
+
+      const own = userResult.data.user ? map.get(userResult.data.user.id) : undefined
+      setDisplayName(own?.display_name ?? '')
+      setRole(own?.role ?? '')
+      setOrganization(own?.organization ?? '')
     } catch (error) {
-      console.error('Error fetching data:', error)
-      toast.error('Failed to load profile data. Please refresh the page.')
+      console.error('Error fetching profile data:', error)
+      setFetchFailed(true)
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const saveProfile = async () => {
+    if (!currentUser) return
+    setSavingProfile(true)
+    try {
+      const { error } = await supabase.from('profiles').upsert(
+        {
+          user_id: currentUser.id,
+          display_name: displayName.trim() || currentUser.email?.split('@')[0] || 'Contributor',
+          role: role.trim() || null,
+          organization: organization.trim() || null,
+        },
+        { onConflict: 'user_id' }
+      )
+      if (error) throw error
+      setProfileDirty(false)
+      toast.success('Profile saved')
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      toast.error('Profile could not be saved. Retry in a moment.')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
   // — User contribution
-  const userTokens = currentUser ? tokens.filter((t) => t.created_by === currentUser.id) : []
-  const userAvgCompleteness = userTokens.length > 0
-    ? Math.round(userTokens.reduce((sum, t) => sum + (t.completeness || 0), 0) / userTokens.length)
-    : 0
+  const userTokens = useMemo(
+    () => (currentUser ? tokens.filter((t) => t.created_by === currentUser.id) : []),
+    [tokens, currentUser],
+  )
+  const userAvgCompleteness =
+    userTokens.length > 0
+      ? Math.round(userTokens.reduce((sum, t) => sum + (t.completeness || 0), 0) / userTokens.length)
+      : 0
   const sharePercent = tokens.length > 0 ? Math.round((userTokens.length / tokens.length) * 100) : 0
   const tierIndex = getTierIndex(userTokens.length)
   const tier = TIERS[tierIndex]
   const nextTier = tierIndex < TIERS.length - 1 ? TIERS[tierIndex + 1] : null
 
+  // — Constellation: the user's own tokens as a local graph
+  const constellation: LiveGraphData = useMemo(() => {
+    const label = displayName || currentUser?.email?.split('@')[0] || 'You'
+    const nodes: LiveGraphData['nodes'] = [{ id: 'hub', type: 'wallet', label, size: 8 }]
+    const links: LiveGraphData['links'] = []
+    userTokens.slice(0, 24).forEach((t) => {
+      nodes.push({ id: t.id, type: 'token', label: t.ticker, size: 4 + (t.completeness || 0) / 40 })
+      links.push({ source: 'hub', target: t.id })
+    })
+    return { nodes, links }
+  }, [userTokens, displayName, currentUser])
+
   // — Leaderboard
-  const leaderboardMap = new Map<string, { count: number; totalCompleteness: number }>()
-  for (const t of tokens) {
-    if (!t.created_by) continue
-    const entry = leaderboardMap.get(t.created_by) ?? { count: 0, totalCompleteness: 0 }
-    entry.count++
-    entry.totalCompleteness += t.completeness || 0
-    leaderboardMap.set(t.created_by, entry)
-  }
-  const leaderboard = Array.from(leaderboardMap.entries())
-    .map(([userId, data]) => ({
-      userId,
-      count: data.count,
-      avgCompleteness: Math.round(data.totalCompleteness / data.count),
-      isCurrentUser: userId === currentUser?.id,
-    }))
-    .sort((a, b) => b.count - a.count || b.avgCompleteness - a.avgCompleteness)
+  const leaderboard = useMemo(() => {
+    const map = new Map<string, { count: number; totalCompleteness: number }>()
+    for (const t of tokens) {
+      if (!t.created_by) continue
+      const entry = map.get(t.created_by) ?? { count: 0, totalCompleteness: 0 }
+      entry.count++
+      entry.totalCompleteness += t.completeness || 0
+      map.set(t.created_by, entry)
+    }
+    return Array.from(map.entries())
+      .map(([userId, data]) => ({
+        userId,
+        count: data.count,
+        avgCompleteness: Math.round(data.totalCompleteness / data.count),
+        isCurrentUser: userId === currentUser?.id,
+      }))
+      .sort((a, b) => b.count - a.count || b.avgCompleteness - a.avgCompleteness)
+  }, [tokens, currentUser])
   const maxCount = leaderboard[0]?.count ?? 1
 
+  const contributorName = (userId: string, index: number, isCurrentUser: boolean) => {
+    const profile = profiles.get(userId)
+    if (profile?.display_name) return profile.display_name
+    if (isCurrentUser) return currentUser?.email ?? 'You'
+    return `Contributor #${index + 1}`
+  }
+
   if (loading) {
+    return <GraphLoader className="mx-auto mt-24" label="Loading your constellation…" />
+  }
+
+  if (fetchFailed) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-          <p className="text-muted-foreground mt-2">Loading...</p>
-        </div>
+        <PageHeader title="Profile" description="Your identity and your constellation in the graph." />
+        <ErrorState
+          title="Your profile did not load"
+          message="The contribution data could not be fetched. Your data is safe."
+          onRetry={fetchData}
+        />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-        <div className="bg-gradient-to-br from-indigo-100 dark:from-indigo-500/5 via-muted/10 to-transparent px-6 py-5">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-500/10">
-              <UserCircle className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            </span>
-            <div className="space-y-0.5">
-              <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-              <p className="text-muted-foreground">Your contribution and gamification metrics</p>
-            </div>
-          </div>
-        </div>
-      </Card>
+      <PageHeader
+        title="Profile"
+        description="Your identity and your constellation in the graph."
+      />
 
-      <AccountActivityCard limit={10} createdLimit={5} />
+      {/* Stats rail */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatTile
+          label="Tokens added"
+          value={userTokens.length}
+          hint={`${tier.label}, tier ${tierIndex + 1} of ${TIERS.length}`}
+          icon={Coins}
+          accentVar="--data-token"
+        />
+        <StatTile
+          label="Share of the registry"
+          value={`${sharePercent}%`}
+          hint={`${tokens.length} tokens in total`}
+          icon={Percent}
+          accentVar="--data-hub"
+          progress={sharePercent}
+        />
+        <StatTile
+          label="Avg completeness"
+          value={`${userAvgCompleteness}%`}
+          hint="across your tokens"
+          icon={Hexagon}
+          accentVar="--primary"
+        />
+      </div>
 
-      {/* Contribution + Leaderboard */}
       <div className="grid gap-6 lg:grid-cols-2">
-
-        {/* Your Contribution */}
-        <Card className="border border-violet-500/30 overflow-hidden shadow-[0_0_20px_rgba(139,92,246,0.12)]">
-          <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-violet-100 dark:from-violet-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-100 dark:bg-violet-500/10">
-                <Zap className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              </span>
-              Your Contribution
-            </CardTitle>
-            <CardDescription>Your impact on the TrustNomiks database</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-5 space-y-5">
-            {/* Tier + count */}
-            <div className="flex items-center gap-4">
-              <span className="text-5xl leading-none select-none">{tier.emoji}</span>
-              <div>
-                <p className={cn('text-2xl font-bold', tier.color)}>{tier.label}</p>
-                <p className="text-xs text-muted-foreground">Level {tierIndex + 1} / {TIERS.length}</p>
-              </div>
-              <div className="ml-auto text-right">
-                <p className="text-3xl font-bold">{userTokens.length}</p>
-                <p className="text-xs text-muted-foreground">tokens added</p>
-              </div>
-            </div>
-
-            {/* Share of DB */}
+        {/* Identity, finally editable */}
+        <section className="space-y-4 rounded-xl border bg-surface-1 p-5">
+          <div>
+            <h2 className="text-sm font-semibold">Identity</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              How you appear to other contributors.
+            </p>
+          </div>
+          <div className="space-y-3">
             <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Your share of the database</span>
-                <span className="font-semibold tabular-nums">{sharePercent}%</span>
+              <Label htmlFor="display_name">Display name</Label>
+              <Input
+                id="display_name"
+                value={displayName}
+                placeholder="e.g. Ada"
+                onChange={(e) => {
+                  setDisplayName(e.target.value)
+                  setProfileDirty(true)
+                }}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="role">Role</Label>
+                <Input
+                  id="role"
+                  value={role}
+                  placeholder="e.g. analyst"
+                  onChange={(e) => {
+                    setRole(e.target.value)
+                    setProfileDirty(true)
+                  }}
+                />
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-violet-500 transition-all duration-500"
-                  style={{ width: `${Math.min(100, sharePercent)}%` }}
+              <div className="space-y-1.5">
+                <Label htmlFor="organization">Organization</Label>
+                <Input
+                  id="organization"
+                  value={organization}
+                  placeholder="e.g. Orijins"
+                  onChange={(e) => {
+                    setOrganization(e.target.value)
+                    setProfileDirty(true)
+                  }}
                 />
               </div>
             </div>
+            <p className="text-xs text-faint-foreground">Signed in as {currentUser?.email}</p>
+            <Button size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
+              {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+              Save profile
+            </Button>
+          </div>
 
-            {/* Avg completeness */}
-            <div className="flex items-center justify-between rounded-lg bg-muted/30 border border-border/40 px-3 py-2.5">
-              <span className="text-xs text-muted-foreground">Avg completeness of your tokens</span>
-              <span className="text-sm font-bold">{userAvgCompleteness}%</span>
-            </div>
-
-            {/* Next milestone */}
-            {nextTier && userTokens.length > 0 && (
-              <div className={cn('rounded-lg border px-3 py-2.5 text-xs', nextTier.bg, nextTier.border)}>
-                <span className="text-muted-foreground">
-                  {nextTier.min - userTokens.length} more token{nextTier.min - userTokens.length !== 1 ? 's' : ''} to unlock
-                </span>
-                {' '}
-                <span className={cn('font-semibold', nextTier.color)}>
-                  {nextTier.emoji} {nextTier.label}
-                </span>
-              </div>
-            )}
-
-            {/* Tier ladder */}
-            <div className="flex items-center gap-1 flex-wrap pt-1">
+          {/* Tier ladder, in the product's own glyphs */}
+          <div className="space-y-2 border-t pt-4">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-faint-foreground">
+              Contribution tier
+            </p>
+            <ul className="space-y-1">
               {TIERS.map((t, i) => (
-                <div key={t.label} className="flex items-center gap-1">
-                  <span className={cn(
-                    'text-[10px] font-medium px-2 py-0.5 rounded-full border transition-all',
+                <li
+                  key={t.label}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm',
                     i === tierIndex
-                      ? cn(t.color, t.border, t.bg)
+                      ? 'bg-surface-2 font-medium text-foreground'
                       : i < tierIndex
-                        ? cn(t.color, 'border-transparent opacity-50')
-                        : 'text-muted-foreground/30 border-transparent'
-                  )}>
-                    {t.emoji} {t.label}
-                  </span>
-                  {i < TIERS.length - 1 && (
-                    <span className="text-muted-foreground/25 text-[10px]">›</span>
+                        ? 'text-muted-foreground'
+                        : 'text-faint-foreground',
                   )}
-                </div>
+                  aria-current={i === tierIndex ? 'true' : undefined}
+                >
+                  <TierGlyph level={i} className={cn(i > tierIndex && 'opacity-40')} />
+                  <span className="flex-1">{t.label}</span>
+                  <span className="tabular text-xs">
+                    {t.max === Infinity ? `${t.min}+` : `${t.min}-${t.max}`} tokens
+                  </span>
+                </li>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Leaderboard */}
-        <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-          <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
-            <CardTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
-                <Trophy className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              </span>
-              Leaderboard
-            </CardTitle>
-            <CardDescription>Top contributors ranked by token count</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4">
-            {leaderboard.length === 0 ? (
-              <div className="py-10 text-center">
-                <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No contributions yet</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {leaderboard.map((entry, index) => {
-                  const medals = ['🥇', '🥈', '🥉']
-                  const barWidth = Math.round((entry.count / maxCount) * 100)
-                  return (
-                    <div
-                      key={entry.userId}
-                      className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2.5 border transition-colors',
-                        entry.isCurrentUser
-                          ? 'bg-indigo-100 dark:bg-indigo-500/10 border-indigo-500/30'
-                          : 'bg-muted/20 border-border/30'
-                      )}
-                    >
-                      {/* Rank */}
-                      <span className="w-6 text-center shrink-0 text-base leading-none select-none">
-                        {index < 3
-                          ? medals[index]
-                          : <span className="text-xs text-muted-foreground font-bold">#{index + 1}</span>
-                        }
-                      </span>
-
-                      {/* Identity + bar */}
-                      <div className="flex-1 min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-medium truncate">
-                            {entry.isCurrentUser
-                              ? (currentUser?.email ?? 'You')
-                              : `Contributor ···${entry.userId.slice(-6)}`}
-                          </p>
-                          {entry.isCurrentUser && (
-                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-100 dark:bg-indigo-500/10 border border-indigo-500/20 rounded-full px-1.5 py-px shrink-0">
-                              you
-                            </span>
-                          )}
-                        </div>
-                        <div className="h-1 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className={cn(
-                              'h-full rounded-full transition-all duration-500',
-                              entry.isCurrentUser ? 'bg-indigo-500' : 'bg-muted-foreground/30'
-                            )}
-                            style={{ width: `${barWidth}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold tabular-nums">{entry.count} <span className="text-xs font-normal text-muted-foreground">tokens</span></p>
-                        <p className="text-[10px] text-muted-foreground">{entry.avgCompleteness}% avg</p>
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {leaderboard.length === 1 && (
-                  <p className="text-xs text-muted-foreground/40 text-center pt-2">
-                    More contributors will appear here
-                  </p>
-                )}
-              </div>
+            </ul>
+            {nextTier && userTokens.length > 0 && (
+              <p className="tabular text-xs text-muted-foreground">
+                {nextTier.min - userTokens.length} more token
+                {nextTier.min - userTokens.length === 1 ? '' : 's'} to reach {nextTier.label}.
+              </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+
+        {/* Your constellation */}
+        <section className="flex flex-col overflow-hidden rounded-xl border bg-surface-1">
+          <div className="border-b px-5 py-4">
+            <h2 className="text-sm font-semibold">Your constellation</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Every token you structured, orbiting you. Node size follows completeness.
+            </p>
+          </div>
+          {userTokens.length === 0 ? (
+            <EmptyState
+              className="m-4 flex-1 border-0"
+              title="No tokens yet"
+              description="Structure your first token and it appears here, orbiting your node."
+              actions={
+                <Button variant="brand" size="sm" onClick={() => (window.location.href = '/tokens/new')}>
+                  Add your first token
+                </Button>
+              }
+            />
+          ) : (
+            <div className="min-h-[300px] flex-1">
+              <LiveGraph mode="local" data={constellation} />
+            </div>
+          )}
+        </section>
       </div>
+
+      {/* Leaderboard */}
+      <section className="overflow-hidden rounded-xl border bg-surface-1">
+        <div className="border-b px-5 py-4">
+          <h2 className="text-sm font-semibold">Leaderboard</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Contributors ranked by structured tokens, then completeness.
+          </p>
+        </div>
+        {leaderboard.length === 0 ? (
+          <EmptyState
+            className="m-4 border-0"
+            title="No contributions yet"
+            description="The first structured token starts the ranking."
+          />
+        ) : (
+          <ul className="divide-y">
+            {leaderboard.map((entry, index) => {
+              const barWidth = Math.round((entry.count / maxCount) * 100)
+              return (
+                <li
+                  key={entry.userId}
+                  className={cn(
+                    'flex items-center gap-3 px-5 py-3',
+                    entry.isCurrentUser && 'bg-primary/5',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'tabular w-8 shrink-0 text-center font-mono text-xs',
+                      index < 3 ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                    )}
+                  >
+                    #{index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium">
+                        {contributorName(entry.userId, index, entry.isCurrentUser)}
+                      </p>
+                      {entry.isCurrentUser && (
+                        <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-semibold text-primary">
+                          you
+                        </span>
+                      )}
+                    </div>
+                    <div className="h-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          entry.isCurrentUser ? 'bg-primary' : 'bg-muted-foreground/30',
+                        )}
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="tabular text-sm font-semibold">
+                      {entry.count}{' '}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        token{entry.count === 1 ? '' : 's'}
+                      </span>
+                    </p>
+                    <p className="tabular text-[10px] text-muted-foreground">{entry.avgCompleteness}% avg</p>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* On-chain activity (has its own wallet boundary) */}
+      <AccountActivityCard limit={10} createdLimit={5} />
     </div>
   )
 }

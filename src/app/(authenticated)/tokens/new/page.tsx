@@ -332,7 +332,7 @@ export default function NewTokenPage() {
       ...allocs.map(a => ({
         claim_type: 'vesting_schedule' as const,
         claim_id: a.id,
-        label: `Vesting — ${a.label}`,
+        label: `Vesting: ${a.label}`,
         data_source_ids: [] as string[],
       })),
       { claim_type: 'emission_model',   claim_id: null, label: 'Emission Model',  data_source_ids: [] },

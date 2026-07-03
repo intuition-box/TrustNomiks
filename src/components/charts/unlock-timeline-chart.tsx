@@ -137,7 +137,7 @@ export function UnlockTimelineChart({
               variant="outline"
               className="text-xs text-muted-foreground"
             >
-              {label} — manual schedule, not plotted
+              {label}: manual schedule, not plotted
             </Badge>
           ))}
         </div>

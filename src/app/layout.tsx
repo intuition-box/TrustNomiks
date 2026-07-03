@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrustNomiks — The Tokenomics Intelligence Graph",
+  title: "TrustNomiks · The Tokenomics Intelligence Graph",
   description:
     "Turn fragmented tokenomics into verifiable, on-chain claims. A living knowledge graph of Atoms & Triples, curated by $TRUST.",
 };
