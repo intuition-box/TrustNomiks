@@ -69,9 +69,9 @@ function parseSupply(value: string | null | undefined): number {
 }
 
 function formatNumber(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return '—'
+  if (value === null || value === undefined) return 'Not set'
   const num = Number(value.toString().replace(/,/g, ''))
-  if (isNaN(num)) return '—'
+  if (isNaN(num)) return 'Not set'
   return formatCompactNumber(num)
 }
 
@@ -185,12 +185,12 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
             />
             <KpiItem
               label="Locked"
-              value={locked > 0 ? formatCompactNumber(locked) : '—'}
+              value={locked > 0 ? formatCompactNumber(locked) : 'Not set'}
               icon={<Lock className="h-3 w-3 text-muted-foreground" />}
             />
             <KpiItem
               label="Emission"
-              value={emissionLabel ?? '—'}
+              value={emissionLabel ?? 'Not set'}
               small
             />
           </div>
@@ -252,10 +252,10 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
                       {formatSegmentTypeLabel(seg.segment_type)}
                     </span>
                     <span className="font-medium">{seg.label}</span>
-                    <span className="font-mono">{seg.percentage.toFixed(1)}%</span>
+                    <span className="tabular font-mono">{seg.percentage.toFixed(1)}%</span>
                     {/* Show token amount when supply composition is available */}
                     {hasSupplyComposition && seg.token_amount && (
-                      <span className="font-mono text-muted-foreground">
+                      <span className="tabular font-mono text-muted-foreground">
                         ({formatCompactNumber(parseSupply(seg.token_amount))})
                       </span>
                     )}
@@ -363,13 +363,16 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
                 <div className="flex flex-wrap gap-2">
                   {missingAssets.map((a) => (
                     <Badge key={a.asset} variant="outline" className="text-xs">
-                      {a.label} — missing:{' '}
-                      {a.missingClusters.join(', ')}
+                      {a.label}: needs {a.missingClusters.join(', ')}
                     </Badge>
                   ))}
                 </div>
                 <Button variant="outline" size="sm" className="mt-2" asChild>
-                  <Link href={`/tokens/new?id=${token.id}`}>Complete token data</Link>
+                  <Link
+                    href={`/tokens/new?id=${token.id}&section=${missingAssets[0]?.missingClusters[0] ?? 'supply'}`}
+                  >
+                    Complete it in the studio
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -397,7 +400,7 @@ function KpiItem({
         {icon}
         {label}
       </div>
-      <div className={small ? 'text-sm font-medium truncate' : 'text-lg font-bold font-mono'}>
+      <div className={small ? 'truncate text-sm font-medium' : 'tabular text-lg font-bold font-mono'}>
         {value}
       </div>
     </div>
