@@ -1,7 +1,7 @@
 import {
   Home,
   Coins,
-  Building2,
+  ChartArea,
   PlusCircle,
   UploadCloud,
   type LucideIcon,
@@ -29,7 +29,7 @@ export const NAV_ZONES: NavZone[] = [
     items: [
       { href: '/dashboard', label: 'Home', icon: Home },
       { href: '/tokens', label: 'Tokens', icon: Coins },
-      { href: '/token-house', label: 'Token House', icon: Building2 },
+      { href: '/data-room', label: 'Data Room', icon: ChartArea },
     ],
   },
   {
