@@ -5,9 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp, Lock, ShieldAlert } from 'lucide-react'
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp, ShieldAlert, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { computeScores } from '@/lib/utils/completeness'
+import { GraphLoader } from '@/components/patterns/graph-loader'
+import { StudioSpine, type StudioSectionKey, type StudioSectionMeta } from '@/features/studio/studio-spine'
+import { StudioGraphPane } from '@/features/studio/studio-graph-pane'
+import type { CoinGeckoProfile } from '@/types/coingecko'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -99,6 +103,45 @@ interface AllocationWithId extends AllocationSegment {
   token_amount?: string
 }
 
+interface SaveOpts {
+  /** autosave / auto-draft: suppress success toasts and side scrolls */
+  silent?: boolean
+}
+
+type AutosaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'invalid' | 'error'
+
+const SECTION_ORDER: StudioSectionKey[] = [
+  'identity',
+  'supply',
+  'allocation',
+  'vesting',
+  'emission',
+  'sources',
+  'risk',
+]
+
+const SECTION_LABELS: Record<StudioSectionKey, string> = {
+  identity: 'Identity',
+  supply: 'Supply',
+  allocation: 'Allocation',
+  vesting: 'Vesting',
+  emission: 'Emission',
+  sources: 'Sources',
+  risk: 'Risk flags',
+}
+
+/** app chain value → CoinGecko platform key (for contract autofill) */
+const CHAIN_PLATFORM: Record<string, string> = {
+  ethereum: 'ethereum',
+  solana: 'solana',
+  arbitrum: 'arbitrum-one',
+  optimism: 'optimistic-ethereum',
+  base: 'base',
+  polygon: 'polygon-pos',
+  'bnb-chain': 'binance-smart-chain',
+  avalanche: 'avalanche',
+}
+
 export default function NewTokenPage() {
   const searchParams = useSearchParams()
   const editTokenId = searchParams.get('id')
@@ -126,6 +169,45 @@ export default function NewTokenPage() {
   const [showFlash, setShowFlash] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  // ── Studio orchestration state (docs/redesign/08 §6) ────────────────────────
+  const sectionParam = searchParams.get('section')
+  const [activeSection, setActiveSection] = useState<StudioSectionKey>(
+    SECTION_ORDER.includes(sectionParam as StudioSectionKey)
+      ? (sectionParam as StudioSectionKey)
+      : 'identity'
+  )
+  const [autosave, setAutosave] = useState<{ status: AutosaveStatus; at: number | null }>({
+    status: 'idle',
+    at: null,
+  })
+  const [, setChipTick] = useState(0)
+  const activeSectionRef = useRef(activeSection)
+  const tokenIdRef = useRef<string | null>(editTokenId)
+  const autosaveTimerRef = useRef<number | null>(null)
+  const autoDraftBusyRef = useRef(false)
+  // Serialize all persistence: the optimistic lock (initialUpdatedAt) must
+  // advance strictly between saves, so two saves never race each other.
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve())
+
+  useEffect(() => {
+    activeSectionRef.current = activeSection
+  }, [activeSection])
+  useEffect(() => {
+    tokenIdRef.current = tokenId
+  }, [tokenId])
+
+  // Refresh the "Saved Xs ago" chip label periodically.
+  useEffect(() => {
+    const i = window.setInterval(() => setChipTick((t) => t + 1), 30000)
+    return () => window.clearInterval(i)
+  }, [])
+
+  const enqueueSave = <T,>(fn: () => Promise<T>): Promise<T> => {
+    const next = saveChainRef.current.then(fn, fn)
+    saveChainRef.current = next.catch(() => undefined)
+    return next
+  }
 
   // Step 1 Form
   const step1Form = useForm<TokenIdentityFormData>({
@@ -675,7 +757,7 @@ export default function NewTokenPage() {
   }
 
   // Save Step 1 and create/update token
-  const onSubmitStep1 = async (data: TokenIdentityFormData) => {
+  const onSubmitStep1 = async (data: TokenIdentityFormData, opts: SaveOpts = {}): Promise<boolean> => {
     try {
       setLoading(true)
 
@@ -701,12 +783,12 @@ export default function NewTokenPage() {
 
         if (currentToken && currentToken.created_by !== user.id) {
           toast.error('You do not have permission to modify this token.')
-          return
+          return false
         }
 
         if (currentToken && initialUpdatedAt && currentToken.updated_at !== initialUpdatedAt) {
           toast.error('This token was modified by someone else. Please refresh and try again.')
-          return
+          return false
         }
 
         const { error } = await supabase
@@ -765,20 +847,24 @@ export default function NewTokenPage() {
 
       setTgeDate(data.tge_date)
       calculateCompletedSteps()
-      toast.success(isEditMode ? 'Identity updated' : 'Token created — continue filling in the sections below')
+      if (!opts.silent) {
+        toast.success(isEditMode ? 'Identity updated' : 'Token created. All sections are open.')
+      }
+      return true
     } catch (error: unknown) {
       console.error('Error saving token:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to save token')
+      return false
     } finally {
       setLoading(false)
     }
   }
 
   // Save Step 2 - Supply Metrics
-  const onSubmitStep2 = async (data: SupplyMetricsFormData) => {
+  const onSubmitStep2 = async (data: SupplyMetricsFormData, opts: SaveOpts = {}): Promise<boolean> => {
     if (!tokenId) {
-      toast.error('Token ID not found. Please start from step 1.')
-      return
+      toast.error('Save the token identity first.')
+      return false
     }
 
     try {
@@ -810,27 +896,29 @@ export default function NewTokenPage() {
       })
 
       if (error) {
-        if (handleRpcError(error)) return
+        if (handleRpcError(error)) return false
         throw error
       }
 
       setInitialUpdatedAt(newUpdatedAt)
 
       calculateCompletedSteps()
-      toast.success('Supply metrics saved')
+      if (!opts.silent) toast.success('Supply metrics saved')
+      return true
     } catch (error: unknown) {
       console.error('Error saving supply metrics:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to save supply metrics')
+      return false
     } finally {
       setLoading(false)
     }
   }
 
   // Save Step 3 - Allocations
-  const onSubmitStep3 = async (data: AllocationsFormData) => {
+  const onSubmitStep3 = async (data: AllocationsFormData, opts: SaveOpts = {}): Promise<boolean> => {
     if (!tokenId) {
-      toast.error('Token ID not found. Please start from step 1.')
-      return
+      toast.error('Save the token identity first.')
+      return false
     }
 
     try {
@@ -869,7 +957,7 @@ export default function NewTokenPage() {
       })
 
       if (error) {
-        if (handleRpcError(error)) return
+        if (handleRpcError(error)) return false
         throw error
       }
 
@@ -886,6 +974,28 @@ export default function NewTokenPage() {
       }))
       setAllocations(allocationsWithIds)
 
+      // Sync DB-issued ids back into the form rows (matched by label + type).
+      // The RPC inserts unknown ids as new rows, so keeping the form on client
+      // UUIDs would make every subsequent save a delete-and-recreate, wiping
+      // the vesting schedules that hang off the old allocation ids.
+      const unclaimed = [...allocationsWithIds]
+      data.segments.forEach((seg, index) => {
+        const matchIdx = unclaimed.findIndex(
+          (a) =>
+            a.label === seg.label &&
+            a.segment_type === toSupportedSegmentType(seg.segment_type),
+        )
+        if (matchIdx >= 0) {
+          const [match] = unclaimed.splice(matchIdx, 1)
+          if (match.id !== seg.id) {
+            step3Form.setValue(`segments.${index}.id`, match.id, {
+              shouldDirty: false,
+              shouldValidate: false,
+            })
+          }
+        }
+      })
+
       // Read-only: fetch vesting data for Step 4 form rebuild
       const allocationIds = (rpcResult.segments || []).map((s: { id: string }) => s.id)
       const { data: vestingData } = await supabase
@@ -901,20 +1011,22 @@ export default function NewTokenPage() {
       })
 
       calculateCompletedSteps()
-      toast.success('Allocations saved — vesting section is now unlocked')
+      if (!opts.silent) toast.success('Allocations saved. Vesting builds on these segments.')
+      return true
     } catch (error: unknown) {
       console.error('Error saving allocations:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to save allocations')
+      return false
     } finally {
       setLoading(false)
     }
   }
 
   // Save Step 4 - Vesting Schedules
-  const onSubmitStep4 = async (data: VestingSchedulesFormData) => {
+  const onSubmitStep4 = async (data: VestingSchedulesFormData, opts: SaveOpts = {}): Promise<boolean> => {
     if (!tokenId) {
-      toast.error('Token ID not found. Please start from step 1.')
-      return
+      toast.error('Save the token identity first.')
+      return false
     }
 
     try {
@@ -955,14 +1067,15 @@ export default function NewTokenPage() {
       })
 
       if (error) {
-        if (handleRpcError(error)) return
+        if (handleRpcError(error)) return false
         throw error
       }
 
       setInitialUpdatedAt(newUpdatedAt)
 
       calculateCompletedSteps()
-      toast.success('Vesting schedules saved')
+      if (!opts.silent) toast.success('Vesting schedules saved')
+      return true
     } catch (error: unknown) {
       console.error('Error saving vesting schedules:', error)
       const pgError = error as { code?: string; message?: string } | null
@@ -976,16 +1089,17 @@ export default function NewTokenPage() {
       } else {
         toast.error(error instanceof Error ? error.message : 'Failed to save vesting schedules')
       }
+      return false
     } finally {
       setLoading(false)
     }
   }
 
   // Save Step 5 - Emission Model
-  const onSubmitStep5 = async (data: EmissionModelFormData) => {
+  const onSubmitStep5 = async (data: EmissionModelFormData, opts: SaveOpts = {}): Promise<boolean> => {
     if (!tokenId) {
-      toast.error('Token ID not found. Please start from step 1.')
-      return
+      toast.error('Save the token identity first.')
+      return false
     }
 
     try {
@@ -1015,32 +1129,34 @@ export default function NewTokenPage() {
       })
 
       if (error) {
-        if (handleRpcError(error)) return
+        if (handleRpcError(error)) return false
         throw error
       }
 
       setInitialUpdatedAt(newUpdatedAt)
 
       calculateCompletedSteps()
-      toast.success('Emission model saved')
+      if (!opts.silent) toast.success('Emission model saved')
+      return true
     } catch (error: unknown) {
       console.error('Error saving emission model:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to save emission model')
+      return false
     } finally {
       setLoading(false)
     }
   }
 
   // Save Step 6 - Data Sources
-  const onSubmitStep6 = async (data: DataSourcesFormData) => {
+  const onSubmitStep6 = async (data: DataSourcesFormData, opts: SaveOpts = {}): Promise<boolean> => {
     if (!tokenId) {
-      toast.error('Token ID not found. Please start from step 1.')
-      return
+      toast.error('Save the token identity first.')
+      return false
     }
 
     if (!initialUpdatedAt) {
       toast.error('Token state not loaded. Please refresh the page.')
-      return
+      return false
     }
 
     try {
@@ -1077,24 +1193,22 @@ export default function NewTokenPage() {
       })
 
       if (error) {
-        if (handleRpcError(error)) return
+        if (handleRpcError(error)) return false
         throw error
       }
 
       setInitialUpdatedAt(rpcResult.updated_at)
       setFinalScore(finalCompleteness)
 
-      // Sources saved. Risk Flags is the final (optional) step — guide the user
-      // there rather than taking over with the completion screen, which now
-      // fires only after Risk Flags is saved (onSubmitStep7).
-      toast.success('Data sources saved')
-      document.getElementById('section-risk')?.scrollIntoView({ behavior: 'smooth' })
+      if (!opts.silent) toast.success('Data sources saved')
+      return true
     } catch (error: unknown) {
       console.error('Error saving data sources:', error)
       const msg = error && typeof error === 'object' && 'message' in error
         ? String((error as { message: unknown }).message)
         : 'Failed to save data sources'
       toast.error(msg || 'Failed to save data sources')
+      return false
     } finally {
       setLoading(false)
     }
@@ -1106,15 +1220,15 @@ export default function NewTokenPage() {
   // lock as the other steps (mirrors save_data_sources_tx). This replaces the
   // earlier raw client-side delete()+insert(), which was non-atomic and had no
   // server-side ownership guard.
-  const onSubmitStep7 = async (data: RiskFlagsFormData) => {
+  const onSubmitStep7 = async (data: RiskFlagsFormData, opts: SaveOpts = {}): Promise<boolean> => {
     if (!tokenId) {
-      toast.error('Token ID not found. Please start from step 1.')
-      return
+      toast.error('Save the token identity first.')
+      return false
     }
 
     if (!initialUpdatedAt) {
       toast.error('Token state not loaded. Please refresh the page.')
-      return
+      return false
     }
 
     try {
@@ -1134,7 +1248,7 @@ export default function NewTokenPage() {
       })
 
       if (error) {
-        if (handleRpcError(error)) return
+        if (handleRpcError(error)) return false
         throw error
       }
 
@@ -1152,17 +1266,24 @@ export default function NewTokenPage() {
         })),
       })
 
-      // Show the completion screen only when the core flow is done (Sources
-      // saved this session => finalScore is set). Saving Risk Flags before then
-      // just persists them — avoids a completion screen stuck on "Calculating…".
-      if (finalScore !== null) {
-        setCurrentStep(COMPLETION_STEP)
-      } else {
-        toast.success('Risk flags saved')
+      // Autosave only persists; the completion screen fires on the explicit
+      // "Finish and review" action, whatever order the sections were saved in.
+      if (!opts.silent) {
+        if (finalScore !== null) {
+          setCurrentStep(COMPLETION_STEP)
+        } else {
+          const { totalScore } = await calculateFinalCompletenessWithSourceCount(
+            step6Form.getValues('sources')?.length ?? 0
+          )
+          setFinalScore(totalScore)
+          setCurrentStep(COMPLETION_STEP)
+        }
       }
+      return true
     } catch (error: unknown) {
       console.error('Error saving risk flags:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to save risk flags')
+      return false
     } finally {
       setLoading(false)
     }
@@ -1370,6 +1491,284 @@ export default function NewTokenPage() {
     })
   }
 
+  // ── Studio orchestration: autosave, auto-draft, navigation, autofill ───────
+
+  type SectionForm =
+    | typeof step1Form
+    | typeof step2Form
+    | typeof step3Form
+    | typeof step4Form
+    | typeof step5Form
+    | typeof step6Form
+    | typeof step7Form
+
+  const sectionFormsRef = useRef<Record<StudioSectionKey, SectionForm>>({
+    identity: step1Form,
+    supply: step2Form,
+    allocation: step3Form,
+    vesting: step4Form,
+    emission: step5Form,
+    sources: step6Form,
+    risk: step7Form,
+  })
+
+  // Latest-ref pattern: the watch subscription mounts once, but each save
+  // closes over fresh state (initialUpdatedAt for the optimistic lock).
+  const saveSectionRef = useRef<(key: StudioSectionKey) => Promise<boolean>>(async () => false)
+  saveSectionRef.current = async (key: StudioSectionKey) => {
+    switch (key) {
+      case 'identity':
+        return onSubmitStep1(step1Form.getValues(), { silent: true })
+      case 'supply':
+        return onSubmitStep2(step2Form.getValues(), { silent: true })
+      case 'allocation':
+        return onSubmitStep3(step3Form.getValues(), { silent: true })
+      case 'vesting':
+        return onSubmitStep4(step4Form.getValues(), { silent: true })
+      case 'emission':
+        return onSubmitStep5(step5Form.getValues(), { silent: true })
+      case 'sources':
+        return onSubmitStep6(step6Form.getValues(), { silent: true })
+      case 'risk':
+        return onSubmitStep7(step7Form.getValues(), { silent: true })
+    }
+  }
+
+  const allocationsRef = useRef(allocations)
+  useEffect(() => {
+    allocationsRef.current = allocations
+  }, [allocations])
+
+  /** Persist the active section if it is dirty and valid. Powers autosave. */
+  const autosaveActiveRef = useRef<() => Promise<void>>(async () => {})
+  autosaveActiveRef.current = async () => {
+    const key = activeSectionRef.current
+    if (!tokenIdRef.current) return
+    const form = sectionFormsRef.current[key]
+    if (!form.formState.isDirty) return
+    if (key === 'vesting' && allocationsRef.current.length === 0) return
+    // Emission with no type picked yet: the only required field is untouched
+    if (key === 'emission' && !step5Form.getValues('type')) return
+    const valid = await form.trigger()
+    if (!valid) {
+      setAutosave({ status: 'invalid', at: null })
+      return
+    }
+    setAutosave((a) => ({ status: 'saving', at: a.at }))
+    const ok = await enqueueSave(() => saveSectionRef.current(key))
+    setAutosave(ok ? { status: 'saved', at: Date.now() } : { status: 'error', at: null })
+  }
+
+  // One debounced autosave pipeline across all section forms. Only real user
+  // edits (type === 'change') schedule a save; programmatic reset/setValue
+  // (e.g. rebuilding vesting rows after an allocation save) do not.
+  useEffect(() => {
+    const forms = Object.values(sectionFormsRef.current)
+    const subs = forms.map((form) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- union of 7 form value shapes
+      (form as any).watch((_values: unknown, info: { type?: string }) => {
+        if (info?.type !== 'change') return
+        if (!tokenIdRef.current) return
+        setAutosave((a) => (a.status === 'saving' ? a : { status: 'pending', at: a.at }))
+        if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+        autosaveTimerRef.current = window.setTimeout(() => {
+          void autosaveActiveRef.current()
+        }, 1800)
+      })
+    )
+    return () => {
+      subs.forEach((s: { unsubscribe: () => void }) => s.unsubscribe())
+      if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+    }
+  }, [])
+
+  // Auto-draft: the padlock killer. As soon as a valid name + ticker exist,
+  // the draft creates itself silently and every section opens.
+  const draftNameW = step1Form.watch('name')
+  const draftTickerW = step1Form.watch('ticker')
+  useEffect(() => {
+    if (tokenId || isEditMode || autoDraftBusyRef.current) return
+    if (!draftNameW?.trim() || !draftTickerW?.trim()) return
+    const timer = window.setTimeout(async () => {
+      if (autoDraftBusyRef.current || tokenIdRef.current) return
+      autoDraftBusyRef.current = true
+      const valid = await step1Form.trigger(['name', 'ticker'])
+      if (!valid) {
+        autoDraftBusyRef.current = false
+        return
+      }
+      const ok = await enqueueSave(() =>
+        onSubmitStep1(step1Form.getValues(), { silent: true })
+      )
+      if (ok) {
+        setAutosave({ status: 'saved', at: Date.now() })
+        toast.success('Draft created. All sections are open.')
+      } else {
+        // allow a retry on the next edit
+        autoDraftBusyRef.current = false
+      }
+    }, 1200)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftNameW, draftTickerW, tokenId, isEditMode])
+
+  /** Switch sections; the one being left autosaves in the background. */
+  const goSection = (key: StudioSectionKey, opts: { skipSave?: boolean } = {}) => {
+    if (key === activeSection) return
+    if (!opts.skipSave) void autosaveActiveRef.current()
+    setActiveSection(key)
+    const params = new URLSearchParams(window.location.search)
+    params.set('section', key)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
+
+  const activeIndex = SECTION_ORDER.indexOf(activeSection)
+  const prevSectionKey = activeIndex > 0 ? SECTION_ORDER[activeIndex - 1] : null
+  const nextSectionKey =
+    activeIndex < SECTION_ORDER.length - 1 ? SECTION_ORDER[activeIndex + 1] : null
+
+  /** Footer "Continue": persist the current section (surfacing errors), then advance. */
+  const handleContinue = async () => {
+    const form = sectionFormsRef.current[activeSection]
+    if (activeSection === 'identity' && !tokenId) {
+      const valid = await form.trigger()
+      if (!valid) return
+      const ok = await enqueueSave(() => onSubmitStep1(step1Form.getValues(), { silent: true }))
+      if (!ok) return
+      setAutosave({ status: 'saved', at: Date.now() })
+    } else if (tokenId && form.formState.isDirty) {
+      if (activeSection === 'vesting' && allocationsRef.current.length === 0) {
+        // nothing to persist yet
+      } else {
+        const valid = await form.trigger()
+        if (!valid) return
+        setAutosave((a) => ({ status: 'saving', at: a.at }))
+        const ok = await enqueueSave(() => saveSectionRef.current(activeSection))
+        setAutosave(ok ? { status: 'saved', at: Date.now() } : { status: 'error', at: null })
+        if (!ok) return
+      }
+    }
+    if (nextSectionKey) goSection(nextSectionKey, { skipSave: true })
+  }
+
+  /** Footer "Finish and review": final save + completion moment. */
+  const handleFinish = async () => {
+    if (!tokenId) return
+    const valid = await step7Form.trigger()
+    if (!valid) return
+    await enqueueSave(() => onSubmitStep7(step7Form.getValues(), {}))
+  }
+
+  /**
+   * CoinGecko autofill (docs/redesign/08 §6): one pick fills identity, the
+   * contract for the selected chain and the supply figures, and seeds a
+   * CoinGecko source row. Never overwrites what the user already typed.
+   */
+  const autofillFromCoinGecko = async (coinId: string) => {
+    try {
+      const res = await fetch(`/api/coingecko/profile?id=${encodeURIComponent(coinId)}`)
+      if (!res.ok) return
+      const profile: CoinGeckoProfile = await res.json()
+      let filled = 0
+
+      if (!step1Form.getValues('name') && profile.name) {
+        step1Form.setValue('name', profile.name, { shouldDirty: true, shouldValidate: true })
+        filled++
+      }
+      if (!step1Form.getValues('ticker') && profile.symbol) {
+        step1Form.setValue('ticker', profile.symbol.toUpperCase(), {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+        filled++
+      }
+
+      let chain = step1Form.getValues('chain')
+      if (!chain) {
+        const knownPlatforms = Object.entries(CHAIN_PLATFORM).filter(
+          ([, platform]) => profile.platforms[platform]
+        )
+        if (knownPlatforms.length === 1) {
+          chain = knownPlatforms[0][0]
+          step1Form.setValue('chain', chain, { shouldDirty: true, shouldValidate: true })
+          filled++
+        }
+      }
+      if (!step1Form.getValues('contract_address') && chain && CHAIN_PLATFORM[chain]) {
+        const contract = profile.platforms[CHAIN_PLATFORM[chain]]
+        if (contract) {
+          step1Form.setValue('contract_address', contract, {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
+          filled++
+        }
+      }
+
+      const fillSupply = (
+        field: 'max_supply' | 'circulating_supply',
+        value: number | null
+      ) => {
+        if (value == null || value <= 0) return
+        if (step2Form.getValues(field)) return
+        const formatted = formatNumber(Math.round(value).toString())
+        step2Form.setValue(field, formatted, { shouldDirty: true, shouldValidate: true })
+        if (field === 'max_supply') setMaxSupply(formatted)
+        filled++
+      }
+      fillSupply('max_supply', profile.max_supply ?? profile.total_supply)
+      fillSupply('circulating_supply', profile.circulating_supply)
+
+      const sources = step6Form.getValues('sources') ?? []
+      const cgUrl = `https://www.coingecko.com/en/coins/${profile.id}`
+      if (!sources.some((s) => s.url === cgUrl)) {
+        appendSource({
+          id: crypto.randomUUID(),
+          source_type: 'api',
+          document_name: 'CoinGecko',
+          url: cgUrl,
+          version: '',
+          verified_at: new Date().toISOString(),
+        })
+        filled++
+      }
+
+      if (filled > 0) {
+        toast.success(`Prefilled ${filled} field${filled === 1 ? '' : 's'} from CoinGecko`)
+      }
+    } catch (error) {
+      console.error('CoinGecko autofill failed:', error)
+    }
+  }
+
+  /** Scale every segment proportionally so the sum lands exactly on 100. */
+  const normalizeAllocations = () => {
+    const segments = step3Form.getValues('segments')
+    const total = segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+    if (total <= 0) return
+    let allocatedSoFar = 0
+    segments.forEach((segment, index) => {
+      const pct = parseFloat(segment.percentage) || 0
+      const next =
+        index === segments.length - 1
+          ? Math.max(0, +(100 - allocatedSoFar).toFixed(2))
+          : +((pct / total) * 100).toFixed(2)
+      allocatedSoFar += next
+      step3Form.setValue(`segments.${index}.percentage`, String(next), {
+        shouldDirty: true,
+        shouldValidate: false,
+      })
+      step3Form.setValue(`segments.${index}.token_amount`, calculateTokenAmount(String(next)), {
+        shouldValidate: false,
+      })
+    })
+    setAutosave((a) => (a.status === 'saving' ? a : { status: 'pending', at: a.at }))
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void autosaveActiveRef.current()
+    }, 1200)
+  }
+
   // Live token identity values for the page header
   const liveTokenName   = step1Form.watch('name')
   const liveTokenTicker = step1Form.watch('ticker')
@@ -1393,6 +1792,7 @@ export default function NewTokenPage() {
   const _lw5burn   = step5Form.watch('has_burn')
   const _lw5buy    = step5Form.watch('has_buyback')
   const _lw6srcs   = step6Form.watch('sources') || []
+  const _lw7flags  = step7Form.watch('flags') || []
 
   const liveIdentityScore   = (_lw1name && _lw1ticker && _lw1chain ? 10 : 0) + (_lw1addr ? 5 : 0) + (_lw1tge ? 5 : 0)
   const liveSupplyScore     = _lw2max ? 10 + ((_lw2init || _lw2tge) ? 5 : 0) : 0
@@ -1419,100 +1819,153 @@ export default function NewTokenPage() {
 
   // Show loading state while loading token data
   if (loadingTokenData) {
+    return <GraphLoader className="mx-auto mt-24" label="Loading token data…" />
+  }
+
+  // ── Helpers for section rendering ──────────────────────────────────────────
+  const sectionHeader = (
+    accentVar: string,
+    label: string,
+    desc: string,
+    liveScore: number,
+    maxScore: number,
+    saved: boolean,
+  ) => {
+    const color = `hsl(var(${accentVar}))`
     return (
-      <div className="mx-auto max-w-4xl space-y-8 pb-12">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-lg">Loading token data...</span>
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex items-center gap-3">
+          <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+          <div>
+            <h2 className="inline text-xs font-bold uppercase tracking-widest" style={{ color }}>
+              {label}
+            </h2>
+            <span className="ml-2 text-xs text-muted-foreground">{desc}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {saved && <CheckCircle2 className="h-3.5 w-3.5 opacity-70" style={{ color }} aria-hidden />}
+          <span
+            className={cn('tabular font-mono text-xs font-semibold', liveScore === 0 && maxScore > 0 && 'text-muted-foreground/40')}
+            style={liveScore > 0 ? { color } : undefined}
+          >
+            {maxScore > 0 ? `${liveScore} / ${maxScore} pts` : 'optional'}
+          </span>
         </div>
       </div>
     )
   }
 
-  // ── Helpers for section rendering ──────────────────────────────────────────
-  const sectionHeader = (
-    dot: string,
-    label: string,
-    desc: string,
-    liveScore: number,
-    maxScore: number,
-    textColor: string,
-    saved: boolean,
-  ) => (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-      <div className="flex items-center gap-3">
-        <div className={`h-2.5 w-2.5 rounded-full ${dot}`} />
-        <div>
-          <span className={`text-xs font-bold uppercase tracking-widest ${textColor}`}>{label}</span>
-          <span className="ml-2 text-xs text-muted-foreground">{desc}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {saved && <CheckCircle2 className={`h-3.5 w-3.5 ${textColor} opacity-70`} />}
-        <span className={`text-xs font-mono font-semibold ${liveScore > 0 ? textColor : 'text-muted-foreground/40'}`}>
-          {liveScore}&thinsp;/&thinsp;{maxScore} pts
-        </span>
-      </div>
+  // Guidance instead of a padlock: sections are never locked, they explain
+  // what they need and offer the shortcut (docs/redesign/08 §6).
+  const notReadySection = (message: string, action?: { label: string; section: StudioSectionKey }) => (
+    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+      <p className="max-w-md text-sm text-muted-foreground">{message}</p>
+      {action && (
+        <Button type="button" variant="outline" size="sm" onClick={() => goSection(action.section)}>
+          {action.label}
+        </Button>
+      )}
     </div>
   )
 
-  const lockedSection = (message: string) => (
-    <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-3">
-      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-        <Lock className="h-4 w-4 text-muted-foreground/50" />
-      </div>
-      <p className="text-sm text-muted-foreground">{message}</p>
-    </div>
-  )
-
-  // Sidebar cluster data
-  const sidebarClusters = [
-    { key: 'identity',   label: 'Identity',   bar: 'bg-violet-500', text: 'text-violet-600 dark:text-violet-400', live: liveIdentityScore,   max: 20 },
-    { key: 'supply',     label: 'Supply',     bar: 'bg-sky-500',    text: 'text-sky-600 dark:text-sky-400',       live: liveSupplyScore,     max: 15 },
-    { key: 'allocation', label: 'Allocation', bar: 'bg-amber-500',  text: 'text-amber-600 dark:text-amber-400',   live: liveAllocationScore, max: 20 },
-    { key: 'vesting',    label: 'Vesting',    bar: 'bg-emerald-500',text: 'text-emerald-600 dark:text-emerald-400',live: liveVestingScore,    max: 20 },
+  const spineSections: StudioSectionMeta[] = [
+    { key: 'identity', label: 'Identity', accentVar: '--data-token', tier: 'core', live: liveIdentityScore, max: 20 },
+    { key: 'supply', label: 'Supply', accentVar: '--data-supply', tier: 'core', live: liveSupplyScore, max: 15 },
+    { key: 'allocation', label: 'Allocation', accentVar: '--data-allocation', tier: 'core', live: liveAllocationScore, max: 20 },
+    { key: 'vesting', label: 'Vesting', accentVar: '--data-vesting', tier: 'enrich', live: liveVestingScore, max: 20 },
+    { key: 'emission', label: 'Emission', accentVar: '--data-emission', tier: 'enrich', live: liveEmissionScore, max: 10 },
+    { key: 'sources', label: 'Sources', accentVar: '--data-source', tier: 'enrich', live: liveSourcesScore, max: 10 },
+    { key: 'risk', label: 'Risk flags', accentVar: '--data-risk', tier: 'enrich', live: _lw7flags.length > 0 ? 1 : 0, max: 0, optional: true },
   ]
+
+  const savedAgoLabel = (() => {
+    if (!autosave.at) return ''
+    const seconds = Math.max(0, Math.round((Date.now() - autosave.at) / 1000))
+    if (seconds < 30) return 'just now'
+    if (seconds < 90) return 'a minute ago'
+    return `${Math.round(seconds / 60)}m ago`
+  })()
+
+  const autosaveChip = (
+    <span aria-live="polite" className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {autosave.status === 'saving' && (
+        <>
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Saving…
+        </>
+      )}
+      {autosave.status === 'saved' && (
+        <>
+          <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-hidden />
+          <span className="truncate">Saved {savedAgoLabel}</span>
+        </>
+      )}
+      {autosave.status === 'pending' && (
+        <>
+          <Clock className="h-3.5 w-3.5" aria-hidden /> Unsaved changes
+        </>
+      )}
+      {autosave.status === 'invalid' && (
+        <>
+          <AlertCircle className="h-3.5 w-3.5 text-warning" aria-hidden /> Fix the errors to save
+        </>
+      )}
+      {autosave.status === 'error' && (
+        <>
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden /> Save failed
+        </>
+      )}
+      {autosave.status === 'idle' && (tokenId ? 'Autosave is on' : 'Name + ticker create the draft')}
+    </span>
+  )
 
   // ── Completion screen (after the final step is saved) ──────────────────────
   if (currentStep === COMPLETION_STEP) {
     return (
       <div className="mx-auto max-w-2xl pb-16 pt-8">
-        <div className="rounded-xl border border-primary/20 bg-card overflow-hidden">
-          <div className="px-8 py-10 text-center space-y-4">
-            <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+        <div className="overflow-hidden rounded-xl border bg-surface-1">
+          <div className="space-y-4 px-8 py-10 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle2 className="h-8 w-8 text-success" aria-hidden />
             </div>
-            <h1 className="text-2xl font-bold">Token {isEditMode ? 'Updated' : 'Created'} Successfully!</h1>
-            <p className="text-muted-foreground text-sm">Your tokenomics data has been saved and is ready for review.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {step1Form.getValues('name') || 'Token'} is structured
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Its data now lives in the TrustNomiks graph, ready to review, validate and publish on-chain.
+            </p>
           </div>
 
-          <div className="px-8 pb-8 space-y-4">
+          <div className="space-y-4 px-8 pb-8">
             <div className="grid gap-3">
-              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+              <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
                 <span className="text-sm font-medium">Token</span>
-                <span className="font-semibold">{step1Form.getValues('name')} <span className="font-mono text-primary">{step1Form.getValues('ticker')}</span></span>
+                <span className="font-semibold">
+                  {step1Form.getValues('name')}{' '}
+                  <span className="font-mono text-primary">{step1Form.getValues('ticker')}</span>
+                </span>
               </div>
-              <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
-                <span className="text-sm font-medium">Completeness Score</span>
-                <Badge className="text-base px-3 py-0.5 bg-primary">
-                  {finalScore !== null ? `${finalScore} pts` : 'Calculating…'}
-                </Badge>
+              <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
+                <span className="text-sm font-medium">Completeness</span>
+                <span className="tabular text-base font-semibold">
+                  {finalScore !== null ? `${finalScore} / 100` : 'Calculating…'}
+                </span>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
               {tokenId && (
-                <Button className="flex-1" size="lg" onClick={() => router.push(`/tokens/${tokenId}`)}>
-                  View Token Details
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button variant="brand" className="flex-1" size="lg" onClick={() => router.push(`/tokens/${tokenId}`)}>
+                  Open token to publish
+                  <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
               )}
               <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens')}>
-                Back to Tokens
+                Back to tokens
               </Button>
               <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens/new')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Another
+                <Plus className="h-4 w-4" aria-hidden />
+                Add another
               </Button>
             </div>
           </div>
@@ -1565,145 +2018,71 @@ export default function NewTokenPage() {
           ) : (
             <>
               <h1 className="text-3xl font-bold tracking-tight">
-                {isEditMode ? 'Edit Token' : 'Add New Token'}
+                {isEditMode ? 'Edit token' : 'Add a token'}
               </h1>
-              <p className="text-muted-foreground text-sm">Fill in each cluster section — your score updates live</p>
+              <p className="text-muted-foreground text-sm">
+                Structure the token cluster by cluster. The graph grows as your data lands.
+              </p>
             </>
           )}
         </div>
 
-        {/* Mobile score pill (visible only on small screens) */}
-        <div className="lg:hidden flex-shrink-0 rounded-xl border bg-card px-4 py-3 text-center min-w-[80px]">
+        {/* Mobile score (compact) */}
+        <div className="flex-shrink-0 rounded-xl border bg-surface-1 px-4 py-2.5 text-center lg:hidden">
           <div className="relative inline-block">
-            <span className="text-2xl font-bold tabular-nums">{liveTotalScore}</span>
+            <span className="tabular text-xl font-semibold">{liveTotalScore}</span>
             {showFlash && (
               <span
                 key={flashKey}
-                className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap select-none"
+                className="absolute -top-5 left-1/2 -translate-x-1/2 select-none whitespace-nowrap text-xs font-semibold text-success"
                 style={{ animation: 'score-flash 1.4s ease-out forwards' }}
               >
                 +{flashPts}
               </span>
             )}
           </div>
-          <p className="text-[10px] text-muted-foreground">/ 100 pts</p>
-          {/* Cluster dots */}
-          <div className="mt-2 flex items-center justify-center gap-1">
-            {sidebarClusters.map(c => (
-              <div
-                key={c.key}
-                className={`h-1.5 w-1.5 rounded-full transition-all duration-500 ${c.live === c.max ? c.bar : 'bg-muted-foreground/20'}`}
-              />
-            ))}
-          </div>
+          <p className="text-[10px] text-muted-foreground">/ 100</p>
         </div>
       </div>
 
-      {/* ── Two-column layout ────────────────────────────────────────────────── */}
-      <div className="flex gap-8 items-start">
+      {/* Mobile section rail */}
+      <div className="mb-4 lg:hidden">
+        <StudioSpine
+          orientation="horizontal"
+          sections={spineSections}
+          active={activeSection}
+          onSelect={goSection}
+          score={liveTotalScore}
+        />
+      </div>
 
-        {/* ── Sidebar (desktop only) ──────────────────────────────────────────── */}
-        <aside className="hidden lg:block w-64 xl:w-72 shrink-0 sticky top-4">
+      {/* ── Studio layout: spine · active section · living graph ─────────────── */}
+      <div className="flex items-start gap-6">
 
-          {/* Score panel */}
-          <div className="rounded-xl border bg-card p-5 space-y-5">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Completeness</p>
-
-              {/* Big score + flash */}
-              <div className="relative flex items-end gap-2 mb-3">
-                <span className="text-5xl font-bold tabular-nums transition-all duration-300">{liveTotalScore}</span>
-                <span className="text-sm text-muted-foreground mb-1.5">/ 100 pts</span>
-                {showFlash && (
-                  <span
-                    key={flashKey}
-                    className="absolute -top-7 left-0 text-sm font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap select-none"
-                    style={{ animation: 'score-flash 1.4s ease-out forwards' }}
-                  >
-                    +{flashPts} pts
-                  </span>
-                )}
-              </div>
-
-              {/* Global progress bar */}
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-[width] duration-700 ease-out"
-                  style={{ width: `${liveTotalScore}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Cluster mini-bars */}
-            <div className="space-y-3">
-              {sidebarClusters.map(c => (
-                <div key={c.key}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-xs font-medium ${c.text}`}>{c.label}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">{c.live}&thinsp;/&thinsp;{c.max}</span>
-                  </div>
-                  <div className="h-1 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full ${c.bar} rounded-full transition-[width] duration-700 ease-out`}
-                      style={{ width: `${(c.live / c.max) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Extras */}
-            <div className="pt-4 border-t border-border space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Emission</span>
-                <span className={`font-mono ${liveEmissionScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
-                  {liveEmissionScore}&thinsp;/&thinsp;10
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Sources</span>
-                <span className={`font-mono ${liveSourcesScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
-                  {liveSourcesScore}&thinsp;/&thinsp;10
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section nav */}
-          <nav className="mt-3 rounded-xl border bg-card p-3 space-y-0.5">
-            {[
-              { id: 'section-identity',   label: 'Identity',   icon: '◆', color: 'text-violet-600 dark:text-violet-400',  done: completedSteps.includes(1) },
-              { id: 'section-supply',     label: 'Supply',     icon: '◆', color: 'text-sky-600 dark:text-sky-400',     done: completedSteps.includes(2) },
-              { id: 'section-allocation', label: 'Allocation', icon: '◆', color: 'text-amber-600 dark:text-amber-400',   done: completedSteps.includes(3) },
-              { id: 'section-vesting',    label: 'Vesting',    icon: '◆', color: 'text-emerald-600 dark:text-emerald-400', done: completedSteps.includes(4) },
-              { id: 'section-emission',   label: 'Emission',   icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(5) },
-              { id: 'section-sources',    label: 'Sources',    icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(6) },
-              { id: 'section-risk',       label: 'Risk Flags', icon: '○', color: 'text-muted-foreground', done: completedSteps.includes(7) },
-            ].map(item => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="flex items-center justify-between rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors group"
-              >
-                <span className="flex items-center gap-2">
-                  <span className={`${item.color} group-hover:opacity-100`}>{item.icon}</span>
-                  {item.label}
-                </span>
-                {item.done && <CheckCircle2 className="h-3 w-3 text-muted-foreground/50" />}
-              </a>
-            ))}
-          </nav>
+        {/* Spine (desktop) */}
+        <aside className="sticky top-20 hidden w-60 shrink-0 lg:block">
+          <StudioSpine
+            sections={spineSections}
+            active={activeSection}
+            onSelect={goSection}
+            score={liveTotalScore}
+            flash={{ pts: flashPts, key: flashKey, show: showFlash }}
+          />
         </aside>
 
-        {/* ── Main content ────────────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-5">
+        {/* ── Active section ──────────────────────────────────────────────────── */}
+        <div className="min-w-0 flex-1 space-y-5">
 
-          {/* ── Section 1: Identity (violet) ──────────────────────────────────── */}
-          <div id="section-identity" className="rounded-xl border border-l-4 border-l-violet-500 bg-card overflow-hidden">
-            {sectionHeader('bg-violet-500', 'Identity', '· Token identification', liveIdentityScore, 20, 'text-violet-600 dark:text-violet-400', completedSteps.includes(1))}
+          {/* ── Section 1: Identity ───────────────────────────────────────────── */}
+          <div
+            id="section-identity"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'identity' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-token))' }}
+          >
+            {sectionHeader('--data-token', 'Identity', '· Token identification', liveIdentityScore, 20, completedSteps.includes(1))}
             <div className="px-6 py-6">
             <Form {...step1Form}>
-              <form onSubmit={step1Form.handleSubmit(onSubmitStep1)} className="space-y-6">
+              <form onSubmit={step1Form.handleSubmit((data) => onSubmitStep1(data))} className="space-y-6">
                 {/* Project Name */}
                 <FormField
                   control={step1Form.control}
@@ -2000,6 +2379,7 @@ export default function NewTokenPage() {
                           onSelect={(coin) => {
                             field.onChange(coin?.id ?? '')
                             step1Form.setValue('coingecko_image', coin?.thumb ?? '')
+                            if (coin) void autofillFromCoinGecko(coin.id)
                           }}
                           chain={step1Form.watch('chain')}
                           contractAddress={step1Form.watch('contract_address')}
@@ -2083,24 +2463,22 @@ export default function NewTokenPage() {
                   )}
                 />
 
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Identity'}
-                  </Button>
-                </div>
               </form>
             </Form>
             </div>
           </div>
 
-          {/* ── Section 2: Supply (sky) ───────────────────────────────────────── */}
-          <div id="section-supply" className="rounded-xl border border-l-4 border-l-sky-500 bg-card overflow-hidden">
-            {sectionHeader('bg-sky-500', 'Supply', '· Token supply metrics', liveSupplyScore, 15, 'text-sky-600 dark:text-sky-400', completedSteps.includes(2))}
-            {!tokenId ? lockedSection('Save Identity first to unlock Supply Metrics.') : (
+          {/* ── Section 2: Supply ─────────────────────────────────────────────── */}
+          <div
+            id="section-supply"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'supply' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-supply))' }}
+          >
+            {sectionHeader('--data-supply', 'Supply', '· Token supply metrics', liveSupplyScore, 15, completedSteps.includes(2))}
+            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
             <div className="px-6 py-6">
             <Form {...step2Form}>
-              <form onSubmit={step2Form.handleSubmit(onSubmitStep2)} className="space-y-6">
+              <form onSubmit={step2Form.handleSubmit((data) => onSubmitStep2(data))} className="space-y-6">
                 {/* Max Supply */}
                 <FormField
                   control={step2Form.control}
@@ -2295,54 +2673,73 @@ export default function NewTokenPage() {
                   )}
                 />
 
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Supply'}
-                  </Button>
-                </div>
               </form>
             </Form>
             </div>
             )}
           </div>
 
-          {/* ── Section 3: Allocation (amber) ────────────────────────────────── */}
-          <div id="section-allocation" className="rounded-xl border border-l-4 border-l-amber-500 bg-card overflow-hidden">
-            {sectionHeader('bg-amber-500', 'Allocation', '· Token distribution', liveAllocationScore, 20, 'text-amber-600 dark:text-amber-400', completedSteps.includes(3))}
-            {!tokenId ? lockedSection('Save Identity first to unlock Allocations.') : (
+          {/* ── Section 3: Allocation ─────────────────────────────────────────── */}
+          <div
+            id="section-allocation"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'allocation' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-allocation))' }}
+          >
+            {sectionHeader('--data-allocation', 'Allocation', '· Token distribution', liveAllocationScore, 20, completedSteps.includes(3))}
+            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
             <div className="px-6 py-6">
             <Form {...step3Form}>
-              <form onSubmit={step3Form.handleSubmit(onSubmitStep3)} className="space-y-6">
-                {/* Total Percentage Badge */}
-                <div className="flex flex-col gap-3 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">Total Allocation:</span>
-                    <Badge
-                      variant={isComplete ? 'default' : 'secondary'}
-                      className={cn(
-                        'text-base font-bold',
-                        isComplete
-                          ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-500 border-green-500/20'
-                          : totalPercentage > 100
-                          ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-500/20'
-                          : 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border-yellow-500/20'
-                      )}
-                    >
-                      {isComplete ? (
-                        <CheckCircle2 className="mr-1 h-4 w-4" />
-                      ) : (
-                        <AlertCircle className="mr-1 h-4 w-4" />
-                      )}
-                      {totalPercentage.toFixed(2)}%
-                    </Badge>
-                  </div>
-                  {!isComplete && (
-                    <span className="text-sm text-muted-foreground">
-                      {delta > 0 ? `${delta.toFixed(2)}% remaining` : `${Math.abs(delta).toFixed(2)}% over`}
-                    </span>
-                  )}
-                </div>
+              <form onSubmit={step3Form.handleSubmit((data) => onSubmitStep3(data))} className="space-y-6">
+                {/* Live sum bar: the soft allocation gate (docs/redesign/08 §6) */}
+                {(() => {
+                  const sumColor = isComplete
+                    ? 'hsl(var(--success))'
+                    : totalPercentage > 100
+                      ? 'hsl(var(--destructive))'
+                      : 'hsl(var(--warning))'
+                  return (
+                    <div className="space-y-2 rounded-lg border bg-surface-2/60 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-medium">Total allocated</span>
+                        <span className="tabular inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: sumColor }}>
+                          {isComplete ? (
+                            <CheckCircle2 className="h-4 w-4" aria-hidden />
+                          ) : (
+                            <AlertCircle className="h-4 w-4" aria-hidden />
+                          )}
+                          {totalPercentage.toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full transition-[width,background-color] duration-300"
+                          style={{ width: `${Math.min(100, totalPercentage)}%`, backgroundColor: sumColor }}
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span aria-live="polite">
+                          {isComplete
+                            ? 'Fully allocated: worth the full 10 points.'
+                            : delta > 0
+                              ? `${delta.toFixed(2)}% left to allocate. Saving works anytime; reaching 100% earns the full points.`
+                              : `${Math.abs(delta).toFixed(2)}% over 100. Adjust the percentages or normalize.`}
+                        </span>
+                        {!isComplete && totalPercentage > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={normalizeAllocations}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                            Normalize to 100%
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Allocation Segments Table */}
                 <div className="space-y-4">
@@ -2547,38 +2944,21 @@ export default function NewTokenPage() {
                   Add Segment
                 </Button>
 
-                {/* Validation Message */}
-                {!isComplete && fields.length > 0 && (
-                  <div className="flex items-start gap-2 p-3 rounded-md bg-muted">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium">Allocation not complete</p>
-                      <p className="text-muted-foreground">
-                        {delta > 0
-                          ? `You still have ${delta.toFixed(2)}% unallocated. You can continue anyway, but having 100% allocation is recommended.`
-                          : `You have allocated ${Math.abs(delta).toFixed(2)}% too much. Please adjust your percentages.`}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Allocations'}
-                  </Button>
-                </div>
               </form>
             </Form>
             </div>
             )}
           </div>
 
-          {/* ── Section 4: Vesting (emerald) ─────────────────────────────────── */}
-          <div id="section-vesting" className="rounded-xl border border-l-4 border-l-emerald-500 bg-card overflow-hidden">
-            {sectionHeader('bg-emerald-500', 'Vesting', '· Unlock schedules', liveVestingScore, 20, 'text-emerald-600 dark:text-emerald-400', completedSteps.includes(4))}
-            {!tokenId ? lockedSection('Save Identity first to unlock Vesting.') :
-             !completedSteps.includes(3) ? lockedSection('Save Allocations first — vesting schedules are built from your allocation segments.') : (
+          {/* ── Section 4: Vesting ────────────────────────────────────────────── */}
+          <div
+            id="section-vesting"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'vesting' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-vesting))' }}
+          >
+            {sectionHeader('--data-vesting', 'Vesting', '· Unlock schedules', liveVestingScore, 20, completedSteps.includes(4))}
+            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) :
+             !completedSteps.includes(3) ? notReadySection('Vesting schedules are built from your allocation segments. Add allocations first.', { label: 'Go to Allocation', section: 'allocation' }) : (
             <div className="px-6 py-6">
             {allocations.length === 0 ? (
               <div className="text-center py-12">
@@ -2587,7 +2967,7 @@ export default function NewTokenPage() {
               </div>
             ) : (
               <Form {...step4Form}>
-                <form onSubmit={step4Form.handleSubmit(onSubmitStep4)} className="space-y-6">
+                <form onSubmit={step4Form.handleSubmit((data) => onSubmitStep4(data))} className="space-y-6">
                   {/* Info Banner */}
                   <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
                     <Clock className="h-5 w-5 text-primary mt-0.5" />
@@ -2813,12 +3193,6 @@ export default function NewTokenPage() {
                   </Accordion>
                   {/* eslint-enable @typescript-eslint/no-explicit-any */}
 
-                  {/* Actions */}
-                  <div className="flex justify-end pt-4">
-                    <Button type="submit" disabled={loading}>
-                      {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Vesting'}
-                    </Button>
-                  </div>
                 </form>
               </Form>
             )}
@@ -2826,27 +3200,17 @@ export default function NewTokenPage() {
             )}
           </div>
 
-          {/* ── Section 5: Emission (extra, gray) ────────────────────────────── */}
-          <div id="section-emission" className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Emission</span>
-                  <span className="ml-2 text-xs text-muted-foreground">· Inflation &amp; economic mechanisms</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {completedSteps.includes(5) && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/50" />}
-                <span className={`text-xs font-mono font-semibold ${liveEmissionScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
-                  {liveEmissionScore}&thinsp;/&thinsp;10 pts
-                </span>
-              </div>
-            </div>
-            {!tokenId ? lockedSection('Save Identity first to unlock Emission.') : (
+          {/* ── Section 5: Emission ───────────────────────────────────────────── */}
+          <div
+            id="section-emission"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'emission' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-emission))' }}
+          >
+            {sectionHeader('--data-emission', 'Emission', '· Inflation & economic mechanisms', liveEmissionScore, 10, completedSteps.includes(5))}
+            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
             <div className="px-6 py-6">
             <Form {...step5Form}>
-              <form onSubmit={step5Form.handleSubmit(onSubmitStep5)} className="space-y-6">
+              <form onSubmit={step5Form.handleSubmit((data) => onSubmitStep5(data))} className="space-y-6">
                 {/* Emission Type */}
                 <FormField
                   control={step5Form.control}
@@ -3009,39 +3373,23 @@ export default function NewTokenPage() {
                   )}
                 />
 
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Emission'}
-                  </Button>
-                </div>
               </form>
             </Form>
             </div>
             )}
           </div>
 
-          {/* ── Section 6: Sources (extra, gray) ─────────────────────────────── */}
-          <div id="section-sources" className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Sources</span>
-                  <span className="ml-2 text-xs text-muted-foreground">· Data references &amp; attribution</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {completedSteps.includes(6) && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/50" />}
-                <span className={`text-xs font-mono font-semibold ${liveSourcesScore > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
-                  {liveSourcesScore}&thinsp;/&thinsp;10 pts
-                </span>
-              </div>
-            </div>
-            {!tokenId ? lockedSection('Save Identity first to unlock Sources.') : (
+          {/* ── Section 6: Sources ────────────────────────────────────────────── */}
+          <div
+            id="section-sources"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'sources' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-source))' }}
+          >
+            {sectionHeader('--data-source', 'Sources', '· Data references & attribution', liveSourcesScore, 10, completedSteps.includes(6))}
+            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
             <div className="px-6 py-6">
             <Form {...step6Form}>
-              <form onSubmit={step6Form.handleSubmit(onSubmitStep6)} className="space-y-6">
+              <form onSubmit={step6Form.handleSubmit((data) => onSubmitStep6(data))} className="space-y-6">
                 {/* Info Banner */}
                 {sourceFields.length === 0 && (
                   <div className="flex items-start gap-3 p-4 bg-yellow-100 dark:bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
@@ -3365,36 +3713,23 @@ export default function NewTokenPage() {
                   )
                 })()}
 
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Complete & Review'}
-                  </Button>
-                </div>
               </form>
             </Form>
             </div>
             )}
           </div>
 
-          {/* ── Section 7: Risk Flags (extra, gray) ──────────────────────────── */}
-          <div id="section-risk" className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Risk Flags</span>
-                  <span className="ml-2 text-xs text-muted-foreground">· Risk signals &amp; severity</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {completedSteps.includes(7) && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/50" />}
-              </div>
-            </div>
-            {!tokenId ? lockedSection('Save Identity first to unlock Risk Flags.') : (
+          {/* ── Section 7: Risk Flags ─────────────────────────────────────────── */}
+          <div
+            id="section-risk"
+            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'risk' && 'hidden')}
+            style={{ borderLeft: '3px solid hsl(var(--data-risk))' }}
+          >
+            {sectionHeader('--data-risk', 'Risk flags', '· Risk signals & severity', _lw7flags.length > 0 ? 1 : 0, 0, completedSteps.includes(7))}
+            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
             <div className="px-6 py-6">
             <Form {...step7Form}>
-              <form onSubmit={step7Form.handleSubmit(onSubmitStep7)} className="space-y-6">
+              <form onSubmit={step7Form.handleSubmit((data) => onSubmitStep7(data))} className="space-y-6">
                 {/* Info Banner */}
                 {riskFields.length === 0 && (
                   <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
@@ -3548,20 +3883,56 @@ export default function NewTokenPage() {
                   Add Risk Flag
                 </Button>
 
-                {/* Actions */}
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Risk Flags'}
-                  </Button>
-                </div>
               </form>
             </Form>
             </div>
             )}
           </div>
 
-        </div>{/* end main content */}
-      </div>{/* end two-column layout */}
+          {/* ── Studio footer: previous · autosave chip · continue / finish ───── */}
+          <div className="glass sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-lg">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!prevSectionKey}
+              onClick={() => prevSectionKey && goSection(prevSectionKey)}
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">{prevSectionKey ? SECTION_LABELS[prevSectionKey] : 'Back'}</span>
+            </Button>
+            {autosaveChip}
+            {nextSectionKey ? (
+              <Button type="button" size="sm" onClick={handleContinue} disabled={loading}>
+                <span className="hidden sm:inline">Continue: {SECTION_LABELS[nextSectionKey]}</span>
+                <span className="sm:hidden">Continue</span>
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Button>
+            ) : (
+              <Button type="button" size="sm" variant="brand" onClick={handleFinish} disabled={loading}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+                Finish and review
+              </Button>
+            )}
+          </div>
+
+        </div>{/* end active section column */}
+
+        {/* ── Living graph pane (desktop) ─────────────────────────────────────── */}
+        <aside className="sticky top-20 hidden w-72 shrink-0 xl:block">
+          <StudioGraphPane
+            name={liveTokenName}
+            ticker={liveTokenTicker}
+            segmentLabels={_lw3segs
+              .filter((s) => s.label || s.segment_type || (parseFloat(s.percentage) || 0) > 0)
+              .map((s) => s.label)}
+            vestingCount={completedSteps.includes(4) ? allocations.length : 0}
+            hasEmission={Boolean(_lw5type)}
+            sourceCount={_lw6srcs.length}
+            riskCount={_lw7flags.length}
+          />
+        </aside>
+      </div>{/* end studio layout */}
       {/* Removal confirmation dialog (allocations + sources + risk flags) */}
       <AlertDialog open={!!pendingRemoval} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
         <AlertDialogContent>

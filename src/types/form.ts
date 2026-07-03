@@ -434,17 +434,11 @@ export const allocationSegmentSchema = z.object({
   wallet_address: z.string().optional(),
 })
 
+// Soft allocation gate (docs/redesign/08 §6): a partial sum saves fine and is
+// simply worth fewer completeness points. The 100% target is communicated by
+// the studio's live sum bar, not enforced by a save-blocking validation.
 export const allocationsSchema = z.object({
   segments: z.array(allocationSegmentSchema).min(1, 'At least one allocation segment is required'),
-}).superRefine((data, ctx) => {
-  const total = data.segments.reduce((sum, s) => sum + (parseFloat(s.percentage) || 0), 0)
-  if (Math.abs(total - 100) > 0.01) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Allocation percentages must sum to 100% (currently ${total.toFixed(2)}%)`,
-      path: ['segments'],
-    })
-  }
 })
 
 export type AllocationSegment = z.infer<typeof allocationSegmentSchema>

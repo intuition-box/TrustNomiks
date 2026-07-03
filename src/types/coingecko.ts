@@ -29,3 +29,16 @@ export interface CoinGeckoResolveResult {
   image: { thumb: string; small: string; large: string }
   market_cap_rank: number | null
 }
+
+// GET /api/coingecko/profile response: the studio autofill subset of /coins/{id}
+export interface CoinGeckoProfile {
+  id: string
+  name: string
+  symbol: string
+  thumb: string | null
+  /** CoinGecko platform key → contract address */
+  platforms: Record<string, string>
+  max_supply: number | null
+  total_supply: number | null
+  circulating_supply: number | null
+}

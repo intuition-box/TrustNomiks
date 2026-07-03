@@ -145,42 +145,24 @@ describe('allocationsSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('rejects segments summing to 99% (below tolerance)', () => {
+  // Soft allocation gate (docs/redesign/08 §6): partial or over-allocated sums
+  // save fine; the 100% target is a completeness incentive (live sum bar),
+  // not a save blocker.
+  it('accepts segments summing below 100% (soft gate)', () => {
     const result = allocationsSchema.safeParse({
       segments: [
         makeSegment('59', 'Team'),
         makeSegment('40', 'Treasury'),
       ],
     })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const issue = findIssue(result.error, ['segments'])
-      expect(issue).toBeDefined()
-      expect(issue!.message).toMatch(/100%/)
-    }
+    expect(result.success).toBe(true)
   })
 
-  it('rejects segments summing to 101%', () => {
+  it('accepts segments summing above 100% (soft gate)', () => {
     const result = allocationsSchema.safeParse({
       segments: [
         makeSegment('61', 'Team'),
         makeSegment('40', 'Treasury'),
-      ],
-    })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const issue = findIssue(result.error, ['segments'])
-      expect(issue).toBeDefined()
-      expect(issue!.message).toMatch(/100%/)
-    }
-  })
-
-  it('accepts segments summing to 99.995% (within 0.01 tolerance)', () => {
-    const result = allocationsSchema.safeParse({
-      segments: [
-        makeSegment('33.335', 'A'),
-        makeSegment('33.33', 'B'),
-        makeSegment('33.33', 'C'),
       ],
     })
     expect(result.success).toBe(true)
