@@ -1,72 +1,39 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Coins, Download, PanelLeftClose, PanelLeftOpen, Building2, Sun, Moon, UserCircle } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
-import { UserMenu } from '@/components/user-menu'
+import { NAV_ZONES, isNavItemActive } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
-import type { User } from '@supabase/supabase-js'
 
 interface SidebarNavProps {
-  user: User
   collapsed: boolean
   onToggle: () => void
 }
 
-const navItems = [
-  { href: '/dashboard',   label: 'Dashboard',   icon: Home        },
-  { href: '/tokens',      label: 'Tokens',       icon: Coins       },
-  { href: '/token-house', label: 'Token House',  icon: Building2   },
-  { href: '/export',      label: 'Export',       icon: Download    },
-  { href: '/profile',     label: 'Profile',      icon: UserCircle  },
-]
-
-export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
+/**
+ * The two-zone rail (docs/redesign/04): EXPLORE reads the graph, CONTRIBUTE
+ * grows it. The rail stays slate-quiet so the taxonomy can glow in the work
+ * area; the active item is a hairline accent, not a filled pill.
+ */
+export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
   const pathname = usePathname()
-  const { theme, setTheme } = useTheme()
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  )
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn('flex items-center p-4', collapsed ? 'justify-center' : 'justify-between pl-0 pr-2 py-3')}>
+      <div className={cn('flex items-center p-3', collapsed ? 'justify-center' : 'justify-between')}>
         {!collapsed && (
-          <Link href="/dashboard" className="relative flex items-center rounded-xl px-2 py-1 overflow-hidden">
-            {/* Smoke blob A — left, slow drift */}
-            <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-16 h-10 rounded-full bg-black/[0.06] dark:bg-white/[0.13] blur-xl"
-              style={{ animation: 'smoke-a 4.2s ease-in-out infinite' }}
-            />
-            {/* Smoke blob B — center-right, faster */}
-            <div
-              className="absolute right-2 top-0 w-12 h-8 rounded-full bg-black/[0.04] dark:bg-white/[0.10] blur-2xl"
-              style={{ animation: 'smoke-b 3.1s ease-in-out infinite 0.8s' }}
-            />
-            {/* Smoke blob C — bottom-left, medium */}
-            <div
-              className="absolute left-6 bottom-0 w-10 h-6 rounded-full bg-black/[0.04] dark:bg-white/[0.08] blur-xl"
-              style={{ animation: 'smoke-c 5s ease-in-out infinite 1.6s' }}
-            />
-            {/* Smoke blob D — top-right, small wisp */}
-            <div
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-5 rounded-full bg-black/[0.03] dark:bg-white/[0.07] blur-lg"
-              style={{ animation: 'smoke-a 3.7s ease-in-out infinite 2.3s' }}
-            />
+          <Link href="/dashboard" className="flex items-center px-2">
             <Image
               src="/trustnomiks_logo_final.png"
               alt="TrustNomiks"
               width={0}
               height={0}
               sizes="160px"
-              className="relative h-[55px] w-auto max-w-[205px] object-contain"
+              className="h-10 w-auto max-w-[160px] object-contain"
               priority
             />
           </Link>
@@ -78,56 +45,50 @@ export function SidebarNav({ user, collapsed, onToggle }: SidebarNavProps) {
 
       <Separator />
 
-      <nav className={cn('flex-1 space-y-1', collapsed ? 'p-2' : 'p-4')}>
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+      <nav className={cn('flex-1 space-y-5 py-4', collapsed ? 'px-2' : 'px-3')} aria-label="Main">
+        {NAV_ZONES.map((zone, zoneIndex) => (
+          <div key={zone.label}>
+            {collapsed ? (
+              zoneIndex > 0 && <Separator className="mx-auto mb-3 w-6" />
+            ) : (
+              <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-faint-foreground">
+                {zone.label}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {zone.items.map((item) => {
+                const Icon = item.icon
+                const isActive = isNavItemActive(pathname, item.href)
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                'flex rounded-lg px-3 py-2 text-sm transition-colors',
-                collapsed ? 'justify-center' : 'items-center gap-3',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && item.label}
-            </Link>
-          )
-        })}
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={collapsed ? item.label : undefined}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'relative flex rounded-md px-3 py-2 text-sm transition-colors',
+                      collapsed ? 'justify-center' : 'items-center gap-3',
+                      isActive
+                        ? 'bg-surface-2 font-medium text-foreground'
+                        : 'text-muted-foreground hover:bg-surface-2/60 hover:text-foreground',
+                    )}
+                  >
+                    {isActive && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
+                      />
+                    )}
+                    <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} aria-hidden />
+                    {!collapsed && item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
-
-      <Separator />
-
-      {/* Theme toggle */}
-      <div className={cn(collapsed ? 'p-2' : 'px-4 pt-3')}>
-        <button
-          type="button"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className={cn(
-            'flex w-full rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-            collapsed ? 'justify-center' : 'items-center gap-3'
-          )}
-          title={collapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
-        >
-          {mounted ? (
-            theme === 'dark' ? <Sun className="h-5 w-5 shrink-0" /> : <Moon className="h-5 w-5 shrink-0" />
-          ) : (
-            <span className="h-5 w-5 shrink-0" />
-          )}
-          {!collapsed && mounted && (theme === 'dark' ? 'Light mode' : 'Dark mode')}
-        </button>
-      </div>
-
-      <div className={cn(collapsed ? 'p-2' : 'p-4 pt-2')}>
-        <UserMenu user={user} collapsed={collapsed} />
-      </div>
     </div>
   )
 }

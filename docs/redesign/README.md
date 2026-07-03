@@ -24,6 +24,8 @@ A complete redesign of TrustNomiks from a generic shadcn MVP into a **world-clas
 | 04 | [IA, Navigation & Onboarding Spine](./04-ia-onboarding.md) | The mode-aware shell, ⌘K palette, the front door, the progressive onboarding spine, the redesigned contributor & explorer flows, the persona handoffs. |
 | 05 | [Hero Screen Directions](./05-hero-screens.md) | Detailed redesign of Dashboard, Token Detail / Graph Explorer, and Onboarding — wireframes, components, states, motion, friction removed. |
 | 06 | [Data-Viz & Graph Motion System](./06-dataviz-graph-system.md) | Chart taxonomy, the knowledge-graph visual system, and the graph-as-signature motion vocabulary. |
+| 07 | [Full-App Sweep Notes](./07-app-sweep-notes.md) | July 2026 visual + code audit of all 9 screens (screenshots + per-screen violations/frictions). The ground truth for Phase 2. |
+| 08 | [Screen-by-Screen Redesign Plans](./08-screen-redesign-plans.md) | **The Phase 2 execution plan**: the reusable screen grammar ("la trame") + per-screen UI/UX plans (shell, login, registry, studio, data room, publish & export, profile, errors) and rollout order. |
 | 99 | [Appendix](./99-appendix-research-audits.md) | The raw research dossiers (component libraries, Web3/DeFi apps, data/monitoring apps, graph-motion, onboarding) + codebase audits that ground the proposal. |
 
 ---

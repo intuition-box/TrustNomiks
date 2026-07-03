@@ -1,7 +1,10 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, Moon, Sun, UserCircle } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -12,18 +15,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 
 interface UserMenuProps {
   user: User
-  collapsed?: boolean
 }
 
-export function UserMenu({ user, collapsed = false }: UserMenuProps) {
+/** Account entry point in the top bar: profile, theme, sign out. */
+export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { theme, setTheme } = useTheme()
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
 
   const handleLogout = async () => {
     try {
@@ -45,36 +53,40 @@ export function UserMenu({ user, collapsed = false }: UserMenuProps) {
         <button
           suppressHydrationWarning
           type="button"
-          className={cn(
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg',
-            collapsed ? 'w-auto' : 'w-full'
-          )}
+          aria-label="Account menu"
+          className="rounded-full transition-opacity hover:opacity-85"
         >
-        <div
-          className={cn(
-            'rounded-lg p-2 hover:bg-accent transition-colors',
-            collapsed ? 'flex items-center justify-center' : 'flex items-center gap-3'
-          )}
-        >
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+          <Avatar className="h-8 w-8 border">
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
-          {!collapsed && (
-            <div className="flex min-w-0 flex-1 flex-col items-start text-sm">
-              <span className="w-full truncate font-medium" title={user.email || ''}>
-                {user.email}
-              </span>
-            </div>
-          )}
-        </div>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={collapsed ? 'start' : 'end'} className="w-56">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+          {user.email}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/profile">
+            <UserCircle className="mr-2 h-4 w-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {mounted && theme === 'dark' ? (
+            <Sun className="mr-2 h-4 w-4" />
+          ) : (
+            <Moon className="mr-2 h-4 w-4" />
+          )}
+          {mounted && theme === 'dark' ? 'Light mode' : 'Dark mode'}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
-          Log Out
+          Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
