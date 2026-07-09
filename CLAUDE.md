@@ -29,7 +29,9 @@ _Read by Claude Code (`CLAUDE.md`) and Codex (`AGENTS.md`, a symlink to this fil
 
 ## UI & design system (BINDING)
 
-All UI work must follow `docs/redesign/DESIGN-RULES.md` (the "Data Observatory" design language). Read it before touching any screen or component. Non-negotiables in brief: dark-first (`:root`=light, `.dark`=dark, `defaultTheme="dark"`, never invert); all colors come from CSS tokens in `src/app/globals.css` (no hardcoded hex, no `bg-[#...]`); same color = same concept via the `--data-*` taxonomy (graph space), kept separate from allocation-segment colors (`getChartColor`); the only JS↔CSS color bridge is `src/lib/design/tokens.ts`; Geist + Geist Mono with `.tabular` on every number; surfaces via `bg-surface-*`; the indigo→violet brand gradient used sparingly; one global `:focus-visible` ring; color always paired with a glyph/icon (AA, non-color cue); motion honors `prefers-reduced-motion`; never use the em-dash character in copy (empty values render as "Not set"); copy presents TrustNomiks, with Intuition credited only as the underlying rail. Reuse existing components in `src/components/{ui,composite,patterns,brand}`; add missing primitives via `npx shadcn@latest add <name>`, never hand-roll Radix. Reference screens: landing `src/app/page.tsx`, dashboard, token detail. Aliases: `@/components`, `@/lib`, `@/components/ui`, `@/hooks`.
+All UI work must follow `docs/redesign/DESIGN-RULES.md` (the "Data Observatory" design language); read it before touching any screen or component. Claude Code: the `design-system` skill in `.claude/skills/` carries the working checklist and triggers on any UI task.
+
+The most critical absolutes for all agents: all colors come from CSS tokens in `src/app/globals.css` (no hardcoded hex, no `bg-[#...]`); dark-first (`:root`=light, `.dark`=dark, `defaultTheme="dark"`, never invert); reuse existing components in `src/components/{ui,composite,patterns,brand}` and add missing primitives via `npx shadcn@latest add <name>` rather than hand-rolling Radix; never use the em-dash character in copy; color is always paired with a glyph/icon, never alone.
 
 ## Supabase / security
 
