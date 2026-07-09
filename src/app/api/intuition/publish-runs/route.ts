@@ -76,15 +76,18 @@ async function handleInit(
     )
   }
 
-  // Validate token exists
+  // Validate token exists and is owned by the caller
   const { data: token, error: tokenErr } = await supabase
     .from('tokens')
-    .select('id')
+    .select('id, created_by')
     .eq('id', tokenId)
     .single()
 
   if (tokenErr || !token) {
     return NextResponse.json({ error: 'Token not found' }, { status: 404 })
+  }
+  if (token.created_by !== userId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { data: run, error: runErr } = await supabase
@@ -344,15 +347,18 @@ async function handleLegacyPersist(
     )
   }
 
-  // Validate token exists
+  // Validate token exists and is owned by the caller
   const { data: token, error: tokenErr } = await supabase
     .from('tokens')
-    .select('id')
+    .select('id, created_by')
     .eq('id', tokenId)
     .single()
 
   if (tokenErr || !token) {
     return NextResponse.json({ error: 'Token not found' }, { status: 404 })
+  }
+  if (token.created_by !== userId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // 1. Create the publish run record
