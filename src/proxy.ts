@@ -38,9 +38,11 @@ export async function proxy(request: NextRequest) {
   // Define route types
   const pathname = request.nextUrl.pathname
   const isLoginPage = pathname === '/login'
+  const isAuthRoute = pathname.startsWith('/auth')
   // Public routes: the marketing landing (front door). Everything else requires auth.
   const publicRoutes = ['/']
-  const isPublicRoute = isLoginPage || publicRoutes.includes(pathname)
+  const isPublicRoute =
+    isLoginPage || isAuthRoute || publicRoutes.includes(pathname)
   const isProtectedRoute = !isPublicRoute
 
   // Redirect logic
