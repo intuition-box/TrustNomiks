@@ -105,7 +105,7 @@ export default function Landing() {
 
           {/* role select = two doors */}
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/login" className="flex-1">
+            <Link href="/login?intent=view" className="flex-1">
               <Button
                 variant="brand"
                 size="xl"
@@ -117,7 +117,7 @@ export default function Landing() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/login" className="flex-1">
+            <Link href="/login?intent=contribute" className="flex-1">
               <Button
                 variant="outline"
                 size="xl"
