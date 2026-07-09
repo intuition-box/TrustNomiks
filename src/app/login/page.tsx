@@ -32,6 +32,13 @@ function humanAuthError(raw: string, mode: AuthMode): string {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Absolute base URL for auth email redirect links (client-side only). */
+function getSiteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin
+}
+
+type AsyncStatus = 'idle' | 'sending' | 'sent'
+
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
@@ -43,6 +50,13 @@ export default function LoginPage() {
     confirm?: string
   }>({})
   const [loading, setLoading] = useState(false)
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<
+    string | null
+  >(null)
+  const [resendStatus, setResendStatus] = useState<AsyncStatus>('idle')
+  const [resendError, setResendError] = useState('')
+  const [forgotPasswordStatus, setForgotPasswordStatus] =
+    useState<AsyncStatus>('idle')
   const router = useRouter()
   const supabase = createClient()
 
@@ -104,6 +118,9 @@ export default function LoginPage() {
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
+      },
     })
     if (signUpError) throw signUpError
     if (!authData.user) throw new Error('No user created')
@@ -120,8 +137,60 @@ export default function LoginPage() {
       // Continue anyway - profile can be created later
     }
 
+    if (!authData.session) {
+      // Email confirmation is required before a session exists.
+      setPendingConfirmationEmail(email)
+      return
+    }
+
     router.push('/dashboard')
     router.refresh()
+  }
+
+  const handleResendConfirmation = async () => {
+    if (!pendingConfirmationEmail) return
+    setResendStatus('sending')
+    setResendError('')
+    try {
+      const { error: resendErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingConfirmationEmail,
+        options: {
+          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
+        },
+      })
+      if (resendErr) throw resendErr
+      setResendStatus('sent')
+    } catch (err: unknown) {
+      console.error('resend confirmation error:', err)
+      setResendStatus('idle')
+      setResendError(
+        humanAuthError(err instanceof Error ? err.message : '', 'signup'),
+      )
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    setError('')
+    if (!email || !EMAIL_REGEX.test(email)) {
+      setError('Enter your email above first, then try again.')
+      return
+    }
+    setForgotPasswordStatus('sending')
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/reset-password`,
+        },
+      )
+      if (resetError) throw resetError
+      setForgotPasswordStatus('sent')
+    } catch (err: unknown) {
+      console.error('reset password error:', err)
+      setForgotPasswordStatus('idle')
+      setError(humanAuthError(err instanceof Error ? err.message : '', mode))
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,6 +219,14 @@ export default function LoginPage() {
     setError('')
     setFieldErrors({})
     setConfirmPassword('')
+    setForgotPasswordStatus('idle')
+  }
+
+  const handleBackToLogin = () => {
+    setPendingConfirmationEmail(null)
+    setResendStatus('idle')
+    setResendError('')
+    switchMode('login')
   }
 
   return (
@@ -167,145 +244,226 @@ export default function LoginPage() {
             priority
           />
 
-          <div className="space-y-1.5">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {mode === 'login' ? 'Welcome back' : 'Join the graph'}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {mode === 'login'
-                ? 'Log in to keep structuring and exploring tokenomics.'
-                : 'Create an account to start structuring tokenomics data.'}
-            </p>
-          </div>
-
-          {/* Mode switch */}
-          <div
-            className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1"
-            role="tablist"
-            aria-label="Authentication mode"
-          >
-            {(['login', 'signup'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => switchMode(m)}
-                disabled={loading}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                  mode === m
-                    ? 'bg-surface-3 text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {m === 'login' ? 'Log in' : 'Create account'}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {error && (
-              <div
-                role="alert"
-                className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
-              >
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onBlur={validateEmailField}
-                aria-invalid={Boolean(fieldErrors.email)}
-                disabled={loading}
-                required
-              />
-              {fieldErrors.email && (
-                <p className="text-xs text-destructive">{fieldErrors.email}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete={
-                  mode === 'login' ? 'current-password' : 'new-password'
-                }
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-              {mode === 'signup' && (
-                <p
-                  className={cn(
-                    'text-xs',
-                    password.length === 0
-                      ? 'text-muted-foreground'
-                      : passwordLongEnough
-                        ? 'text-success'
-                        : 'text-warning',
-                  )}
-                >
-                  {passwordLongEnough ? '✓ 8+ characters' : '8+ characters'}
+          {pendingConfirmationEmail ? (
+            <div className="space-y-6">
+              <div className="space-y-1.5">
+                <h1 className="text-2xl font-semibold tracking-tight">
+                  Check your inbox
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  We sent a confirmation link to{' '}
+                  <span className="font-medium text-foreground">
+                    {pendingConfirmationEmail}
+                  </span>
+                  . Click it to activate your account.
                 </p>
-              )}
-            </div>
-
-            {mode === 'signup' && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  onBlur={validateConfirmField}
-                  aria-invalid={Boolean(fieldErrors.confirm)}
-                  disabled={loading}
-                  required
-                />
-                {fieldErrors.confirm && (
-                  <p className="text-xs text-destructive">
-                    {fieldErrors.confirm}
-                  </p>
-                )}
               </div>
-            )}
 
-            <Button
-              type="submit"
-              variant="brand"
-              size="lg"
-              className="w-full"
-              disabled={loading}
-            >
-              {loading
-                ? mode === 'login'
-                  ? 'Logging in…'
-                  : 'Creating your account…'
-                : mode === 'login'
-                  ? 'Log in'
-                  : 'Create account'}
-            </Button>
-          </form>
+              {resendStatus === 'sent' && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success"
+                >
+                  Confirmation email sent again.
+                </div>
+              )}
+              {resendError && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  {resendError}
+                </div>
+              )}
 
-          <p className="text-xs text-muted-foreground">
-            No wallet needed here. Connect one only when you publish on-chain.
-          </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={handleResendConfirmation}
+                disabled={resendStatus === 'sending'}
+              >
+                {resendStatus === 'sending' ? 'Sending…' : 'Resend email'}
+              </Button>
+
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Back to login
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <h1 className="text-2xl font-semibold tracking-tight">
+                  {mode === 'login' ? 'Welcome back' : 'Join the graph'}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {mode === 'login'
+                    ? 'Log in to keep structuring and exploring tokenomics.'
+                    : 'Create an account to start structuring tokenomics data.'}
+                </p>
+              </div>
+
+              {/* Mode switch */}
+              <div
+                className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1"
+                role="tablist"
+                aria-label="Authentication mode"
+              >
+                {(['login', 'signup'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === m}
+                    onClick={() => switchMode(m)}
+                    disabled={loading}
+                    className={cn(
+                      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                      mode === m
+                        ? 'bg-surface-3 text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {m === 'login' ? 'Log in' : 'Create account'}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                {error && (
+                  <div
+                    role="alert"
+                    className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={validateEmailField}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    disabled={loading}
+                    required
+                  />
+                  {fieldErrors.email && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.email}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={
+                      mode === 'login' ? 'current-password' : 'new-password'
+                    }
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                  />
+                  {mode === 'signup' && (
+                    <p
+                      className={cn(
+                        'text-xs',
+                        password.length === 0
+                          ? 'text-muted-foreground'
+                          : passwordLongEnough
+                            ? 'text-success'
+                            : 'text-warning',
+                      )}
+                    >
+                      {passwordLongEnough ? '✓ 8+ characters' : '8+ characters'}
+                    </p>
+                  )}
+                  {mode === 'login' && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={loading || forgotPasswordStatus === 'sending'}
+                        className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                      >
+                        {forgotPasswordStatus === 'sending'
+                          ? 'Sending…'
+                          : 'Forgot password?'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {mode === 'login' && forgotPasswordStatus === 'sent' && (
+                  <div
+                    role="alert"
+                    className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success"
+                  >
+                    Check your inbox for a reset link.
+                  </div>
+                )}
+
+                {mode === 'signup' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onBlur={validateConfirmField}
+                      aria-invalid={Boolean(fieldErrors.confirm)}
+                      disabled={loading}
+                      required
+                    />
+                    {fieldErrors.confirm && (
+                      <p className="text-xs text-destructive">
+                        {fieldErrors.confirm}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="brand"
+                  size="lg"
+                  className="w-full"
+                  disabled={loading}
+                >
+                  {loading
+                    ? mode === 'login'
+                      ? 'Logging in…'
+                      : 'Creating your account…'
+                    : mode === 'login'
+                      ? 'Log in'
+                      : 'Create account'}
+                </Button>
+              </form>
+
+              <p className="text-xs text-muted-foreground">
+                No wallet needed here. Connect one only when you publish
+                on-chain.
+              </p>
+            </>
+          )}
         </div>
       </div>
 
