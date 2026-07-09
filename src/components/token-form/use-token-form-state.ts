@@ -245,17 +245,35 @@ export function useTokenFormState() {
     name: 'flags',
   })
 
-  // Initialise attribution rows once allocations are available (replaces step 6 trigger)
+  // Reconcile attribution rows whenever the allocation *id set* changes: adds
+  // rows for newly-created allocations and drops rows for deleted ones, while
+  // preserving existing data_source_ids selections (buildDefaultAttributions
+  // merges by claim_type:claim_id key). Depends on the id set, not just the
+  // count, because a delete followed by a re-insert autosave can keep the
+  // length the same while swapping every id. loadTokenData (edit mode) already
+  // rebuilds attributions from freshly-fetched data on load; this effect must
+  // treat that as a no-op rather than clobber it, so it skips the setValue
+  // when the reconciled rows are equivalent to what's already there.
+  const allocationIdKey = allocations.map((a) => a.id).join(',')
   useEffect(() => {
     if (!tokenId || allocations.length === 0) return
     const current = step6Form.getValues('attributions')
-    if (!current || current.length === 0) {
-      step6Form.setValue(
-        'attributions',
-        buildDefaultAttributions(allocations, current),
+    const reconciled = buildDefaultAttributions(allocations, current)
+    const isNoOp =
+      !!current &&
+      current.length === reconciled.length &&
+      current.every(
+        (row, i) =>
+          row.claim_type === reconciled[i].claim_type &&
+          row.claim_id === reconciled[i].claim_id &&
+          row.data_source_ids.length === reconciled[i].data_source_ids.length &&
+          row.data_source_ids.every(
+            (id, j) => id === reconciled[i].data_source_ids[j],
+          ),
       )
-    }
-  }, [tokenId, allocations.length]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (isNoOp) return
+    step6Form.setValue('attributions', reconciled)
+  }, [tokenId, allocationIdKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedCategory = step1Form.watch('category')
   const selectedCategoryOption = getCategoryOption(selectedCategory)
