@@ -41,15 +41,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Validate token exists and is eligible
+    // Validate token exists, is owned by the caller, and is eligible
     const { data: token, error: tokenErr } = await supabase
       .from('tokens')
-      .select('id, status')
+      .select('id, status, created_by')
       .eq('id', tokenId)
       .single()
 
     if (tokenErr || !token) {
       return NextResponse.json({ error: 'Token not found' }, { status: 404 })
+    }
+
+    if (token.created_by !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     if (token.status !== 'validated' && token.status !== 'in_review') {
