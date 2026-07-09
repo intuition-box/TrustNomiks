@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import {
   ArrowLeft,
@@ -34,10 +34,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { convertTokenToTriples, downloadTriplesAsJSON } from '@/lib/utils/triples-export'
-import {
-  computeVestingTimeline,
-  type AllocationWithVesting,
-} from '@/lib/utils/vesting-timeline'
 import { cn } from '@/lib/utils'
 import {
   formatCategoryLabel,
@@ -45,7 +41,6 @@ import {
   formatSegmentTypeLabel,
   formatRiskFlagTypeLabel,
   getRiskFlagTypeDescription,
-  normalizeVestingFrequency,
 } from '@/types/form'
 import { toast } from 'sonner'
 import { TokenPriceCard } from '@/components/token-price-card'
@@ -56,123 +51,22 @@ import { DataBadge, StatusPill, RiskPill, type TokenStatus } from '@/components/
 import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { EmptyState } from '@/components/composite/empty-state'
 import { GraphLoader } from '@/components/patterns/graph-loader'
-import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
+import { LiveGraph } from '@/components/brand/live-graph'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
-import type { TokenData } from '@/components/token-detail/types'
-import { formatNumber, formatDate, STATUS_RANK, segmentColor, riskSeverity, getMaxSupplyNum } from '@/components/token-detail/detail-helpers'
+import { formatNumber, formatDate, STATUS_RANK, segmentColor, riskSeverity } from '@/components/token-detail/detail-helpers'
 import { getSourceClaims, getClaimLabel, ClaimSourceBadges } from '@/components/token-detail/claim-sources'
+import { useTokenDetail } from '@/components/token-detail/use-token-detail'
 
 export default function TokenDetailPage() {
-  const [token, setToken] = useState<TokenData | null>(null)
-  const [loading, setLoading] = useState(true)
   const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<number | null>(null)
   const [pendingStatus, setPendingStatus] = useState<string | null>(null)
   const [enrichOpen, setEnrichOpen] = useState(false)
   const router = useRouter()
   const params = useParams()
   const supabase = createClient()
-
-  useEffect(() => {
-    if (params.id) {
-      fetchTokenData(params.id as string)
-    }
-  }, [params.id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const fetchTokenData = async (tokenId: string) => {
-    try {
-      setLoading(true)
-
-      // Fetch token with all related data
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('tokens')
-        .select('*')
-        .eq('id', tokenId)
-        .single()
-
-      if (tokenError) throw tokenError
-
-      // Fetch supply metrics
-      const { data: supplyData } = await supabase
-        .from('supply_metrics')
-        .select('*')
-        .eq('token_id', tokenId)
-        .single()
-
-      // Fetch allocations
-      const { data: allocData } = await supabase
-        .from('allocation_segments')
-        .select('*')
-        .eq('token_id', tokenId)
-        .order('percentage', { ascending: false })
-
-      // Fetch vesting schedules with allocation labels
-      const allocationIds = allocData?.map(a => a.id) || []
-      const { data: vestingData } = await supabase
-        .from('vesting_schedules')
-        .select(`
-          id,
-          allocation_id,
-          cliff_months,
-          duration_months,
-          frequency,
-          tge_percentage,
-          cliff_unlock_percentage,
-          notes,
-          allocation:allocation_segments!vesting_schedules_allocation_id_fkey(label)
-        `)
-        .in('allocation_id', allocationIds)
-
-      // Fetch emission model
-      const { data: emissionData } = await supabase
-        .from('emission_models')
-        .select('*')
-        .eq('token_id', tokenId)
-        .single()
-
-      // Fetch data sources
-      const { data: sourcesData } = await supabase
-        .from('data_sources')
-        .select('*')
-        .eq('token_id', tokenId)
-
-      // Fetch risk flags
-      const { data: riskFlagsData } = await supabase
-        .from('risk_flags')
-        .select('*')
-        .eq('token_id', tokenId)
-
-      // Fetch claim_sources (source → claim attribution)
-      const { data: claimSourcesData } = await supabase
-        .from('claim_sources')
-        .select(`
-          claim_type,
-          claim_id,
-          data_source_id,
-          data_source:data_sources!claim_sources_data_source_id_fkey(document_name, source_type, url)
-        `)
-        .eq('token_id', tokenId)
-
-      setToken({
-        ...tokenData,
-        supply_metrics: supplyData || null,
-        allocation_segments: allocData || [],
-        vesting_schedules: (vestingData || []).map((schedule) => ({
-          ...schedule,
-          frequency: normalizeVestingFrequency(schedule.frequency),
-        })),
-        emission_models: emissionData || null,
-        data_sources: sourcesData || [],
-        risk_flags: riskFlagsData || [],
-        claim_sources: (claimSourcesData || []) as TokenData['claim_sources'],
-      })
-    } catch (error: unknown) {
-      console.error('Error fetching token:', error)
-      toast.error('Failed to load token data')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { token, setToken, loading, graphData, vestingResult, vestingSegmentInfos, maxSupplyNum } =
+    useTokenDetail(params.id)
 
   const handleStatusSelect = (newStatus: string) => {
     if (!token) return
@@ -282,92 +176,6 @@ export default function TokenDetailPage() {
     }
   }
 
-  // ── Local knowledge-graph: center token + real sub-entities ────────────────
-  const graphData: LiveGraphData | null = useMemo(() => {
-    if (!token) return null
-    const nodes: LiveGraphData['nodes'] = [
-      { id: 'token', type: 'token', label: token.ticker || token.name, size: 7 },
-    ]
-    const links: LiveGraphData['links'] = []
-
-    if (token.chain) {
-      nodes.push({ id: 'chain', type: 'chain', label: token.chain, size: 4 })
-      links.push({ source: 'token', target: 'chain' })
-    }
-    token.allocation_segments.forEach((seg) => {
-      const id = `alloc-${seg.id}`
-      nodes.push({ id, type: 'allocation', label: seg.label, size: 4 })
-      links.push({ source: 'token', target: id })
-    })
-    token.vesting_schedules.forEach((v, i) => {
-      const id = `vesting-${v.allocation_id}-${i}`
-      nodes.push({ id, type: 'vesting', label: v.allocation.label, size: 3.5 })
-      // link vesting to its allocation node when present, else to the token
-      const allocId = `alloc-${v.allocation_id}`
-      links.push({
-        source: nodes.some((n) => n.id === allocId) ? allocId : 'token',
-        target: id,
-      })
-    })
-    if (token.emission_models) {
-      nodes.push({ id: 'emission', type: 'emission', label: 'Emission', size: 4 })
-      links.push({ source: 'token', target: 'emission' })
-    }
-    token.data_sources.forEach((src) => {
-      const id = `source-${src.id}`
-      nodes.push({ id, type: 'data_source', label: src.document_name, size: 3.5 })
-      links.push({ source: 'token', target: id })
-    })
-    token.risk_flags.forEach((flag) => {
-      const id = `risk-${flag.id}`
-      nodes.push({ id, type: 'risk_flag', label: formatRiskFlagTypeLabel(flag.flag_type), size: 3.5 })
-      links.push({ source: 'token', target: id })
-    })
-
-    return { nodes, links }
-  }, [token])
-
-  // ── Vesting unlock timeline (re-housed chart) ──────────────────────────────
-  const vestingResult = useMemo(() => {
-    if (!token) return null
-    const maxSupply = getMaxSupplyNum(token)
-    if (maxSupply <= 0 || token.vesting_schedules.length === 0) return null
-
-    const allocationsWithVesting: AllocationWithVesting[] = token.allocation_segments.map((alloc) => {
-      const vesting = token.vesting_schedules.find((v) => v.allocation_id === alloc.id)
-      return {
-        label: alloc.label,
-        segment_type: alloc.segment_type,
-        percentage: alloc.percentage,
-        token_amount:
-          Number((alloc.token_amount ?? '').toString().replace(/,/g, '')) ||
-          (alloc.percentage / 100) * maxSupply,
-        vesting: vesting
-          ? {
-              cliff_months: vesting.cliff_months,
-              duration_months: vesting.duration_months,
-              frequency: vesting.frequency,
-              tge_percentage: vesting.tge_percentage,
-              cliff_unlock_percentage: vesting.cliff_unlock_percentage,
-            }
-          : null,
-      }
-    })
-
-    return computeVestingTimeline({
-      allocations: allocationsWithVesting,
-      maxSupply,
-      tgeDate: token.tge_date,
-    })
-  }, [token])
-
-  const vestingSegmentInfos = useMemo(() => {
-    if (!vestingResult) return []
-    return vestingResult.segmentKeys
-      .filter((sk) => !vestingResult.customSegments.includes(sk.key))
-      .map((sk) => ({ label: sk.key, segment_type: sk.segment_type }))
-  }, [vestingResult])
-
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -390,8 +198,6 @@ export default function TokenDetailPage() {
       </div>
     )
   }
-
-  const maxSupplyNum = getMaxSupplyNum(token)
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
