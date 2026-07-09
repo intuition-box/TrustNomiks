@@ -15,7 +15,18 @@
     "intuition:republish-status": "tsx scripts/republish-status.ts",
     "intuition:verify-reads": "tsx scripts/verify-read-batcher-testnet.ts",
     "intuition:audit-predicates": "tsx scripts/audit-predicates.ts",
-    "intuition:mint-missing-predicates": "tsx scripts/mint-missing-predicates.ts"
+    "intuition:mint-missing-predicates": "tsx scripts/mint-missing-predicates.ts",
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs,css}": [
+      "prettier --write"
+    ],
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings=999"
+    ]
   },
   "dependencies": {
     "@0xintuition/graphql": "^2.0.2",
