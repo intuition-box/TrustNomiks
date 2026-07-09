@@ -1,0 +1,28 @@
+# dependencies & build output
+node_modules
+.next
+out
+build
+.vercel
+
+# lockfiles & generated artifacts
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo
+
+# test artifacts
+test-results
+playwright-report
+coverage
+
+# non-source content (not part of src/, scripts/, tests/)
+docs/
+supabase/
+public/
+.claude/
+tasks/
+.github/
+*.md
+
+# misc
+.DS_Store
