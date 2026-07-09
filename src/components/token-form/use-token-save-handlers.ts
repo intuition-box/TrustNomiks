@@ -1146,10 +1146,21 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           )
           return
         }
+        // segment_type is an enum: a challenge accepted before a legacy
+        // value was migrated away could still carry it. Run it through the
+        // same normalizer onSubmitStep3 uses before persisting, so an
+        // unsupported value falls back to a valid default instead of
+        // reaching the form (and later the Zod schema/save) unvalidated.
+        const segmentValue =
+          challenge.field_key === 'segment_type'
+            ? toSupportedSegmentType(
+                typeof decoded === 'string' ? decoded : undefined,
+              )
+            : decoded
         setChallengedValue(
           step3Form,
           `segments.${index}.${challenge.field_key}`,
-          decoded,
+          segmentValue,
         )
         break
       }
@@ -1166,10 +1177,20 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           )
           return
         }
+        // frequency is an enum: a challenge could carry a retired value
+        // (e.g. 'quarterly'). Normalize it the same way onSubmitStep4 and
+        // handleFrequencyChange do, so a legacy/unsupported value maps to
+        // its supported equivalent instead of landing in the form as-is.
+        const frequencyValue =
+          challenge.field_key === 'frequency'
+            ? normalizeVestingFrequency(
+                typeof decoded === 'string' ? decoded : undefined,
+              )
+            : decoded
         setChallengedValue(
           step4Form,
           `schedules.${challenge.claim_id}.${challenge.field_key}`,
-          decoded,
+          frequencyValue,
         )
         break
       }
