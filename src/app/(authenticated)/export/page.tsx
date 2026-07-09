@@ -166,7 +166,7 @@ export default function ExportPage() {
           .from('supply_metrics')
           .select('*')
           .eq('token_id', tokenId)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('allocation_segments')
           .select('*')
@@ -176,7 +176,7 @@ export default function ExportPage() {
           .from('emission_models')
           .select('*')
           .eq('token_id', tokenId)
-          .single(),
+          .maybeSingle(),
         supabase.from('data_sources').select('*').eq('token_id', tokenId),
         supabase.from('risk_flags').select('*').eq('token_id', tokenId),
       ])

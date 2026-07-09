@@ -45,12 +45,12 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
 
       if (tokenError) throw tokenError
 
-      // Fetch supply metrics
+      // Fetch supply metrics (row may legitimately not exist yet)
       const { data: supplyData } = await supabase
         .from('supply_metrics')
         .select('*')
         .eq('token_id', tokenId)
-        .single()
+        .maybeSingle()
 
       // Fetch allocations
       const { data: allocData } = await supabase
@@ -78,12 +78,12 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
         )
         .in('allocation_id', allocationIds)
 
-      // Fetch emission model
+      // Fetch emission model (row may legitimately not exist yet)
       const { data: emissionData } = await supabase
         .from('emission_models')
         .select('*')
         .eq('token_id', tokenId)
-        .single()
+        .maybeSingle()
 
       // Fetch data sources
       const { data: sourcesData } = await supabase

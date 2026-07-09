@@ -655,7 +655,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         .from('supply_metrics')
         .select('*')
         .eq('token_id', tokenId)
-        .single()
+        .maybeSingle()
 
       const { data: allocData } = await supabase
         .from('allocation_segments')
@@ -671,7 +671,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         .from('emission_models')
         .select('*')
         .eq('token_id', tokenId)
-        .single()
+        .maybeSingle()
 
       return computeScores({
         token: tokenData,

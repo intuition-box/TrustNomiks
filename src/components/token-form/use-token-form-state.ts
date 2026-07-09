@@ -356,12 +356,12 @@ export function useTokenFormState() {
         setTgeDate(tokenData.tge_date)
       }
 
-      // Fetch and pre-fill Step 2 - Supply Metrics
+      // Fetch and pre-fill Step 2 - Supply Metrics (row may legitimately not exist yet)
       const { data: supplyData } = await supabase
         .from('supply_metrics')
         .select('*')
         .eq('token_id', id)
-        .single()
+        .maybeSingle()
 
       if (supplyData) {
         step2Form.reset({
@@ -427,12 +427,12 @@ export function useTokenFormState() {
         })
       }
 
-      // Fetch and pre-fill Step 5 - Emission Model
+      // Fetch and pre-fill Step 5 - Emission Model (row may legitimately not exist yet)
       const { data: emissionData } = await supabase
         .from('emission_models')
         .select('*')
         .eq('token_id', id)
-        .single()
+        .maybeSingle()
 
       if (emissionData) {
         step5Form.reset({

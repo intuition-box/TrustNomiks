@@ -31,7 +31,7 @@ export async function fetchWorkspaceData(
       .from('supply_metrics')
       .select('max_supply, initial_supply, tge_supply, circulating_supply')
       .eq('token_id', token.id)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('allocation_segments')
       .select('id, segment_type, label, percentage, token_amount')
@@ -41,7 +41,7 @@ export async function fetchWorkspaceData(
       .from('emission_models')
       .select('type, annual_inflation_rate, has_burn, has_buyback')
       .eq('token_id', token.id)
-      .single(),
+      .maybeSingle(),
   ])
 
   const allocationIds = allocRes.data?.map((a) => a.id) || []
