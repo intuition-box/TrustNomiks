@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { RoleGate } from '@/components/composite/role-gate'
+import { useVerifiedWallet } from '@/features/wallet-linking/use-verified-wallet'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { PublishSummary } from './publish-summary'
@@ -103,6 +104,7 @@ function Notice({
 
 export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
   const { address, isConnected, chainId } = useAccount()
+  const { isVerified } = useVerifiedWallet()
   const publicClient = usePublicClient()
   const { data: walletClient } = useWalletClient()
 
@@ -560,6 +562,13 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
               <Notice tone="warning" icon={AlertCircle}>
                 Switch to Intuition Testnet (chain {INTUITION_CHAIN_ID}) to
                 publish.
+              </Notice>
+            )}
+
+            {isConnected && !isVerified && (
+              <Notice tone="warning" icon={AlertCircle}>
+                This connected wallet is not linked to your account. Link it in
+                your profile, or publishing will be rejected.
               </Notice>
             )}
 
