@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient, http, parseAbi } from 'viem'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { checkChallengeRateLimit } from '@/lib/challenges/rate-limiter'
 import { resolveChallengeTriple } from '@/lib/intuition/claim-triple'
 import { gatherDisputeAccounts } from '@/lib/intuition/consensus'
@@ -192,7 +193,12 @@ export async function POST(
 
     const result = evaluateAutoThreshold(accounts, tripleCostWei)
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
+    // Service-role: this RPC is revoked from `authenticated` since it drives
+    // the auto-adopt state machine from a server-verified on-chain read, not
+    // anything the caller supplies. Signature is unchanged (no actor param
+    // needed — it never reads auth.uid()).
+    const svc = createServiceRoleClient()
+    const { data: rpcData, error: rpcError } = await svc.rpc(
       'evaluate_stake_threshold_tx',
       {
         p_challenge_id: id,
