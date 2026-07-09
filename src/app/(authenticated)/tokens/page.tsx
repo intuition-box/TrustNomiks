@@ -22,6 +22,7 @@ import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { ClusterMeter } from '@/components/patterns/cluster-meter'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { CompareTray, COMPARE_MAX } from '@/components/patterns/compare-tray'
+import { useOpenChallengeCountByToken } from '@/features/claims/use-my-challenges'
 import { cn } from '@/lib/utils'
 import {
   ArrowDown,
@@ -44,6 +45,7 @@ import type {
   SortField,
   SortDirection,
 } from '@/types/token'
+import { useRole } from '@/hooks/use-role'
 
 const ITEMS_PER_PAGE = 20
 const TARGET_TOKENS = 300
@@ -56,6 +58,26 @@ const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'in_review', label: 'In review' },
   { value: 'validated', label: 'Validated' },
 ]
+
+/** Compact open-challenge indicator for the registry, same taxonomy color/concept as ChallengesPanel. */
+function OpenChallengeBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <span
+      title={`${count} open challenge${count === 1 ? '' : 's'}`}
+      style={{
+        color: 'hsl(var(--data-risk))',
+        backgroundColor:
+          'color-mix(in oklab, hsl(var(--data-risk)) 14%, transparent)',
+        borderColor:
+          'color-mix(in oklab, hsl(var(--data-risk)) 28%, transparent)',
+      }}
+      className="tabular inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+    >
+      ◆ {count}
+    </span>
+  )
+}
 
 function formatDate(dateString: string | null): string {
   if (!dateString) return 'Not set'
@@ -84,6 +106,7 @@ function TokensRegistry() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+  const { isContributor } = useRole()
 
   const initialStatus = (() => {
     const s = searchParams.get('status')
@@ -101,6 +124,7 @@ function TokensRegistry() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const [compareIds, setCompareIds] = useState<string[]>([])
+  const { data: openChallengeCounts } = useOpenChallengeCountByToken()
 
   const fetchTokens = useCallback(async () => {
     setLoading(true)
@@ -240,10 +264,12 @@ function TokensRegistry() {
         title="Tokens"
         description="Browse, filter and compare every structured token in the registry."
         actions={
-          <Button variant="brand" onClick={() => router.push('/tokens/new')}>
-            <Plus className="h-4 w-4" aria-hidden />
-            Add token
-          </Button>
+          isContributor ? (
+            <Button variant="brand" onClick={() => router.push('/tokens/new')}>
+              <Plus className="h-4 w-4" aria-hidden />
+              Add token
+            </Button>
+          ) : undefined
         }
       />
 
@@ -357,13 +383,15 @@ function TokensRegistry() {
             title="No tokens yet"
             description="Structure your first token and watch the graph grow from it."
             actions={
-              <Button
-                variant="brand"
-                onClick={() => router.push('/tokens/new')}
-              >
-                <Plus className="h-4 w-4" aria-hidden />
-                Add your first token
-              </Button>
+              isContributor ? (
+                <Button
+                  variant="brand"
+                  onClick={() => router.push('/tokens/new')}
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Add your first token
+                </Button>
+              ) : undefined
             }
             onboardingHint="Get started: structure your first token"
           />
@@ -423,6 +451,9 @@ function TokensRegistry() {
                                 {token.ticker}
                               </span>
                             </span>
+                            <OpenChallengeBadge
+                              count={openChallengeCounts.get(token.id) ?? 0}
+                            />
                           </span>
                         </TableCell>
                         <TableCell className="py-2.5">
@@ -463,16 +494,18 @@ function TokensRegistry() {
                             className="flex items-center justify-end gap-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                router.push(`/tokens/new?id=${token.id}`)
-                              }
-                              aria-label={`Edit ${token.name}`}
-                              className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-                            >
-                              <Pencil className="h-4 w-4" aria-hidden />
-                            </button>
+                            {isContributor && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(`/tokens/new?id=${token.id}`)
+                                }
+                                aria-label={`Edit ${token.name}`}
+                                className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden />
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => toggleCompare(token.id)}
@@ -526,6 +559,9 @@ function TokensRegistry() {
                         <span className="font-mono text-xs text-muted-foreground">
                           {token.ticker}
                         </span>
+                        <OpenChallengeBadge
+                          count={openChallengeCounts.get(token.id) ?? 0}
+                        />
                       </span>
                       <StatusPill status={token.status} />
                     </span>

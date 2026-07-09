@@ -22,11 +22,16 @@ import {
   PenLine,
   Rocket,
   Circle,
+  TriangleAlert,
+  Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardKnowledgeGraphCard } from '@/components/knowledge-graph/dashboard-knowledge-graph-card'
 import { CLUSTER_LABELS, CLUSTER_MAX } from '@/lib/utils/completeness'
 import type { ClusterScores } from '@/lib/utils/completeness'
+import { ChallengesPanel } from '@/features/claims/challenges-panel'
+import { useChallengesOnMyTokens } from '@/features/claims/use-my-challenges'
+import { useRole } from '@/hooks/use-role'
 
 const TARGET_TOKENS = 300
 
@@ -49,6 +54,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
+  const { openCount: openChallengeCount } = useChallengesOnMyTokens()
+  const { isContributor } = useRole()
 
   useEffect(() => {
     fetchData()
@@ -120,19 +127,21 @@ export default function DashboardPage() {
           description="Structure your first token and watch its supply, allocations and vesting spawn into the living graph."
           onboardingHint='this completes "Contribute your first token"'
           actions={
-            <Button
-              variant="brand"
-              size="lg"
-              onClick={() => router.push('/tokens/new')}
-            >
-              <Plus className="h-4 w-4" /> Structure your first token
-            </Button>
+            isContributor ? (
+              <Button
+                variant="brand"
+                size="lg"
+                onClick={() => router.push('/tokens/new')}
+              >
+                <Plus className="h-4 w-4" /> Structure your first token
+              </Button>
+            ) : undefined
           }
         />
       ) : (
         <>
           {/* BAND 1, KPI rail */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <StatTile
               label="Tokens structured"
               value={stats.total}
@@ -165,6 +174,18 @@ export default function DashboardPage() {
               accentVar="--status-draft"
               onClick={() => router.push('/tokens?status=draft')}
             />
+            <StatTile
+              label="Open challenges"
+              value={openChallengeCount}
+              hint="awaiting your review"
+              icon={TriangleAlert}
+              accentVar="--warning"
+              onClick={() =>
+                document
+                  .getElementById('challenges-panel')
+                  ?.scrollIntoView({ behavior: 'smooth' })
+              }
+            />
           </div>
 
           {/* BAND 2, living graph + right column */}
@@ -192,6 +213,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* BAND 2.5, challenges */}
+          <ChallengesPanel />
+
           {/* BAND 3, recent tokens */}
           <RecentTokens
             tokens={tokens.slice(0, 6)}
@@ -206,6 +230,7 @@ export default function DashboardPage() {
 /* ── Page header ──────────────────────────────────────────────────────────── */
 
 function PageHeader({ onAdd }: { onAdd: () => void }) {
+  const { isContributor } = useRole()
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -215,14 +240,16 @@ function PageHeader({ onAdd }: { onAdd: () => void }) {
           tokens.
         </p>
       </div>
-      <Button
-        variant="brand"
-        size="lg"
-        onClick={onAdd}
-        className="w-full sm:w-auto"
-      >
-        <Plus className="h-5 w-5" /> Add token
-      </Button>
+      {isContributor && (
+        <Button
+          variant="brand"
+          size="lg"
+          onClick={onAdd}
+          className="w-full sm:w-auto"
+        >
+          <Plus className="h-5 w-5" /> Add token
+        </Button>
+      )}
     </div>
   )
 }
@@ -242,6 +269,37 @@ function NextBestAction({
   onContribute: () => void
   onExplore: () => void
 }) {
+  const { isViewer } = useRole()
+  const router = useRouter()
+
+  if (isViewer) {
+    return (
+      <div className="rounded-xl border bg-surface-1 p-4">
+        <h2 className="mb-3 text-sm font-semibold">Next best action</h2>
+        <div className="space-y-2.5">
+          <BridgeRow
+            accent="--data-wallet"
+            icon={Wallet}
+            title="Become a contributor to add tokens"
+            cta="Link wallet"
+            onClick={() => router.push('/profile?linkWallet=1')}
+          />
+          <BridgeRow
+            accent="--data-vesting"
+            icon={Compass}
+            title={
+              validated > 0
+                ? `${validated} validated tokens to explore`
+                : 'Explore the knowledge graph'
+            }
+            cta="Explore"
+            onClick={onExplore}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-xl border bg-surface-1 p-4">
       <h2 className="mb-3 text-sm font-semibold">Next best action</h2>
@@ -327,7 +385,18 @@ function GettingStarted({
   hasValidated: boolean
   onPublish: () => void
 }) {
+  const { isViewer } = useRole()
+  const router = useRouter()
   const items = [
+    ...(isViewer
+      ? [
+          {
+            label: 'Unlock contributing',
+            done: false,
+            action: () => router.push('/profile?linkWallet=1'),
+          },
+        ]
+      : []),
     { label: 'See the graph in motion', done: true },
     { label: 'Structure your first token', done: hasToken },
     { label: 'Validate a token', done: hasValidated },
