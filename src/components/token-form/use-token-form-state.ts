@@ -36,6 +36,7 @@ import {
   type AutosaveStatus,
   SECTION_ORDER,
   formatNumber,
+  parseDecimal,
 } from './form-helpers'
 import { buildDefaultAttributions, buildStep4Schedules } from './completeness'
 
@@ -575,7 +576,7 @@ export function useTokenFormState() {
   const calculateTotalPercentage = (): number => {
     const segments = step3Form.watch('segments')
     return segments.reduce((total, segment) => {
-      const percentage = parseFloat(segment.percentage) || 0
+      const percentage = parseDecimal(segment.percentage) || 0
       return total + percentage
     }, 0)
   }
@@ -653,7 +654,7 @@ export function useTokenFormState() {
     (_lw1tge ? 5 : 0)
   const liveSupplyScore = _lw2max ? 10 + (_lw2init || _lw2tge ? 5 : 0) : 0
   const _lw3total = _lw3segs.reduce(
-    (t, s) => t + (parseFloat(s.percentage) || 0),
+    (t, s) => t + (parseDecimal(s.percentage) || 0),
     0,
   )
   const liveAllocationScore =
