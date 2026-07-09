@@ -1,51 +1,24 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, ShieldAlert } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { StudioSpine, type StudioSectionMeta } from '@/features/studio/studio-spine'
 import { StudioGraphPane } from '@/features/studio/studio-graph-pane'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  RISK_FLAG_TYPE_OPTIONS,
-  RISK_SEVERITY_OPTIONS,
-  getRiskFlagTypeDescription,
-  normalizeRiskSeverity,
-  formatCategoryLabel,
-  formatSectorLabel,
-} from '@/types/form'
-import { cn } from '@/lib/utils'
+import { formatCategoryLabel, formatSectorLabel } from '@/types/form'
 import { SECTION_LABELS } from '@/components/token-form/form-helpers'
 import { TokenFormProvider, useTokenForm } from '@/components/token-form/token-form-context'
 import { COMPLETION_STEP } from '@/components/token-form/use-token-form-state'
 import { CompletionScreen } from '@/components/token-form/CompletionScreen'
 import { RemovalConfirmDialog } from '@/components/token-form/RemovalConfirmDialog'
-import { SectionHeader, NotReadySection } from '@/components/token-form/section-chrome'
 import { Step1Identity } from '@/components/token-form/steps/Step1Identity'
 import { Step2Supply } from '@/components/token-form/steps/Step2Supply'
 import { Step3Allocation } from '@/components/token-form/steps/Step3Allocation'
 import { Step4Vesting } from '@/components/token-form/steps/Step4Vesting'
 import { Step5Emission } from '@/components/token-form/steps/Step5Emission'
 import { Step6Sources } from '@/components/token-form/steps/Step6Sources'
+import { Step7RiskFlags } from '@/components/token-form/steps/Step7RiskFlags'
 
 export default function NewTokenPage() {
   return (
@@ -65,14 +38,11 @@ function NewTokenPageInner() {
     loading,
     loadingTokenData,
     completedSteps,
-    setPendingRemoval,
     flashPts,
     flashKey,
     showFlash,
     activeSection,
     autosave,
-    step7Form,
-    riskFields,
     liveTokenName,
     liveTokenTicker,
     liveChain,
@@ -90,8 +60,6 @@ function NewTokenPageInner() {
     liveEmissionScore,
     liveSourcesScore,
     liveTotalScore,
-    onSubmitStep7,
-    addRisk,
     goSection,
     prevSectionKey,
     nextSectionKey,
@@ -278,174 +246,7 @@ function NewTokenPageInner() {
           <Step6Sources />
 
           {/* ── Section 7: Risk Flags ─────────────────────────────────────────── */}
-          <div
-            id="section-risk"
-            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'risk' && 'hidden')}
-            style={{ borderLeft: '3px solid hsl(var(--data-risk))' }}
-          >
-            <SectionHeader accentVar="--data-risk" label="Risk flags" desc="· Risk signals & severity" liveScore={_lw7flags.length > 0 ? 1 : 0} maxScore={0} saved={completedSteps.includes(7)} />
-            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
-            <div className="px-6 py-6">
-            <Form {...step7Form}>
-              <form onSubmit={step7Form.handleSubmit((data) => onSubmitStep7(data))} className="space-y-6">
-                {/* Info Banner */}
-                {riskFields.length === 0 && (
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <ShieldAlert className="h-5 w-5 text-muted-foreground mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium">No risk flags added yet</p>
-                      <p className="text-muted-foreground">
-                        Record any risk signals you have identified for this token. This section is optional.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Risk Flags Table */}
-                {riskFields.length > 0 && (
-                  <div className="space-y-4">
-                    {riskFields.map((field, index) => {
-                      const selectedType = step7Form.watch(`flags.${index}.flag_type`)
-                      const typeDescription = getRiskFlagTypeDescription(selectedType)
-                      return (
-                        <Card key={field.id} className="relative">
-                          <CardContent className="pt-6">
-                            {/* Remove button */}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="absolute top-2 right-2"
-                              onClick={() => setPendingRemoval({ type: 'risk', index })}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* Risk Type */}
-                              <FormField
-                                control={step7Form.control}
-                                name={`flags.${index}.flag_type`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Risk Type *</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select risk type" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {RISK_FLAG_TYPE_OPTIONS.map((option) => (
-                                          <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    {typeDescription && (
-                                      <FormDescription className="text-xs">
-                                        {typeDescription}
-                                      </FormDescription>
-                                    )}
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              {/* Severity */}
-                              <FormField
-                                control={step7Form.control}
-                                name={`flags.${index}.severity`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Severity *</FormLabel>
-                                    <Select
-                                      onValueChange={(value) => field.onChange(normalizeRiskSeverity(value))}
-                                      value={field.value}
-                                    >
-                                      <FormControl>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select severity" />
-                                        </SelectTrigger>
-                                      </FormControl>
-                                      <SelectContent>
-                                        {RISK_SEVERITY_OPTIONS.map((option) => (
-                                          <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              {/* Justification */}
-                              <FormField
-                                control={step7Form.control}
-                                name={`flags.${index}.justification`}
-                                render={({ field }) => (
-                                  <FormItem className="md:col-span-2">
-                                    <FormLabel>Justification (optional)</FormLabel>
-                                    <FormControl>
-                                      <Textarea
-                                        placeholder="Explain why this risk applies to the token..."
-                                        className="min-h-[80px]"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              {/* Flagged toggle */}
-                              <FormField
-                                control={step7Form.control}
-                                name={`flags.${index}.is_flagged`}
-                                render={({ field }) => (
-                                  <FormItem className="md:col-span-2 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="space-y-0.5">
-                                      <FormLabel className="text-base">Active Flag</FormLabel>
-                                      <FormDescription>
-                                        Keep this on if the risk currently applies. Turn it off to record a risk that has been cleared.
-                                      </FormDescription>
-                                    </div>
-                                    <FormControl>
-                                      <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                      />
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Add Risk Flag Button */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addRisk}
-                  className="w-full"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Risk Flag
-                </Button>
-
-              </form>
-            </Form>
-            </div>
-            )}
-          </div>
+          <Step7RiskFlags />
 
           {/* ── Studio footer: previous · autosave chip · continue / finish ───── */}
           <div className="glass sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-lg">
