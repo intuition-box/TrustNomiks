@@ -81,7 +81,6 @@ import {
   formatSegmentTypeLabel,
   formatCategoryLabel,
   formatSectorLabel,
-  IMMEDIATE_SEGMENT_TYPES,
   EMISSION_TYPE_OPTIONS,
   SOURCE_TYPE_OPTIONS,
   type TokenIdentityFormData,
@@ -91,56 +90,27 @@ import {
   type EmissionModelFormData,
   type DataSourcesFormData,
   type RiskFlagsFormData,
-  type AllocationSegment,
-  type ClaimAttribution,
 } from '@/types/form'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CoinGeckoSearch } from '@/components/coingecko-search'
-
-interface AllocationWithId extends AllocationSegment {
-  id: string
-  token_amount?: string
-}
-
-interface SaveOpts {
-  /** autosave / auto-draft: suppress success toasts and side scrolls */
-  silent?: boolean
-}
-
-type AutosaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'invalid' | 'error'
-
-const SECTION_ORDER: StudioSectionKey[] = [
-  'identity',
-  'supply',
-  'allocation',
-  'vesting',
-  'emission',
-  'sources',
-  'risk',
-]
-
-const SECTION_LABELS: Record<StudioSectionKey, string> = {
-  identity: 'Identity',
-  supply: 'Supply',
-  allocation: 'Allocation',
-  vesting: 'Vesting',
-  emission: 'Emission',
-  sources: 'Sources',
-  risk: 'Risk flags',
-}
-
-/** app chain value → CoinGecko platform key (for contract autofill) */
-const CHAIN_PLATFORM: Record<string, string> = {
-  ethereum: 'ethereum',
-  solana: 'solana',
-  arbitrum: 'arbitrum-one',
-  optimism: 'optimistic-ethereum',
-  base: 'base',
-  polygon: 'polygon-pos',
-  'bnb-chain': 'binance-smart-chain',
-  avalanche: 'avalanche',
-}
+import {
+  type AllocationWithId,
+  type SaveOpts,
+  type AutosaveStatus,
+  SECTION_ORDER,
+  SECTION_LABELS,
+  CHAIN_PLATFORM,
+  formatNumber,
+  calculateTokenAmount,
+  calculatePercentage,
+  formatTokenAmount,
+} from '@/components/token-form/form-helpers'
+import {
+  buildDefaultAttributions,
+  buildStep4Schedules,
+  calculateCompleteness,
+} from '@/components/token-form/completeness'
 
 export default function NewTokenPage() {
   const searchParams = useSearchParams()
@@ -311,101 +281,18 @@ export default function NewTokenPage() {
     name: 'flags',
   })
 
-  // Build the default attribution rows.
-  // Uses allocation.id as claim_id for both allocation_segment and vesting_schedule.
-  // Pass overrideAllocations when calling from within an async function where React
-  // state may not yet reflect freshly loaded data (e.g. loadTokenData).
-  const buildDefaultAttributions = (
-    existingAttributions?: ClaimAttribution[],
-    overrideAllocations?: AllocationWithId[]
-  ): ClaimAttribution[] => {
-    const allocs = overrideAllocations ?? allocations
-    const rows: ClaimAttribution[] = [
-      { claim_type: 'token_identity',   claim_id: null, label: 'Token Identity',  data_source_ids: [] },
-      { claim_type: 'supply_metrics',   claim_id: null, label: 'Supply Metrics',  data_source_ids: [] },
-      ...allocs.map(a => ({
-        claim_type: 'allocation_segment' as const,
-        claim_id: a.id,
-        label: `${a.label} (${formatSegmentTypeLabel(a.segment_type)})`,
-        data_source_ids: [] as string[],
-      })),
-      ...allocs.map(a => ({
-        claim_type: 'vesting_schedule' as const,
-        claim_id: a.id,
-        label: `Vesting: ${a.label}`,
-        data_source_ids: [] as string[],
-      })),
-      { claim_type: 'emission_model',   claim_id: null, label: 'Emission Model',  data_source_ids: [] },
-    ]
-    if (!existingAttributions || existingAttributions.length === 0) return rows
-    // Merge existing selections into the default rows
-    return rows.map(row => {
-      const key = `${row.claim_type}:${row.claim_id ?? 'null'}`
-      const existing = existingAttributions.find(
-        a => `${a.claim_type}:${a.claim_id ?? 'null'}` === key
-      )
-      return existing ? { ...row, data_source_ids: existing.data_source_ids } : row
-    })
-  }
-
   // Initialise attribution rows once allocations are available (replaces step 6 trigger)
   useEffect(() => {
     if (!tokenId || allocations.length === 0) return
     const current = step6Form.getValues('attributions')
     if (!current || current.length === 0) {
-      step6Form.setValue('attributions', buildDefaultAttributions(current))
+      step6Form.setValue('attributions', buildDefaultAttributions(allocations, current))
     }
   }, [tokenId, allocations.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedCategory = step1Form.watch('category')
   const selectedCategoryOption = getCategoryOption(selectedCategory)
   const sectorOptions = getSectorOptionsByCategory(selectedCategory)
-
-  const buildStep4Schedules = (
-    allocationData: Array<{
-      id: string
-      segment_type: string
-    }>,
-    vestingData?: Array<{
-      allocation_id: string
-      frequency?: string | null
-      cliff_months?: number | null
-      duration_months?: number | null
-      tge_percentage?: number | null
-      cliff_unlock_percentage?: number | null
-      notes?: string | null
-    }>
-  ) => {
-    const schedules: Record<string, Record<string, string>> = {}
-
-    allocationData.forEach((alloc) => {
-      const vestingSchedule = vestingData?.find((v) => v.allocation_id === alloc.id)
-      const segmentType = toSupportedSegmentType(alloc.segment_type)
-      const isImmediate = IMMEDIATE_SEGMENT_TYPES.includes(segmentType)
-
-      schedules[alloc.id] = vestingSchedule ? {
-        allocation_id: alloc.id,
-        frequency: normalizeVestingFrequency(
-          vestingSchedule.frequency || (isImmediate ? 'immediate' : 'monthly')
-        ),
-        cliff_months: vestingSchedule.cliff_months?.toString() || (isImmediate ? '0' : ''),
-        duration_months: vestingSchedule.duration_months?.toString() || (isImmediate ? '0' : ''),
-        tge_percentage: vestingSchedule.tge_percentage?.toString() || (isImmediate ? '100' : ''),
-        cliff_unlock_percentage: vestingSchedule.cliff_unlock_percentage?.toString() || '',
-        notes: vestingSchedule.notes || '',
-      } : {
-        allocation_id: alloc.id,
-        frequency: normalizeVestingFrequency(isImmediate ? 'immediate' : 'monthly'),
-        cliff_months: isImmediate ? '0' : '',
-        duration_months: isImmediate ? '0' : '',
-        tge_percentage: isImmediate ? '100' : '',
-        cliff_unlock_percentage: '',
-        notes: '',
-      }
-    })
-
-    return schedules
-  }
 
   // Load allocations when entering Step 4
   const loadAllocationsForVesting = async () => {
@@ -601,7 +488,7 @@ export default function NewTokenPage() {
         })
 
         // Build attribution rows from the locally-loaded allocations (not stale state)
-        const prefilledAttributions = buildDefaultAttributions(undefined, allocationsWithIds).map(row => {
+        const prefilledAttributions = buildDefaultAttributions(allocationsWithIds).map(row => {
           const key = `${row.claim_type}:${row.claim_id ?? 'null'}`
           return { ...row, data_source_ids: attrMap.get(key) ?? [] }
         })
@@ -697,39 +584,6 @@ export default function NewTokenPage() {
       loadAllocationsForVesting()
     }
   }, [completedSteps, tokenId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Format number with commas
-  const formatNumber = (value: string) => {
-    const digitsOnly = value.replace(/[^\d]/g, '')
-    if (!digitsOnly) return ''
-    return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  }
-
-  // Calculate token amount from percentage
-  const calculateTokenAmount = (percentage: string): string => {
-    if (!percentage || !maxSupply) return '0'
-    const percentNum = parseFloat(percentage)
-    // Handle both string and number for maxSupply
-    const supplyStr = String(maxSupply).replace(/,/g, '')
-    const supplyNum = parseFloat(supplyStr)
-    if (isNaN(percentNum) || isNaN(supplyNum)) return '0'
-    const amount = (supplyNum * percentNum) / 100
-    return formatNumber(Math.floor(amount).toString())
-  }
-
-  // Calculate percentage from token amount (reverse calculation)
-  const calculatePercentage = (tokenAmount: string): string => {
-    if (!tokenAmount || !maxSupply) return ''
-    // Handle both string and number for tokenAmount
-    const amountStr = String(tokenAmount).replace(/,/g, '')
-    const amountNum = parseFloat(amountStr)
-    // Handle both string and number for maxSupply
-    const supplyStr = String(maxSupply).replace(/,/g, '')
-    const supplyNum = parseFloat(supplyStr)
-    if (isNaN(amountNum) || isNaN(supplyNum) || supplyNum === 0) return ''
-    const percentage = (amountNum / supplyNum) * 100
-    return percentage.toFixed(2)
-  }
 
   // Calculate total percentage
   const calculateTotalPercentage = (): number => {
@@ -1064,7 +918,7 @@ export default function NewTokenPage() {
         allocation: (s3v.segments.length >= 3 ? 10 : 0) + (Math.abs(s3TotalV - 100) < 0.01 ? 10 : 0),
         vesting: 20,
       }
-      const completeness = calculateCompleteness() + 20
+      const completeness = calculateCompleteness(s1v, s2v, s3v) + 20
 
       const { data: newUpdatedAt, error } = await supabase.rpc('save_vesting_schedules_tx', {
         p_token_id: tokenId,
@@ -1346,30 +1200,6 @@ export default function NewTokenPage() {
     }
   }
 
-  // Calculate completeness based on filled fields
-  const calculateCompleteness = () => {
-    let score = 10 // Base score from step 1
-
-    const step1Data = step1Form.getValues()
-    if (step1Data.contract_address) score += 5
-    if (step1Data.tge_date) score += 5
-
-    const step2Data = step2Form.getValues()
-    if (step2Data.max_supply) score += 10
-    if (step2Data.max_supply && (step2Data.initial_supply || step2Data.tge_supply)) score += 5
-
-    const step3Data = step3Form.getValues()
-    if (step3Data.segments.length >= 3) score += 10
-    // Recalculate total percentage from form data
-    const calculatedTotal = step3Data.segments.reduce((total, segment) => {
-      const percentage = parseFloat(segment.percentage) || 0
-      return total + percentage
-    }, 0)
-    if (calculatedTotal === 100) score += 10
-
-    return Math.min(score, 100)
-  }
-
   const openIdentityGuide = (target: 'category' | 'sector') => {
     setIdentityGuideTarget(target)
   }
@@ -1469,12 +1299,6 @@ export default function NewTokenPage() {
       // Reset if switching away from immediate
       step4Form.setValue(`schedules.${allocationId}.tge_percentage`, '')
     }
-  }
-
-  // Format token amount for display
-  const formatTokenAmount = (amount: string | undefined) => {
-    if (!amount) return '0'
-    return formatNumber(amount)
   }
 
   // Add new data source
@@ -1767,7 +1591,7 @@ export default function NewTokenPage() {
         shouldDirty: true,
         shouldValidate: false,
       })
-      step3Form.setValue(`segments.${index}.token_amount`, calculateTokenAmount(String(next)), {
+      step3Form.setValue(`segments.${index}.token_amount`, calculateTokenAmount(String(next), maxSupply), {
         shouldValidate: false,
       })
     })
@@ -2853,7 +2677,7 @@ export default function NewTokenPage() {
                                     onChange={(e) => {
                                       field.onChange(e.target.value)
                                       // Update token amount when percentage changes
-                                      const tokenAmount = calculateTokenAmount(e.target.value)
+                                      const tokenAmount = calculateTokenAmount(e.target.value, maxSupply)
                                       step3Form.setValue(`segments.${index}.token_amount`, tokenAmount, { shouldValidate: false })
                                     }}
                                   />
@@ -2877,7 +2701,7 @@ export default function NewTokenPage() {
                                     onChange={(e) => {
                                       field.onChange(e.target.value)
                                       // Update percentage when token amount changes
-                                      const percentage = calculatePercentage(e.target.value)
+                                      const percentage = calculatePercentage(e.target.value, maxSupply)
                                       if (percentage) {
                                         step3Form.setValue(`segments.${index}.percentage`, percentage, { shouldValidate: false })
                                       }
