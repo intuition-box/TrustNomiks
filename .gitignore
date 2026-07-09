@@ -41,9 +41,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# agent instructions (CLAUDE.md + AGENTS.md are tracked; below stays local)
+# agent instructions (CLAUDE.md + AGENTS.md + .claude/skills/ are tracked; the rest stays local)
 CLAUDE.local.md
-.claude/
+.claude/*
+!.claude/skills/
 skills-lock.json
 
 # local task tracker
