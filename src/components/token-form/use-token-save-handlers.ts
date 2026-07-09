@@ -27,6 +27,7 @@ import {
   CHAIN_PLATFORM,
   formatNumber,
   calculateTokenAmount,
+  parseDecimal,
 } from './form-helpers'
 import { calculateCompleteness, buildStep4Schedules } from './completeness'
 import { COMPLETION_STEP, type TokenFormState } from './use-token-form-state'
@@ -325,7 +326,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         id: segment.id || null,
         segment_type: toSupportedSegmentType(segment.segment_type),
         label: segment.label,
-        percentage: parseFloat(segment.percentage),
+        percentage: parseDecimal(segment.percentage),
         token_amount: segment.token_amount
           ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString()
           : null,
@@ -336,7 +337,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       const s1 = step1Form.getValues()
       const s2 = step2Form.getValues()
       const s3Total = data.segments.reduce(
-        (t, s) => t + (parseFloat(s.percentage) || 0),
+        (t, s) => t + (parseDecimal(s.percentage) || 0),
         0,
       )
       const clusterScoresStep3 = {
@@ -479,10 +480,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
             : 0,
           frequency: normalizeVestingFrequency(schedule.frequency),
           tge_percentage: schedule.tge_percentage
-            ? parseFloat(schedule.tge_percentage)
+            ? parseDecimal(schedule.tge_percentage)
             : 0,
           cliff_unlock_percentage: schedule.cliff_unlock_percentage
-            ? parseFloat(schedule.cliff_unlock_percentage)
+            ? parseDecimal(schedule.cliff_unlock_percentage)
             : 0,
           notes: schedule.notes || null,
         }),
@@ -493,7 +494,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       const s2v = step2Form.getValues()
       const s3v = step3Form.getValues()
       const s3TotalV = s3v.segments.reduce(
-        (t, s) => t + (parseFloat(s.percentage) || 0),
+        (t, s) => t + (parseDecimal(s.percentage) || 0),
         0,
       )
       const clusterScoresStep4 = {
@@ -577,7 +578,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         data.inflation_schedule && data.inflation_schedule.length > 0
           ? data.inflation_schedule.map((item) => ({
               year: parseInt(item.year),
-              rate: parseFloat(item.rate),
+              rate: parseDecimal(item.rate),
             }))
           : null
 
@@ -588,7 +589,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           p_model: {
             type: data.type,
             annual_inflation_rate: data.annual_inflation_rate
-              ? parseFloat(data.annual_inflation_rate)
+              ? parseDecimal(data.annual_inflation_rate)
               : null,
             inflation_schedule: inflationSchedule,
             has_burn: data.has_burn || false,
@@ -1248,13 +1249,13 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   const normalizeAllocations = () => {
     const segments = step3Form.getValues('segments')
     const total = segments.reduce(
-      (t, s) => t + (parseFloat(s.percentage) || 0),
+      (t, s) => t + (parseDecimal(s.percentage) || 0),
       0,
     )
     if (total <= 0) return
     let allocatedSoFar = 0
     segments.forEach((segment, index) => {
-      const pct = parseFloat(segment.percentage) || 0
+      const pct = parseDecimal(segment.percentage) || 0
       const next =
         index === segments.length - 1
           ? Math.max(0, +(100 - allocatedSoFar).toFixed(2))

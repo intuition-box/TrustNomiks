@@ -46,6 +46,19 @@ export const CHAIN_PLATFORM: Record<string, string> = {
   avalanche: 'avalanche',
 }
 
+// Parse a user-typed decimal (percentage, rate, ...): tolerates a French-locale
+// comma decimal separator ("18,52") when no dot is present, and treats commas
+// as thousands separators (stripped) when a dot is also present ("1,000.5");
+// otherwise behaves exactly like parseFloat, including its NaN cases.
+export const parseDecimal = (value: string): number => {
+  const trimmed = value.trim()
+  const hasComma = trimmed.includes(',')
+  const hasDot = trimmed.includes('.')
+  if (hasComma && hasDot) return parseFloat(trimmed.replace(/,/g, ''))
+  if (hasComma) return parseFloat(trimmed.replace(',', '.'))
+  return parseFloat(trimmed)
+}
+
 // Format number with commas
 export const formatNumber = (value: string) => {
   const digitsOnly = value.replace(/[^\d]/g, '')
@@ -59,7 +72,7 @@ export const calculateTokenAmount = (
   maxSupply: string,
 ): string => {
   if (!percentage || !maxSupply) return '0'
-  const percentNum = parseFloat(percentage)
+  const percentNum = parseDecimal(percentage)
   // Handle both string and number for maxSupply
   const supplyStr = String(maxSupply).replace(/,/g, '')
   const supplyNum = parseFloat(supplyStr)

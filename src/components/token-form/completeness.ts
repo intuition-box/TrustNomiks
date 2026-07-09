@@ -8,7 +8,7 @@ import {
   type SupplyMetricsFormData,
   type TokenIdentityFormData,
 } from '@/types/form'
-import type { AllocationWithId } from './form-helpers'
+import { parseDecimal, type AllocationWithId } from './form-helpers'
 
 // Build the default attribution rows.
 // Uses allocation.id as claim_id for both allocation_segment and vesting_schedule.
@@ -146,7 +146,7 @@ export function calculateCompleteness(
   if (step3Data.segments.length >= 3) score += 10
   // Recalculate total percentage from form data
   const calculatedTotal = step3Data.segments.reduce((total, segment) => {
-    const percentage = parseFloat(segment.percentage) || 0
+    const percentage = parseDecimal(segment.percentage) || 0
     return total + percentage
   }, 0)
   if (calculatedTotal === 100) score += 10
