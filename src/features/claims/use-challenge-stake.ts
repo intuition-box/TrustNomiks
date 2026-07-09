@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWalletClient, usePublicClient } from 'wagmi'
 import { toast } from 'sonner'
 import type { Hex } from 'viem'
-import { createClient } from '@/lib/supabase/client'
 import {
   executeContestationDeposit,
   executeWithdrawContestation,
@@ -91,9 +90,10 @@ async function postEvaluateThreshold(
  * On-chain stake band (Resolve Box band ③) for one challenge: the read side
  * (consensus snapshot) plus the two write actions (stake against / withdraw)
  * against the claim triple's counter-triple. Persists each write via
- * `record_challenge_onchain_tx` so the challenge row carries its on-chain
- * references, then invalidates the consensus query (and, best-effort, any
- * token-scoped challenge list) so the UI reflects the new balance.
+ * `POST /api/challenges/[id]/record-onchain` (server resolves the on-chain
+ * term ids) so the challenge row carries its on-chain references, then
+ * invalidates the consensus query (and, best-effort, any token-scoped
+ * challenge list) so the UI reflects the new balance.
  */
 export function useChallengeStake(challengeId: string | null) {
   const queryClient = useQueryClient()
@@ -153,18 +153,21 @@ export function useChallengeStake(challengeId: string | null) {
           },
         )
 
-        const supabase = createClient()
-        const { error } = await supabase.rpc('record_challenge_onchain_tx', {
-          p_challenge_id: challengeId,
-          p_tx_hash: result.txHash,
-          p_target_triple_term_id: consensus.tripleTermId,
-          p_counter_term_id: consensus.counterTermId,
-          p_curve_id: Number(consensus.curveId),
-          p_stake_wei: amountWei.toString(),
-          p_action: 'contest',
-        })
-        if (error) {
-          toast.error(extractErrorMessage(error, 'Failed to record the stake'))
+        const res = await fetch(
+          `/api/challenges/${challengeId}/record-onchain`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              txHash: result.txHash,
+              stakeWei: amountWei.toString(),
+              action: 'contest',
+            }),
+          },
+        )
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          toast.error(body.error ?? 'Failed to record the stake')
           return false
         }
 
@@ -211,20 +214,18 @@ export function useChallengeStake(challengeId: string | null) {
         },
       )
 
-      const supabase = createClient()
-      const { error } = await supabase.rpc('record_challenge_onchain_tx', {
-        p_challenge_id: challengeId,
-        p_tx_hash: result.txHash,
-        p_target_triple_term_id: consensus.tripleTermId,
-        p_counter_term_id: consensus.counterTermId,
-        p_curve_id: Number(consensus.curveId),
-        p_stake_wei: '0',
-        p_action: 'withdraw',
+      const res = await fetch(`/api/challenges/${challengeId}/record-onchain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          txHash: result.txHash,
+          stakeWei: null,
+          action: 'withdraw',
+        }),
       })
-      if (error) {
-        toast.error(
-          extractErrorMessage(error, 'Failed to record the withdrawal'),
-        )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        toast.error(body.error ?? 'Failed to record the withdrawal')
         return false
       }
 

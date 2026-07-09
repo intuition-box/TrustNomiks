@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { recoverMessageAddress } from 'viem'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import { addressesMatch } from '@/features/wallet-linking/address'
 
 interface ConfirmLinkRpcResult {
@@ -84,8 +85,13 @@ export async function POST(request: NextRequest) {
 
     // The RPC does the authoritative re-check (ownership, expiry, consumption)
     // under the DB transaction; the checks above are a fast, early reject.
-    const { data, error } = await supabase.rpc('confirm_wallet_link_tx', {
+    // Runs on the service-role client (revoked from `authenticated`) with the
+    // trusted user id from the server-verified session, since service-role
+    // has no auth.uid() of its own.
+    const svc = createServiceRoleClient()
+    const { data, error } = await svc.rpc('confirm_wallet_link_tx', {
       p_nonce: nonce,
+      p_user_id: user.id,
       p_recovered_wallet: recovered,
     })
 

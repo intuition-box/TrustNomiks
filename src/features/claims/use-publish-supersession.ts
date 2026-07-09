@@ -15,8 +15,9 @@ import type { Challenge } from '@/types/challenges'
  * mints the corrected value as a new claim triple and links the disputed
  * (old) claim to it via `superseded_by`, then persists the resulting term
  * ids + tx hashes back onto the challenge row via
- * `record_challenge_supersession_tx`. Idempotent — once
- * `new_claim_term_id` is set on the challenge, `publish` is a no-op.
+ * `POST /api/challenges/[id]/record-supersession` (server resolves +
+ * recomputes the term ids). Idempotent — once `new_claim_term_id` is set on
+ * the challenge, `publish` is a no-op.
  */
 export function usePublishSupersession(tokenId: string) {
   const queryClient = useQueryClient()
@@ -71,20 +72,18 @@ export function usePublishSupersession(tokenId: string) {
           newValue,
         })
 
-        const { error } = await supabase.rpc(
-          'record_challenge_supersession_tx',
+        const res = await fetch(
+          `/api/challenges/${challenge.id}/record-supersession`,
           {
-            p_challenge_id: challenge.id,
-            p_new_claim_term_id: result.newClaimTripleTermId,
-            p_supersedes_triple_term_id: resolved.tripleTermId,
-            p_tx_hashes: result.txHashes,
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ txHashes: result.txHashes }),
           },
         )
 
-        if (error) {
-          toast.error(
-            extractErrorMessage(error, 'Failed to record the published update'),
-          )
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          toast.error(body.error ?? 'Failed to record the supersession')
           return false
         }
 
