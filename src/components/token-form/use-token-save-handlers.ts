@@ -285,7 +285,18 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       if (!opts.silent) toast.success('Supply metrics saved')
       return true
     } catch (error: unknown) {
-      console.error('Error saving supply metrics:', error)
+      const pgError = error as {
+        message?: string
+        code?: string
+        details?: string
+        hint?: string
+      } | null
+      console.error('Error saving supply metrics:', {
+        message: pgError?.message,
+        code: pgError?.code,
+        details: pgError?.details,
+        hint: pgError?.hint,
+      })
       toast.error(
         error instanceof Error
           ? error.message
