@@ -165,17 +165,8 @@ function LoginPageInner() {
     if (signUpError) throw signUpError
     if (!authData.user) throw new Error('No user created')
 
-    // Create profile in profiles table
-    const { error: profileError } = await supabase.from('profiles').insert({
-      user_id: authData.user.id,
-      display_name: email.split('@')[0],
-      role: 'analyst',
-      organization: '',
-    })
-    if (profileError) {
-      console.error('Profile creation error:', profileError)
-      // Continue anyway - profile can be created later
-    }
+    // The profile row is created server-side by the handle_new_user trigger on
+    // auth.users, so there is no client-side insert to do here.
 
     if (!authData.session) {
       // Email confirmation is required before a session exists.
