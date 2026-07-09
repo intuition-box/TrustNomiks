@@ -28,6 +28,66 @@ async function fetchConsensus(challengeId: string): Promise<ConsensusSnapshot> {
 }
 
 /**
+ * Response shape of `POST /api/challenges/[id]/evaluate-threshold`
+ * (milestone J4): the anti-sybil auto-adopt state machine's verdict for one
+ * dispute, as of the freshest on-chain read.
+ */
+export interface ThresholdVerdict {
+  status:
+    | 'not_a_dispute'
+    | 'not_published'
+    | 'waiting_owner_window'
+    | 'below_threshold'
+    | 'veto_started'
+    | 'in_veto_window'
+    | 'veto_cleared'
+    | 'auto_adopted'
+  vetoUntil: string | null
+  eligibleFrom: string | null
+  met: boolean
+  totalStakeWei: string
+  distinctAccounts: number
+}
+
+const THRESHOLD_STATUS_LABEL: Record<ThresholdVerdict['status'], string> = {
+  not_a_dispute: 'not a dispute',
+  not_published: 'not published on-chain yet',
+  waiting_owner_window: 'waiting for the owner-response window',
+  below_threshold: 'below the auto-adopt threshold',
+  veto_started: 'met, veto window started',
+  in_veto_window: 'met, in the veto window',
+  veto_cleared: 'veto window cleared, below threshold',
+  auto_adopted: 'community-adopted',
+}
+
+async function postEvaluateThreshold(
+  challengeId: string,
+): Promise<ThresholdVerdict> {
+  const res = await fetch(`/api/challenges/${challengeId}/evaluate-threshold`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    if (res.status === 429) {
+      const seconds = body.retryAfterMs
+        ? Math.ceil(body.retryAfterMs / 1000)
+        : null
+      throw new Error(
+        body.error ??
+          (seconds
+            ? `Rate limited, try again in ${seconds}s.`
+            : 'Rate limited, try again in a moment.'),
+      )
+    }
+    throw new Error(
+      body.error ??
+        `Failed to evaluate the community threshold (HTTP ${res.status})`,
+    )
+  }
+  return (await res.json()) as ThresholdVerdict
+}
+
+/**
  * On-chain stake band (Resolve Box band ③) for one challenge: the read side
  * (consensus snapshot) plus the two write actions (stake against / withdraw)
  * against the claim triple's counter-triple. Persists each write via
@@ -38,6 +98,7 @@ async function fetchConsensus(challengeId: string): Promise<ConsensusSnapshot> {
 export function useChallengeStake(challengeId: string | null) {
   const queryClient = useQueryClient()
   const [isPending, setIsPending] = useState(false)
+  const [isEvaluating, setIsEvaluating] = useState(false)
 
   const { data: consensus, isLoading } = useQuery({
     queryKey: ['challenges', 'consensus', challengeId],
@@ -178,5 +239,38 @@ export function useChallengeStake(challengeId: string | null) {
     }
   }, [challengeId, consensus, walletClient, publicClient, invalidate])
 
-  return { consensus, isLoading, stakeAgainst, withdraw, isPending }
+  const evaluateThreshold =
+    useCallback(async (): Promise<ThresholdVerdict | null> => {
+      if (!challengeId) return null
+
+      setIsEvaluating(true)
+      try {
+        const verdict = await postEvaluateThreshold(challengeId)
+        await invalidate()
+        toast(
+          `Community stake threshold: ${THRESHOLD_STATUS_LABEL[verdict.status]}`,
+        )
+        return verdict
+      } catch (err) {
+        toast.error(
+          extractErrorMessage(
+            err,
+            'Failed to evaluate the community threshold',
+          ),
+        )
+        return null
+      } finally {
+        setIsEvaluating(false)
+      }
+    }, [challengeId, invalidate])
+
+  return {
+    consensus,
+    isLoading,
+    stakeAgainst,
+    withdraw,
+    isPending,
+    evaluateThreshold,
+    isEvaluating,
+  }
 }
