@@ -118,6 +118,7 @@ function TokensRegistry() {
   const [tokens, setTokens] = useState<Token[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchFailed, setFetchFailed] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>(initialStatus)
   const [sortField, setSortField] = useState<SortField>('completeness')
@@ -147,6 +148,13 @@ function TokensRegistry() {
   useEffect(() => {
     fetchTokens()
   }, [fetchTokens])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const stats: TokenStats = useMemo(
     () => ({
@@ -494,18 +502,19 @@ function TokensRegistry() {
                             className="flex items-center justify-end gap-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {isContributor && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  router.push(`/tokens/new?id=${token.id}`)
-                                }
-                                aria-label={`Edit ${token.name}`}
-                                className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
-                              >
-                                <Pencil className="h-4 w-4" aria-hidden />
-                              </button>
-                            )}
+                            {isContributor &&
+                              token.created_by === currentUserId && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    router.push(`/tokens/new?id=${token.id}`)
+                                  }
+                                  aria-label={`Edit ${token.name}`}
+                                  className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                                >
+                                  <Pencil className="h-4 w-4" aria-hidden />
+                                </button>
+                              )}
                             <button
                               type="button"
                               onClick={() => toggleCompare(token.id)}
