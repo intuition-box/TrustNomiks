@@ -3,7 +3,7 @@
 import { format } from 'date-fns'
 import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus, X, AlertCircle, CheckCircle2, Clock, CircleHelp, Tag, BarChart2, PieChart, TrendingUp, ShieldAlert, Sparkles } from 'lucide-react'
 import { GraphLoader } from '@/components/patterns/graph-loader'
-import { StudioSpine, type StudioSectionKey, type StudioSectionMeta } from '@/features/studio/studio-spine'
+import { StudioSpine, type StudioSectionMeta } from '@/features/studio/studio-spine'
 import { StudioGraphPane } from '@/features/studio/studio-graph-pane'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,16 +38,6 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
   RISK_FLAG_TYPE_OPTIONS,
   RISK_SEVERITY_OPTIONS,
   getRiskFlagTypeDescription,
@@ -74,6 +64,9 @@ import {
 } from '@/components/token-form/form-helpers'
 import { TokenFormProvider, useTokenForm } from '@/components/token-form/token-form-context'
 import { COMPLETION_STEP } from '@/components/token-form/use-token-form-state'
+import { CompletionScreen } from '@/components/token-form/CompletionScreen'
+import { RemovalConfirmDialog } from '@/components/token-form/RemovalConfirmDialog'
+import { SectionHeader, NotReadySection } from '@/components/token-form/section-chrome'
 
 export default function NewTokenPage() {
   return (
@@ -93,12 +86,9 @@ function NewTokenPageInner() {
     allocations,
     loading,
     loadingTokenData,
-    finalScore,
     completedSteps,
     identityGuideTarget,
     segmentGuideRowIndex,
-    setSegmentGuideRowIndex,
-    pendingRemoval,
     setPendingRemoval,
     flashPts,
     flashKey,
@@ -113,11 +103,8 @@ function NewTokenPageInner() {
     step6Form,
     step7Form,
     fields,
-    remove,
     sourceFields,
-    removeSource,
     riskFields,
-    removeRisk,
     selectedCategoryOption,
     sectorOptions,
     totalPercentage,
@@ -175,53 +162,6 @@ function NewTokenPageInner() {
     return <GraphLoader className="mx-auto mt-24" label="Loading token data…" />
   }
 
-  // ── Helpers for section rendering ──────────────────────────────────────────
-  const sectionHeader = (
-    accentVar: string,
-    label: string,
-    desc: string,
-    liveScore: number,
-    maxScore: number,
-    saved: boolean,
-  ) => {
-    const color = `hsl(var(${accentVar}))`
-    return (
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-3">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-          <div>
-            <h2 className="inline text-xs font-bold uppercase tracking-widest" style={{ color }}>
-              {label}
-            </h2>
-            <span className="ml-2 text-xs text-muted-foreground">{desc}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {saved && <CheckCircle2 className="h-3.5 w-3.5 opacity-70" style={{ color }} aria-hidden />}
-          <span
-            className={cn('tabular font-mono text-xs font-semibold', liveScore === 0 && maxScore > 0 && 'text-muted-foreground/40')}
-            style={liveScore > 0 ? { color } : undefined}
-          >
-            {maxScore > 0 ? `${liveScore} / ${maxScore} pts` : 'optional'}
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  // Guidance instead of a padlock: sections are never locked, they explain
-  // what they need and offer the shortcut (docs/redesign/08 §6).
-  const notReadySection = (message: string, action?: { label: string; section: StudioSectionKey }) => (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      <p className="max-w-md text-sm text-muted-foreground">{message}</p>
-      {action && (
-        <Button type="button" variant="outline" size="sm" onClick={() => goSection(action.section)}>
-          {action.label}
-        </Button>
-      )}
-    </div>
-  )
-
   const spineSections: StudioSectionMeta[] = [
     { key: 'identity', label: 'Identity', accentVar: '--data-token', tier: 'core', live: liveIdentityScore, max: 20 },
     { key: 'supply', label: 'Supply', accentVar: '--data-supply', tier: 'core', live: liveSupplyScore, max: 15 },
@@ -275,57 +215,7 @@ function NewTokenPageInner() {
 
   // ── Completion screen (after the final step is saved) ──────────────────────
   if (currentStep === COMPLETION_STEP) {
-    return (
-      <div className="mx-auto max-w-2xl pb-16 pt-8">
-        <div className="overflow-hidden rounded-xl border bg-surface-1">
-          <div className="space-y-4 px-8 py-10 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
-              <CheckCircle2 className="h-8 w-8 text-success" aria-hidden />
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {step1Form.getValues('name') || 'Token'} is structured
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Its data now lives in the TrustNomiks graph, ready to review, validate and publish on-chain.
-            </p>
-          </div>
-
-          <div className="space-y-4 px-8 pb-8">
-            <div className="grid gap-3">
-              <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
-                <span className="text-sm font-medium">Token</span>
-                <span className="font-semibold">
-                  {step1Form.getValues('name')}{' '}
-                  <span className="font-mono text-primary">{step1Form.getValues('ticker')}</span>
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
-                <span className="text-sm font-medium">Completeness</span>
-                <span className="tabular text-base font-semibold">
-                  {finalScore !== null ? `${finalScore} / 100` : 'Calculating…'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-              {tokenId && (
-                <Button variant="brand" className="flex-1" size="lg" onClick={() => router.push(`/tokens/${tokenId}`)}>
-                  Open token to publish
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Button>
-              )}
-              <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens')}>
-                Back to tokens
-              </Button>
-              <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens/new')}>
-                <Plus className="h-4 w-4" aria-hidden />
-                Add another
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <CompletionScreen />
   }
 
   return (
@@ -433,7 +323,7 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'identity' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-token))' }}
           >
-            {sectionHeader('--data-token', 'Identity', '· Token identification', liveIdentityScore, 20, completedSteps.includes(1))}
+            <SectionHeader accentVar="--data-token" label="Identity" desc="· Token identification" liveScore={liveIdentityScore} maxScore={20} saved={completedSteps.includes(1)} />
             <div className="px-6 py-6">
             <Form {...step1Form}>
               <form onSubmit={step1Form.handleSubmit((data) => onSubmitStep1(data))} className="space-y-6">
@@ -828,8 +718,8 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'supply' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-supply))' }}
           >
-            {sectionHeader('--data-supply', 'Supply', '· Token supply metrics', liveSupplyScore, 15, completedSteps.includes(2))}
-            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
+            <SectionHeader accentVar="--data-supply" label="Supply" desc="· Token supply metrics" liveScore={liveSupplyScore} maxScore={15} saved={completedSteps.includes(2)} />
+            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
             <div className="px-6 py-6">
             <Form {...step2Form}>
               <form onSubmit={step2Form.handleSubmit((data) => onSubmitStep2(data))} className="space-y-6">
@@ -1039,8 +929,8 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'allocation' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-allocation))' }}
           >
-            {sectionHeader('--data-allocation', 'Allocation', '· Token distribution', liveAllocationScore, 20, completedSteps.includes(3))}
-            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
+            <SectionHeader accentVar="--data-allocation" label="Allocation" desc="· Token distribution" liveScore={liveAllocationScore} maxScore={20} saved={completedSteps.includes(3)} />
+            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
             <div className="px-6 py-6">
             <Form {...step3Form}>
               <form onSubmit={step3Form.handleSubmit((data) => onSubmitStep3(data))} className="space-y-6">
@@ -1321,9 +1211,9 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'vesting' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-vesting))' }}
           >
-            {sectionHeader('--data-vesting', 'Vesting', '· Unlock schedules', liveVestingScore, 20, completedSteps.includes(4))}
-            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) :
-             !completedSteps.includes(3) ? notReadySection('Vesting schedules are built from your allocation segments. Add allocations first.', { label: 'Go to Allocation', section: 'allocation' }) : (
+            <SectionHeader accentVar="--data-vesting" label="Vesting" desc="· Unlock schedules" liveScore={liveVestingScore} maxScore={20} saved={completedSteps.includes(4)} />
+            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> :
+             !completedSteps.includes(3) ? <NotReadySection message="Vesting schedules are built from your allocation segments. Add allocations first." action={{ label: 'Go to Allocation', section: 'allocation' }} /> : (
             <div className="px-6 py-6">
             {allocations.length === 0 ? (
               <div className="text-center py-12">
@@ -1571,8 +1461,8 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'emission' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-emission))' }}
           >
-            {sectionHeader('--data-emission', 'Emission', '· Inflation & economic mechanisms', liveEmissionScore, 10, completedSteps.includes(5))}
-            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
+            <SectionHeader accentVar="--data-emission" label="Emission" desc="· Inflation & economic mechanisms" liveScore={liveEmissionScore} maxScore={10} saved={completedSteps.includes(5)} />
+            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
             <div className="px-6 py-6">
             <Form {...step5Form}>
               <form onSubmit={step5Form.handleSubmit((data) => onSubmitStep5(data))} className="space-y-6">
@@ -1750,8 +1640,8 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'sources' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-source))' }}
           >
-            {sectionHeader('--data-source', 'Sources', '· Data references & attribution', liveSourcesScore, 10, completedSteps.includes(6))}
-            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
+            <SectionHeader accentVar="--data-source" label="Sources" desc="· Data references & attribution" liveScore={liveSourcesScore} maxScore={10} saved={completedSteps.includes(6)} />
+            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
             <div className="px-6 py-6">
             <Form {...step6Form}>
               <form onSubmit={step6Form.handleSubmit((data) => onSubmitStep6(data))} className="space-y-6">
@@ -2090,8 +1980,8 @@ function NewTokenPageInner() {
             className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'risk' && 'hidden')}
             style={{ borderLeft: '3px solid hsl(var(--data-risk))' }}
           >
-            {sectionHeader('--data-risk', 'Risk flags', '· Risk signals & severity', _lw7flags.length > 0 ? 1 : 0, 0, completedSteps.includes(7))}
-            {!tokenId ? notReadySection('Give the token a name and ticker first. The draft creates itself as you type.', { label: 'Go to Identity', section: 'identity' }) : (
+            <SectionHeader accentVar="--data-risk" label="Risk flags" desc="· Risk signals & severity" liveScore={_lw7flags.length > 0 ? 1 : 0} maxScore={0} saved={completedSteps.includes(7)} />
+            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
             <div className="px-6 py-6">
             <Form {...step7Form}>
               <form onSubmit={step7Form.handleSubmit((data) => onSubmitStep7(data))} className="space-y-6">
@@ -2298,51 +2188,7 @@ function NewTokenPageInner() {
           />
         </aside>
       </div>{/* end studio layout */}
-      {/* Removal confirmation dialog (allocations + sources + risk flags) */}
-      <AlertDialog open={!!pendingRemoval} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pendingRemoval?.type === 'allocation'
-                ? 'Remove allocation segment?'
-                : pendingRemoval?.type === 'risk'
-                ? 'Remove risk flag?'
-                : 'Remove data source?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingRemoval?.type === 'allocation'
-                ? 'This will remove the allocation segment and any vesting schedule tied to it. This cannot be undone after saving.'
-                : pendingRemoval?.type === 'risk'
-                ? 'This will remove the risk flag. This cannot be undone after saving.'
-                : 'This will remove the data source and any claim attributions linked to it. This cannot be undone after saving.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (!pendingRemoval) return
-                if (pendingRemoval.type === 'allocation') {
-                  const index = pendingRemoval.index
-                  if (segmentGuideRowIndex === index) {
-                    closeSegmentGuide()
-                  } else if (segmentGuideRowIndex !== null && segmentGuideRowIndex > index) {
-                    setSegmentGuideRowIndex(segmentGuideRowIndex - 1)
-                  }
-                  remove(index)
-                } else if (pendingRemoval.type === 'risk') {
-                  removeRisk(pendingRemoval.index)
-                } else {
-                  removeSource(pendingRemoval.index)
-                }
-                setPendingRemoval(null)
-              }}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RemovalConfirmDialog />
     </div>
   )
 }
