@@ -48,6 +48,59 @@ import {
 } from './claim-sources'
 import { StatusManager } from './StatusManager'
 import type { TokenData } from './types'
+import { StakeChip } from '@/features/claims/stake-chip'
+import type { ChallengeAnchor } from '@/features/claims/challenge-target'
+import type { ChallengeableClaimType } from '@/lib/claims/field-registry'
+
+/** Per-field challenge chip (1:1 claim types: identity, supply, emission). */
+function FieldChip({
+  token,
+  claimType,
+  fieldKey,
+  label,
+  value,
+}: {
+  token: TokenData
+  claimType: ChallengeableClaimType
+  fieldKey: string
+  label: string
+  value: unknown
+}) {
+  const anchor: ChallengeAnchor = {
+    claimType,
+    claimId: null,
+    anchorMode: 'field',
+    fieldKey,
+    label,
+    currentValues: { [fieldKey]: value },
+  }
+  return <StakeChip anchor={anchor} token={token} />
+}
+
+/** Per-row challenge chip (allocation segments, vesting schedules). The exact
+ * field is picked inside the Resolve Box drawer (design A6). */
+function RowChip({
+  token,
+  claimType,
+  claimId,
+  label,
+  currentValues,
+}: {
+  token: TokenData
+  claimType: ChallengeableClaimType
+  claimId: string
+  label: string
+  currentValues: Record<string, unknown>
+}) {
+  const anchor: ChallengeAnchor = {
+    claimType,
+    claimId,
+    anchorMode: 'row',
+    label,
+    currentValues,
+  }
+  return <StakeChip anchor={anchor} token={token} />
+}
 
 interface DetailViewProps {
   token: TokenData
@@ -222,23 +275,50 @@ export function DetailView({
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Contract address
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Contract address
+                  </p>
+                  <FieldChip
+                    token={token}
+                    claimType="token_identity"
+                    fieldKey="contract_address"
+                    label="Contract address"
+                    value={token.contract_address}
+                  />
+                </div>
                 <p className="mt-1 break-all font-mono text-sm">
                   {token.contract_address || 'Not set'}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  TGE date
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    TGE date
+                  </p>
+                  <FieldChip
+                    token={token}
+                    claimType="token_identity"
+                    fieldKey="tge_date"
+                    label="TGE date"
+                    value={token.tge_date}
+                  />
+                </div>
                 <p className="mt-1 text-sm">{formatDate(token.tge_date)}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Category
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Category
+                  </p>
+                  <FieldChip
+                    token={token}
+                    claimType="token_identity"
+                    fieldKey="category"
+                    label="Category"
+                    value={token.category}
+                  />
+                </div>
                 <p className="mt-1 text-sm">
                   {token.category
                     ? formatCategoryLabel(token.category)
@@ -246,9 +326,18 @@ export function DetailView({
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Sector
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Sector
+                  </p>
+                  <FieldChip
+                    token={token}
+                    claimType="token_identity"
+                    fieldKey="sector"
+                    label="Sector"
+                    value={token.sector}
+                  />
+                </div>
                 <p className="mt-1 text-sm">
                   {token.sector ? formatSectorLabel(token.sector) : 'Not set'}
                 </p>
@@ -283,33 +372,69 @@ export function DetailView({
               <>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Max supply
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Max supply
+                      </p>
+                      <FieldChip
+                        token={token}
+                        claimType="supply_metrics"
+                        fieldKey="max_supply"
+                        label="Max supply"
+                        value={token.supply_metrics.max_supply}
+                      />
+                    </div>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.max_supply)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Initial supply
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Initial supply
+                      </p>
+                      <FieldChip
+                        token={token}
+                        claimType="supply_metrics"
+                        fieldKey="initial_supply"
+                        label="Initial supply"
+                        value={token.supply_metrics.initial_supply}
+                      />
+                    </div>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.initial_supply)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      TGE supply
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        TGE supply
+                      </p>
+                      <FieldChip
+                        token={token}
+                        claimType="supply_metrics"
+                        fieldKey="tge_supply"
+                        label="TGE supply"
+                        value={token.supply_metrics.tge_supply}
+                      />
+                    </div>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.tge_supply)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Circulating supply
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Circulating supply
+                      </p>
+                      <FieldChip
+                        token={token}
+                        claimType="supply_metrics"
+                        fieldKey="circulating_supply"
+                        label="Circulating supply"
+                        value={token.supply_metrics.circulating_supply}
+                      />
+                    </div>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.circulating_supply)}
                     </p>
@@ -480,6 +605,19 @@ export function DetailView({
                             claimType="allocation_segment"
                             claimId={segment.id}
                           />
+                          <RowChip
+                            token={token}
+                            claimType="allocation_segment"
+                            claimId={segment.id}
+                            label={segment.label}
+                            currentValues={{
+                              segment_type: segment.segment_type,
+                              label: segment.label,
+                              percentage: segment.percentage,
+                              token_amount: segment.token_amount,
+                              wallet_address: segment.wallet_address,
+                            }}
+                          />
                         </div>
                       </div>
                       <div className="text-right">
@@ -579,6 +717,20 @@ export function DetailView({
                               claimType="vesting_schedule"
                               claimId={schedule.allocation_id}
                             />
+                            <RowChip
+                              token={token}
+                              claimType="vesting_schedule"
+                              claimId={schedule.allocation_id}
+                              label={schedule.allocation.label}
+                              currentValues={{
+                                cliff_months: schedule.cliff_months,
+                                duration_months: schedule.duration_months,
+                                frequency: schedule.frequency,
+                                tge_percentage: schedule.tge_percentage,
+                                cliff_unlock_percentage:
+                                  schedule.cliff_unlock_percentage,
+                              }}
+                            />
                             {schedule.frequency === 'immediate' ? (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 100% unlocked immediately at TGE
@@ -632,18 +784,38 @@ export function DetailView({
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          Emission type
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Emission type
+                          </p>
+                          <FieldChip
+                            token={token}
+                            claimType="emission_model"
+                            fieldKey="type"
+                            label="Emission type"
+                            value={token.emission_models.type}
+                          />
+                        </div>
                         <p className="mt-1 text-lg font-semibold capitalize">
                           {token.emission_models.type.replace('_', ' ')}
                         </p>
                       </div>
                       {token.emission_models.annual_inflation_rate != null && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground">
-                            Annual inflation rate
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Annual inflation rate
+                            </p>
+                            <FieldChip
+                              token={token}
+                              claimType="emission_model"
+                              fieldKey="annual_inflation_rate"
+                              label="Annual inflation rate"
+                              value={
+                                token.emission_models.annual_inflation_rate
+                              }
+                            />
+                          </div>
                           <p className="tabular mt-1 text-lg font-semibold">
                             {token.emission_models.annual_inflation_rate}%
                           </p>
