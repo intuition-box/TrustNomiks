@@ -76,6 +76,7 @@ export function useTokenFormState() {
   const [loadingTokenData, setLoadingTokenData] = useState(isEditMode)
   const [finalScore, setFinalScore] = useState<number | null>(null)
   const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
+  const [ownershipDenied, setOwnershipDenied] = useState(false)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [identityGuideTarget, setIdentityGuideTarget] = useState<
     'category' | 'sector' | null
@@ -352,6 +353,15 @@ export function useTokenFormState() {
       if (!tokenData) {
         toast.error('Token not found')
         router.push('/dashboard')
+        return
+      }
+
+      // Ownership guard: only the token's creator may edit it here. RLS
+      // already blocks the save server-side; this stops the editable form
+      // from mounting at all so the UX matches that restriction.
+      const { data: authData } = await supabase.auth.getUser()
+      if (!authData.user || tokenData.created_by !== authData.user.id) {
+        setOwnershipDenied(true)
         return
       }
 
@@ -752,6 +762,8 @@ export function useTokenFormState() {
     setFinalScore,
     initialUpdatedAt,
     setInitialUpdatedAt,
+    ownershipDenied,
+    setOwnershipDenied,
     completedSteps,
     setCompletedSteps,
     identityGuideTarget,

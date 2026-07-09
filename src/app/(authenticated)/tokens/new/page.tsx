@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,6 +18,7 @@ import { StudioGraphPane } from '@/features/studio/studio-graph-pane'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RoleGate } from '@/components/composite/role-gate'
+import { EmptyState } from '@/components/composite/empty-state'
 import { formatCategoryLabel, formatSectorLabel } from '@/types/form'
 import { SECTION_LABELS } from '@/components/token-form/form-helpers'
 import {
@@ -57,6 +59,7 @@ function NewTokenPageInner() {
     allocations,
     loading,
     loadingTokenData,
+    ownershipDenied,
     completedSteps,
     flashPts,
     flashKey,
@@ -90,6 +93,23 @@ function NewTokenPageInner() {
   // Show loading state while loading token data
   if (loadingTokenData) {
     return <GraphLoader className="mx-auto mt-24" label="Loading token data…" />
+  }
+
+  // Ownership guard: the loaded token belongs to another contributor.
+  if (ownershipDenied) {
+    return (
+      <div className="mx-auto mt-16 max-w-xl">
+        <EmptyState
+          title="You can only edit tokens you created"
+          description="This token belongs to another contributor. Browse the registry to find tokens you can edit."
+          actions={
+            <Button variant="brand" size="sm" asChild>
+              <Link href="/tokens">Back to tokens</Link>
+            </Button>
+          }
+        />
+      </div>
+    )
   }
 
   const spineSections: StudioSectionMeta[] = [

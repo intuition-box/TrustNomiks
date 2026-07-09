@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -98,6 +99,24 @@ function pieSlice(cx: number, cy: number, r: number, fraction: number): string {
 }
 
 export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <GraphLoader
+          className="mx-auto mt-24"
+          label="Loading your constellation…"
+        />
+      }
+    >
+      <ProfileContent />
+    </Suspense>
+  )
+}
+
+function ProfileContent() {
+  const searchParams = useSearchParams()
+  const linkWalletParam = searchParams.get('linkWallet') === '1'
+  const [highlightWalletCard, setHighlightWalletCard] = useState(false)
   const [tokens, setTokens] = useState<ProfileToken[]>([])
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [profiles, setProfiles] = useState<Map<string, ProfileRow>>(new Map())
@@ -155,6 +174,23 @@ export default function ProfilePage() {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // The "become a contributor" CTAs land here with ?linkWallet=1: once the
+  // page has loaded, scroll the wallet-linking card into view and highlight
+  // it briefly so the viewer isn't left guessing where to go.
+  useEffect(() => {
+    if (loading || !linkWalletParam) return
+    setHighlightWalletCard(true)
+    const prefersReducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    document.getElementById('wallet-links-card')?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'center',
+    })
+    const timer = window.setTimeout(() => setHighlightWalletCard(false), 4000)
+    return () => window.clearTimeout(timer)
+  }, [loading, linkWalletParam])
 
   const saveProfile = async () => {
     if (!currentUser) return
@@ -551,7 +587,17 @@ export default function ProfilePage() {
       <AccountActivityCard limit={10} createdLimit={5} />
 
       {/* Linked wallets (milestone J1d) */}
-      <WalletLinksCard />
+      <div
+        id="wallet-links-card"
+        onClick={() => setHighlightWalletCard(false)}
+        className={cn(
+          'scroll-mt-20 rounded-xl transition-shadow duration-300',
+          highlightWalletCard &&
+            'ring-2 ring-primary ring-offset-2 ring-offset-background',
+        )}
+      >
+        <WalletLinksCard />
+      </div>
     </div>
   )
 }
