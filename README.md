@@ -87,7 +87,7 @@ src/
     (authenticated)/        # dashboard, tokens (list / new / [id]), data-room,
                             #   token-house, profile, export
     api/                    # coingecko, intuition, knowledge-graph route handlers
-  middleware.ts             # Deny-by-default auth guard
+  proxy.ts                  # Deny-by-default auth guard
   components/               # ui/ (shadcn), composite/, patterns/, brand/,
                             #   charts/, intuition/, knowledge-graph/
   features/                 # data-room/, studio/

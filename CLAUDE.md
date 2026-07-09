@@ -14,7 +14,7 @@ _Read by Claude Code (`CLAUDE.md`) and Codex (`AGENTS.md`, a symlink to this fil
 ## Repository map
 
 - `src/app` — landing + login, `(authenticated)/{dashboard, tokens, tokens/new, tokens/[id], data-room, token-house, profile, export}`, `api/{coingecko, intuition, knowledge-graph}` route handlers
-- `src/middleware.ts` — deny-by-default auth (everything protected except `/` and `/login`)
+- `src/proxy.ts` — deny-by-default auth (everything protected except `/` and `/login`)
 - `src/components/{ui, composite, patterns, brand, charts, intuition, knowledge-graph}` — reuse before creating
 - `src/lib/{supabase, intuition, coingecko, knowledge-graph, design, utils}` — core logic; unit tests are colocated (`*.test.ts`)
 - `src/features/{data-room, studio}` · `src/hooks` · `src/types` · `src/config/wagmi.ts`
