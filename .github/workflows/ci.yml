@@ -26,6 +26,20 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  # Plain binary instead of gitleaks/gitleaks-action: the action requires a paid
+  # GITLEAKS_LICENSE for organization-owned repos. Known false positives are
+  # fingerprinted in .gitleaksignore (picked up automatically from the repo root).
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history is required for a history scan
+      - name: Install gitleaks
+        run: curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
+      - name: Scan git history for secrets
+        run: ./gitleaks git --no-banner --redact --verbose .
+
   e2e:
     needs: ci
     runs-on: ubuntu-latest
