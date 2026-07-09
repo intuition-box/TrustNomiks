@@ -17,7 +17,6 @@
  * Mismatches are flagged but the on-chain value is used as source of truth.
  */
 
-import { toHex } from 'viem'
 import type { Hex, PublicClient, WalletClient } from 'viem'
 import {
   multiVaultCreateAtoms,
@@ -33,8 +32,13 @@ import {
   TRIPLE_CHUNK_SIZE,
   PROVENANCE_CHUNK_SIZE,
 } from './config'
-import { calculateAtomId, calculateTripleId } from '@0xintuition/sdk'
 import { batchIsTermCreated } from './read-batcher'
+import {
+  stringToAtomData,
+  computeAtomTermId,
+  computeTripleTermId,
+  isRevert,
+} from './tx-helpers'
 import type {
   PublishPlan,
   PublishEvent,
@@ -66,16 +70,6 @@ function chunkArray<T>(array: T[], size: number): T[][] {
     chunks.push(array.slice(i, i + size))
   }
   return chunks
-}
-
-/** Encode a string to hex bytes — same encoding as existence-resolver uses for calculateAtomId */
-function stringToAtomData(str: string): Hex {
-  return toHex(new TextEncoder().encode(str))
-}
-
-/** Compute atom term ID from normalized data */
-function computeAtomTermId(normalizedData: string): Hex {
-  return calculateAtomId(stringToAtomData(normalizedData))
 }
 
 // ── Main executor ───────────────────────────────────────────────────────────
@@ -421,7 +415,7 @@ export async function* executePublishPlan(
       // that already existed triggered it — the rest are still missing. Recheck
       // each one and confirm ONLY those genuinely on-chain; the remainder are
       // real failures and must not be silently marked confirmed.
-      if (errorMsg.includes('MultiVault_AtomExists')) {
+      if (isRevert(err, 'MultiVault_AtomExists')) {
         console.log(
           'Detected MultiVault_AtomExists — rechecking each atom in the chunk individually...',
         )
@@ -710,7 +704,7 @@ export async function* executePublishPlan(
         effSubjectId: sub,
         effPredicateId: pred,
         effObjectId: obj,
-        effTripleTermId: calculateTripleId(sub, pred, obj),
+        effTripleTermId: computeTripleTermId(sub, pred, obj),
       }
     })
 
@@ -915,7 +909,7 @@ export async function* executePublishPlan(
       // NONE of these triples. Only the one(s) that already existed triggered it.
       // Recheck each individually and confirm ONLY those genuinely on-chain; the
       // rest are real failures. The triples phase does not abort, so we continue.
-      if (errorMsg.includes('MultiVault_TripleExists')) {
+      if (isRevert(err, 'MultiVault_TripleExists')) {
         console.log(
           'Detected TripleExists revert. Rechecking each submitted triple individually…',
         )
@@ -1149,7 +1143,7 @@ export async function* executePublishPlan(
         effSubjectId: sub,
         effPredicateId: pred,
         effObjectId: obj,
-        effTripleTermId: calculateTripleId(sub, pred, obj),
+        effTripleTermId: computeTripleTermId(sub, pred, obj),
       }
     })
 
@@ -1329,7 +1323,7 @@ export async function* executePublishPlan(
       // MultiVault_TripleExists revert. Atomic batch: none were created; only the
       // already-existing one(s) caused it. Recheck each individually; confirm only
       // those genuinely on-chain, fail the rest. The provenance phase does not abort.
-      if (errorMsg.includes('MultiVault_TripleExists')) {
+      if (isRevert(err, 'MultiVault_TripleExists')) {
         console.log(
           'Detected TripleExists revert in provenance. Rechecking each individually…',
         )
