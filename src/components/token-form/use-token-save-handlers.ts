@@ -128,55 +128,35 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           : null
 
       if (isEditMode && tokenId) {
-        // Update existing token - check for concurrent modifications
-        const { data: currentToken } = await supabase
-          .from('tokens')
-          .select('updated_at, created_by')
-          .eq('id', tokenId)
-          .single()
+        // Update existing token via the RPC: it does the ownership (owner OR
+        // moderator) and optimistic-lock checks server-side, atomically, and
+        // returns the new updated_at (mirrors the other save_*_tx handlers).
+        const { data: newUpdatedAt, error } = await supabase.rpc(
+          'save_identity_tx',
+          {
+            p_token_id: tokenId,
+            p_identity: {
+              name: data.name,
+              ticker: data.ticker.toUpperCase(),
+              chain: data.chain || null,
+              contract_address: data.contract_address || null,
+              coingecko_id: data.coingecko_id || null,
+              coingecko_image: data.coingecko_image || null,
+              tge_date: data.tge_date || null,
+              category: normalizedCategory || null,
+              sector: safeSector,
+              notes: data.notes || null,
+            },
+            p_expected_updated_at: initialUpdatedAt,
+          },
+        )
 
-        if (currentToken && currentToken.created_by !== user.id) {
-          toast.error('You do not have permission to modify this token.')
-          return false
+        if (error) {
+          if (handleRpcError(error)) return false
+          throw error
         }
 
-        if (
-          currentToken &&
-          initialUpdatedAt &&
-          currentToken.updated_at !== initialUpdatedAt
-        ) {
-          toast.error(
-            'This token was modified by someone else. Please refresh and try again.',
-          )
-          return false
-        }
-
-        const { error } = await supabase
-          .from('tokens')
-          .update({
-            name: data.name,
-            ticker: data.ticker.toUpperCase(),
-            chain: data.chain || null,
-            contract_address: data.contract_address || null,
-            coingecko_id: data.coingecko_id || null,
-            coingecko_image: data.coingecko_image || null,
-            tge_date: data.tge_date || null,
-            category: normalizedCategory || null,
-            sector: safeSector,
-            notes: data.notes || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', tokenId)
-
-        if (error) throw error
-
-        // Update initial timestamp for next save
-        const { data: updatedToken } = await supabase
-          .from('tokens')
-          .select('updated_at')
-          .eq('id', tokenId)
-          .single()
-        if (updatedToken) setInitialUpdatedAt(updatedToken.updated_at)
+        setInitialUpdatedAt(newUpdatedAt)
       } else {
         // Create new token
         const { data: tokenData, error } = await supabase
