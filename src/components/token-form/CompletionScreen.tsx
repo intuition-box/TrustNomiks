@@ -19,7 +19,8 @@ export function CompletionScreen() {
             {step1Form.getValues('name') || 'Token'} is structured
           </h1>
           <p className="text-sm text-muted-foreground">
-            Its data now lives in the TrustNomiks graph, ready to review, validate and publish on-chain.
+            Its data now lives in the TrustNomiks graph, ready to review,
+            validate and publish on-chain.
           </p>
         </div>
 
@@ -29,7 +30,9 @@ export function CompletionScreen() {
               <span className="text-sm font-medium">Token</span>
               <span className="font-semibold">
                 {step1Form.getValues('name')}{' '}
-                <span className="font-mono text-primary">{step1Form.getValues('ticker')}</span>
+                <span className="font-mono text-primary">
+                  {step1Form.getValues('ticker')}
+                </span>
               </span>
             </div>
             <div className="flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
@@ -42,15 +45,30 @@ export function CompletionScreen() {
 
           <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             {tokenId && (
-              <Button variant="brand" className="flex-1" size="lg" onClick={() => router.push(`/tokens/${tokenId}`)}>
+              <Button
+                variant="brand"
+                className="flex-1"
+                size="lg"
+                onClick={() => router.push(`/tokens/${tokenId}`)}
+              >
                 Open token to publish
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Button>
             )}
-            <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens')}>
+            <Button
+              variant="outline"
+              className="flex-1"
+              size="lg"
+              onClick={() => router.push('/tokens')}
+            >
               Back to tokens
             </Button>
-            <Button variant="outline" className="flex-1" size="lg" onClick={() => router.push('/tokens/new')}>
+            <Button
+              variant="outline"
+              className="flex-1"
+              size="lg"
+              onClick={() => router.push('/tokens/new')}
+            >
               <Plus className="h-4 w-4" aria-hidden />
               Add another
             </Button>

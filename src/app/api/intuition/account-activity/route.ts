@@ -12,7 +12,10 @@ const MAX_LIMIT = 100
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authErr,
+  } = await supabase.auth.getUser()
   if (authErr || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

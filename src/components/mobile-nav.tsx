@@ -75,7 +75,10 @@ export function MobileNav() {
                             className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
                           />
                         )}
-                        <Icon className={cn('h-5 w-5', isActive && 'text-primary')} aria-hidden />
+                        <Icon
+                          className={cn('h-5 w-5', isActive && 'text-primary')}
+                          aria-hidden
+                        />
                         {item.label}
                       </Link>
                     )

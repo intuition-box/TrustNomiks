@@ -1,4 +1,9 @@
-import type { PublishPlan, PublishRunResult, PublishStatus, RunStatus } from '@/lib/intuition/types'
+import type {
+  PublishPlan,
+  PublishRunResult,
+  PublishStatus,
+  RunStatus,
+} from '@/lib/intuition/types'
 
 // ── Shared Intuition GraphQL response types ──────────────────────────────────
 
@@ -94,7 +99,10 @@ export interface PublishPlanResponse {
  * Serialized version of PublishPlan where bigint fields are strings.
  * (JSON cannot represent bigint natively.)
  */
-export interface PublishPlanSerialized extends Omit<PublishPlan, 'estimatedCost'> {
+export interface PublishPlanSerialized extends Omit<
+  PublishPlan,
+  'estimatedCost'
+> {
   estimatedCost: {
     atomCostPerUnit: string
     tripleCostPerUnit: string
@@ -162,9 +170,7 @@ export interface PublishRunFinalizeRequest {
 }
 
 export type PublishRunActionRequest =
-  | PublishRunInitRequest
-  | PublishRunChunkRequest
-  | PublishRunFinalizeRequest
+  PublishRunInitRequest | PublishRunChunkRequest | PublishRunFinalizeRequest
 
 export interface PublishRunResponse {
   runId: string
@@ -256,7 +262,8 @@ export interface RunDetailMeta {
   /** True if the run was created before the `run_id` column existed and was resolved via tx_hash fallback. */
   isLegacy: boolean
   /** Where the run detail mappings were loaded from. */
-  snapshotSource: 'intuition_graphql' | 'legacy_run_id' | 'legacy_window' | 'empty'
+  snapshotSource:
+    'intuition_graphql' | 'legacy_run_id' | 'legacy_window' | 'empty'
 }
 
 export interface RunDetailResponse {

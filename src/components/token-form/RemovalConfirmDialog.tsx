@@ -26,22 +26,27 @@ export function RemovalConfirmDialog() {
   } = useTokenForm()
 
   return (
-    <AlertDialog open={!!pendingRemoval} onOpenChange={(open) => { if (!open) setPendingRemoval(null) }}>
+    <AlertDialog
+      open={!!pendingRemoval}
+      onOpenChange={(open) => {
+        if (!open) setPendingRemoval(null)
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
             {pendingRemoval?.type === 'allocation'
               ? 'Remove allocation segment?'
               : pendingRemoval?.type === 'risk'
-              ? 'Remove risk flag?'
-              : 'Remove data source?'}
+                ? 'Remove risk flag?'
+                : 'Remove data source?'}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {pendingRemoval?.type === 'allocation'
               ? 'This will remove the allocation segment and any vesting schedule tied to it. This cannot be undone after saving.'
               : pendingRemoval?.type === 'risk'
-              ? 'This will remove the risk flag. This cannot be undone after saving.'
-              : 'This will remove the data source and any claim attributions linked to it. This cannot be undone after saving.'}
+                ? 'This will remove the risk flag. This cannot be undone after saving.'
+                : 'This will remove the data source and any claim attributions linked to it. This cannot be undone after saving.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -53,7 +58,10 @@ export function RemovalConfirmDialog() {
                 const index = pendingRemoval.index
                 if (segmentGuideRowIndex === index) {
                   closeSegmentGuide()
-                } else if (segmentGuideRowIndex !== null && segmentGuideRowIndex > index) {
+                } else if (
+                  segmentGuideRowIndex !== null &&
+                  segmentGuideRowIndex > index
+                ) {
                   setSegmentGuideRowIndex(segmentGuideRowIndex - 1)
                 }
                 remove(index)

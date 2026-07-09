@@ -7,13 +7,19 @@
 
 import { toHex } from 'viem'
 import type { Hex, PublicClient } from 'viem'
+import { calculateAtomId, calculateTripleId } from '@0xintuition/sdk'
 import {
-  calculateAtomId,
-  calculateTripleId,
-} from '@0xintuition/sdk'
-import { ATOM_CHUNK_SIZE, TRIPLE_CHUNK_SIZE, PROVENANCE_CHUNK_SIZE } from './config'
+  ATOM_CHUNK_SIZE,
+  TRIPLE_CHUNK_SIZE,
+  PROVENANCE_CHUNK_SIZE,
+} from './config'
 import type { RawBundle } from './bundle-builder'
-import type { AtomPlanItem, TriplePlanItem, ProvenancePlanItem, PublishPlan } from './types'
+import type {
+  AtomPlanItem,
+  TriplePlanItem,
+  ProvenancePlanItem,
+  PublishPlan,
+} from './types'
 import {
   batchIsTermCreated,
   batchPreviewAtomCreates,
@@ -73,7 +79,7 @@ export async function resolveExistence(
   const existingAtomCount = atomPlanItems.filter((a) => a.exists).length
   console.log(
     `Atom existence batch: ${existingAtomCount} exist, ` +
-    `${atomPlanItems.length - existingAtomCount} to create (${atomPlanItems.length} total)`,
+      `${atomPlanItems.length - existingAtomCount} to create (${atomPlanItems.length} total)`,
   )
 
   // 3. Build atom lookup for triple resolution
@@ -110,7 +116,11 @@ export async function resolveExistence(
       continue
     }
 
-    const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
+    const computedTripleTermId = computeTripleTermId(
+      subjectTermId,
+      predicateTermId,
+      objectTermId,
+    )
     validTripleTermIds.push(computedTripleTermId)
     tripleIndexToTermId.set(i, computedTripleTermId)
 
@@ -130,19 +140,24 @@ export async function resolveExistence(
   }
 
   if (validTripleTermIds.length > 0) {
-    const tripleExistence = await batchIsTermCreated(publicClient, validTripleTermIds, {
-      failureMode: 'assumeMissing',
-    })
+    const tripleExistence = await batchIsTermCreated(
+      publicClient,
+      validTripleTermIds,
+      {
+        failureMode: 'assumeMissing',
+      },
+    )
 
     for (const [index, termId] of tripleIndexToTermId) {
-      triplePlanItems[index].exists = tripleExistence.get(termId.toLowerCase() as Hex) ?? false
+      triplePlanItems[index].exists =
+        tripleExistence.get(termId.toLowerCase() as Hex) ?? false
     }
   }
 
   const existingTripleCount = triplePlanItems.filter((t) => t.exists).length
   console.log(
     `Triple existence batch: ${existingTripleCount} exist, ` +
-    `${triplePlanItems.length - existingTripleCount} to create (${triplePlanItems.length} total)`,
+      `${triplePlanItems.length - existingTripleCount} to create (${triplePlanItems.length} total)`,
   )
 
   // 5. Compute provenance triple term IDs and batch-check existence
@@ -179,13 +194,15 @@ export async function resolveExistence(
       continue
     }
 
-    const subjectTermId = prov.relation === 'includes_claim'
-      ? sourceTermId
-      : claimTripleTermId
-    const objectTermId = prov.relation === 'includes_claim'
-      ? claimTripleTermId
-      : sourceTermId
-    const computedTripleTermId = computeTripleTermId(subjectTermId, predicateTermId, objectTermId)
+    const subjectTermId =
+      prov.relation === 'includes_claim' ? sourceTermId : claimTripleTermId
+    const objectTermId =
+      prov.relation === 'includes_claim' ? claimTripleTermId : sourceTermId
+    const computedTripleTermId = computeTripleTermId(
+      subjectTermId,
+      predicateTermId,
+      objectTermId,
+    )
 
     validProvTermIds.push(computedTripleTermId)
     provIndexToTermId.set(i, computedTripleTermId)
@@ -207,23 +224,29 @@ export async function resolveExistence(
   }
 
   if (validProvTermIds.length > 0) {
-    const provExistence = await batchIsTermCreated(publicClient, validProvTermIds, {
-      failureMode: 'assumeMissing',
-    })
+    const provExistence = await batchIsTermCreated(
+      publicClient,
+      validProvTermIds,
+      {
+        failureMode: 'assumeMissing',
+      },
+    )
 
     for (const [index, termId] of provIndexToTermId) {
-      provenancePlanItems[index].exists = provExistence.get(termId.toLowerCase() as Hex) ?? false
+      provenancePlanItems[index].exists =
+        provExistence.get(termId.toLowerCase() as Hex) ?? false
     }
   }
 
   const existingProvCount = provenancePlanItems.filter((p) => p.exists).length
   console.log(
     `Provenance existence batch: ${existingProvCount} exist, ` +
-    `${provenancePlanItems.length - existingProvCount} to create (${provenancePlanItems.length} total)`,
+      `${provenancePlanItems.length - existingProvCount} to create (${provenancePlanItems.length} total)`,
   )
 
   // 6. Get cost estimates via batched config read
-  const { atomCost, tripleCost, extraDepositPerUnit } = await readPublishConfig(publicClient)
+  const { atomCost, tripleCost, extraDepositPerUnit } =
+    await readPublishConfig(publicClient)
 
   const atomUnit = atomCost + extraDepositPerUnit
   const tripleUnit = tripleCost + extraDepositPerUnit
@@ -303,7 +326,8 @@ export async function resolveExistence(
       provenanceChunkSize: PROVENANCE_CHUNK_SIZE,
       atomChunks: Math.ceil(atomsToCreate.length / ATOM_CHUNK_SIZE) || 0,
       tripleChunks: Math.ceil(triplesToCreate.length / TRIPLE_CHUNK_SIZE) || 0,
-      provenanceChunks: Math.ceil(provToCreate.length / PROVENANCE_CHUNK_SIZE) || 0,
+      provenanceChunks:
+        Math.ceil(provToCreate.length / PROVENANCE_CHUNK_SIZE) || 0,
       estimatedWalletSignatures:
         (Math.ceil(atomsToCreate.length / ATOM_CHUNK_SIZE) || 0) +
         (Math.ceil(triplesToCreate.length / TRIPLE_CHUNK_SIZE) || 0) +

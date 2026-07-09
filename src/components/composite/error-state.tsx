@@ -45,7 +45,9 @@ export function ErrorState({
       <FracturedEdge />
       <div className="space-y-1.5">
         <h2 className="text-base font-semibold">{title}</h2>
-        <p className="mx-auto max-w-sm text-sm text-muted-foreground">{message}</p>
+        <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+          {message}
+        </p>
       </div>
       {(onRetry || homeHref) && (
         <div className="flex flex-wrap items-center justify-center gap-2">
@@ -72,9 +74,29 @@ export function ErrorState({
 /** Two nodes, one broken edge: the graph motif for "a connection failed". */
 function FracturedEdge() {
   return (
-    <svg width={96} height={56} viewBox="0 0 96 56" aria-hidden className="opacity-80">
-      <line x1={22} y1={28} x2={40} y2={28} stroke="hsl(var(--graph-edge))" strokeWidth={1.5} />
-      <line x1={56} y1={28} x2={74} y2={28} stroke="hsl(var(--graph-edge))" strokeWidth={1.5} />
+    <svg
+      width={96}
+      height={56}
+      viewBox="0 0 96 56"
+      aria-hidden
+      className="opacity-80"
+    >
+      <line
+        x1={22}
+        y1={28}
+        x2={40}
+        y2={28}
+        stroke="hsl(var(--graph-edge))"
+        strokeWidth={1.5}
+      />
+      <line
+        x1={56}
+        y1={28}
+        x2={74}
+        y2={28}
+        stroke="hsl(var(--graph-edge))"
+        strokeWidth={1.5}
+      />
       {/* the break */}
       <path
         d="M44 22 L48 28 L44 34"
@@ -90,9 +112,22 @@ function FracturedEdge() {
         strokeWidth={1.5}
         strokeLinecap="round"
       />
-      <circle cx={16} cy={28} r={5.5} fill="none" stroke="hsl(var(--data-hub))" strokeWidth={2} />
+      <circle
+        cx={16}
+        cy={28}
+        r={5.5}
+        fill="none"
+        stroke="hsl(var(--data-hub))"
+        strokeWidth={2}
+      />
       <circle cx={16} cy={28} r={1.8} fill="hsl(var(--data-hub))" />
-      <circle cx={80} cy={28} r={4.5} fill="hsl(var(--data-token))" opacity={0.9} />
+      <circle
+        cx={80}
+        cy={28}
+        r={4.5}
+        fill="hsl(var(--data-token))"
+        opacity={0.9}
+      />
     </svg>
   )
 }

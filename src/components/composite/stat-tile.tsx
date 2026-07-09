@@ -46,18 +46,25 @@ export function StatTile({
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
         {Icon && (
           <span
             className="flex h-7 w-7 items-center justify-center rounded-md"
-            style={{ backgroundColor: `color-mix(in oklab, ${accent} 14%, transparent)`, color: accent }}
+            style={{
+              backgroundColor: `color-mix(in oklab, ${accent} 14%, transparent)`,
+              color: accent,
+            }}
           >
             <Icon className="h-4 w-4" aria-hidden />
           </span>
         )}
       </div>
       <div className="mt-2 flex items-end justify-between gap-2">
-        <span className="tabular text-3xl font-semibold leading-none tracking-tight">{value}</span>
+        <span className="tabular text-3xl font-semibold leading-none tracking-tight">
+          {value}
+        </span>
         {delta && (
           <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[hsl(var(--success))]">
             <ArrowUpRight className="h-3 w-3" aria-hidden />
@@ -68,11 +75,20 @@ export function StatTile({
       {typeof progress === 'number' && (
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
           <div
-            className={cn('h-full rounded-full transition-[width] duration-500', !brandProgress && 'bg-[var(--bar)]')}
+            className={cn(
+              'h-full rounded-full transition-[width] duration-500',
+              !brandProgress && 'bg-[var(--bar)]',
+            )}
             style={
               brandProgress
-                ? { width: `${Math.min(100, progress)}%`, background: 'var(--gradient-brand)' }
-                : ({ width: `${Math.min(100, progress)}%`, ['--bar' as string]: accent } as React.CSSProperties)
+                ? {
+                    width: `${Math.min(100, progress)}%`,
+                    background: 'var(--gradient-brand)',
+                  }
+                : ({
+                    width: `${Math.min(100, progress)}%`,
+                    ['--bar' as string]: accent,
+                  } as React.CSSProperties)
             }
           />
         </div>
@@ -83,7 +99,8 @@ export function StatTile({
 
   const base = cn(
     'group rounded-xl border bg-surface-1 p-4 text-left transition-colors',
-    interactive && 'hover:bg-surface-2 hover:border-border-strong focus-visible:border-border-strong',
+    interactive &&
+      'hover:bg-surface-2 hover:border-border-strong focus-visible:border-border-strong',
     className,
   )
 

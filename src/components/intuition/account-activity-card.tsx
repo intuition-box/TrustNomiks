@@ -16,7 +16,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { WalletConnectButton } from '@/components/wallet-connect-button'
-import type { IntuitionAccountActivity, IntuitionPositionSummary } from '@/types/intuition'
+import type {
+  IntuitionAccountActivity,
+  IntuitionPositionSummary,
+} from '@/types/intuition'
 
 interface AccountActivityCardProps {
   variant?: 'card' | 'embedded'
@@ -45,14 +48,20 @@ export function AccountActivityCard({
         limit: String(limit),
         createdLimit: String(createdLimit),
       })
-      const response = await fetch(`/api/intuition/account-activity?${params.toString()}`)
+      const response = await fetch(
+        `/api/intuition/account-activity?${params.toString()}`,
+      )
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${response.status}`)
       }
       setData((await response.json()) as IntuitionAccountActivity)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load Intuition activity')
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to load Intuition activity',
+      )
     } finally {
       setLoading(false)
     }
@@ -73,14 +82,22 @@ export function AccountActivityCard({
         <div>
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            <h3 className="font-semibold leading-none tracking-tight">Intuition Testnet Activity</h3>
+            <h3 className="font-semibold leading-none tracking-tight">
+              Intuition Testnet Activity
+            </h3>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Indexed on-chain positions and created terms for the connected wallet.
+            Indexed on-chain positions and created terms for the connected
+            wallet.
           </p>
         </div>
         {isConnected && address && (
-          <Button variant="outline" size="sm" onClick={fetchActivity} disabled={loading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchActivity}
+            disabled={loading}
+          >
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -94,7 +111,8 @@ export function AccountActivityCard({
       {!isConnected || !address ? (
         <div className="mt-4 flex flex-col items-start gap-3 rounded-lg border border-dashed p-4">
           <p className="text-sm text-muted-foreground">
-            Connect your wallet to load Intuition testnet positions and created atoms/triples.
+            Connect your wallet to load Intuition testnet positions and created
+            atoms/triples.
           </p>
           <WalletConnectButton />
         </div>
@@ -151,9 +169,21 @@ export function AccountActivityCard({
 function ActivityStats({ data }: { data: IntuitionAccountActivity }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <ActivityStat icon={Wallet} label="Positions" value={data.aggregates.activePositions} />
-      <ActivityStat icon={Atom} label="Atoms created" value={data.aggregates.atomsCreated} />
-      <ActivityStat icon={GitBranch} label="Triples created" value={data.aggregates.triplesCreated} />
+      <ActivityStat
+        icon={Wallet}
+        label="Positions"
+        value={data.aggregates.activePositions}
+      />
+      <ActivityStat
+        icon={Atom}
+        label="Atoms created"
+        value={data.aggregates.atomsCreated}
+      />
+      <ActivityStat
+        icon={GitBranch}
+        label="Triples created"
+        value={data.aggregates.triplesCreated}
+      />
       <ActivityStat
         icon={Activity}
         label="Shares"
@@ -185,7 +215,11 @@ function ActivityStat({
   )
 }
 
-function RecentPositions({ positions }: { positions: IntuitionPositionSummary[] }) {
+function RecentPositions({
+  positions,
+}: {
+  positions: IntuitionPositionSummary[]
+}) {
   if (positions.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
@@ -196,17 +230,22 @@ function RecentPositions({ positions }: { positions: IntuitionPositionSummary[] 
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium uppercase text-muted-foreground">Recent positions</p>
+      <p className="text-xs font-medium uppercase text-muted-foreground">
+        Recent positions
+      </p>
       <div className="space-y-2">
         {positions.slice(0, 5).map((position) => {
           const triple = position.triple
           const atom = position.atom
           const label = triple
             ? `${triple.subject?.label ?? 'Unknown'} / ${triple.predicate?.label ?? 'claim'} / ${triple.object?.label ?? 'Unknown'}`
-            : atom?.label ?? position.termId
+            : (atom?.label ?? position.termId)
 
           return (
-            <div key={position.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+            <div
+              key={position.id}
+              className="flex items-start justify-between gap-3 rounded-lg border p-3"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{label}</p>
                 <p className="mt-1 font-mono text-[11px] text-muted-foreground">

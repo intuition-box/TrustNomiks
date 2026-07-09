@@ -43,13 +43,21 @@ export function StudioGraphPane({
 
   const data: LiveGraphData = useMemo(() => {
     const label = ticker || name || 'Token'
-    const nodes: LiveGraphData['nodes'] = [{ id: 'hub', type: 'token', label, size: 8 }]
+    const nodes: LiveGraphData['nodes'] = [
+      { id: 'hub', type: 'token', label, size: 8 },
+    ]
     const links: LiveGraphData['links'] = []
-    const add = (id: string, type: LiveGraphData['nodes'][number]['type'], nodeLabel?: string) => {
+    const add = (
+      id: string,
+      type: LiveGraphData['nodes'][number]['type'],
+      nodeLabel?: string,
+    ) => {
       nodes.push({ id, type, label: nodeLabel, size: 4 })
       links.push({ source: 'hub', target: id })
     }
-    segmentLabels.forEach((seg, i) => add(`alloc-${i}`, 'allocation', seg || undefined))
+    segmentLabels.forEach((seg, i) =>
+      add(`alloc-${i}`, 'allocation', seg || undefined),
+    )
     for (let i = 0; i < vestingCount; i++) add(`vest-${i}`, 'vesting')
     if (hasEmission) add('emission', 'emission')
     for (let i = 0; i < sourceCount; i++) add(`src-${i}`, 'data_source')
@@ -61,7 +69,12 @@ export function StudioGraphPane({
   const nodeCount = data.nodes.length
 
   return (
-    <div className={cn('overflow-hidden rounded-xl border bg-surface-1', className)}>
+    <div
+      className={cn(
+        'overflow-hidden rounded-xl border bg-surface-1',
+        className,
+      )}
+    >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h2 className="text-sm font-semibold">Your graph</h2>
         <span className="tabular text-xs text-muted-foreground">

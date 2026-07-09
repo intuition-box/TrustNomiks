@@ -19,16 +19,28 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Find the first triple matching a predicate (optionally scoped to a subject). */
-function findTriple(triples: Triple[], predicate: string, subject?: string): Triple | undefined {
+function findTriple(
+  triples: Triple[],
+  predicate: string,
+  subject?: string,
+): Triple | undefined {
   return triples.find(
-    (t) => t.predicate === predicate && (subject === undefined || t.subject === subject),
+    (t) =>
+      t.predicate === predicate &&
+      (subject === undefined || t.subject === subject),
   )
 }
 
 /** Find all triples matching a predicate (optionally scoped to a subject). */
-function findTriples(triples: Triple[], predicate: string, subject?: string): Triple[] {
+function findTriples(
+  triples: Triple[],
+  predicate: string,
+  subject?: string,
+): Triple[] {
   return triples.filter(
-    (t) => t.predicate === predicate && (subject === undefined || t.subject === subject),
+    (t) =>
+      t.predicate === predicate &&
+      (subject === undefined || t.subject === subject),
   )
 }
 
@@ -41,7 +53,9 @@ function hasPredicate(triples: Triple[], predicate: string): boolean {
 // Fixture builder
 // ---------------------------------------------------------------------------
 
-function buildCompleteTokenData(overrides: Partial<CompleteTokenData> = {}): CompleteTokenData {
+function buildCompleteTokenData(
+  overrides: Partial<CompleteTokenData> = {},
+): CompleteTokenData {
   const token: TokenData = {
     id: 'tok-001',
     name: 'TestToken',
@@ -192,7 +206,11 @@ describe('triples-export', () => {
       const data = buildCompleteTokenData()
       const triples = convertTokenToTriples(data)
 
-      const triple = findTriple(triples, 'has Completeness Score', data.token.ticker)
+      const triple = findTriple(
+        triples,
+        'has Completeness Score',
+        data.token.ticker,
+      )
       expect(triple).toBeDefined()
       expect(triple!.object).toBe(data.token.completeness) // 85
     })
@@ -239,7 +257,10 @@ describe('triples-export', () => {
             cliff_unlock_percentage: null,
             start_date: null,
             notes: null,
-            allocation: { label: 'Team & Founders', segment_type: 'team-founders' },
+            allocation: {
+              label: 'Team & Founders',
+              segment_type: 'team-founders',
+            },
           },
         ],
       })
@@ -261,7 +282,10 @@ describe('triples-export', () => {
             cliff_unlock_percentage: 0,
             start_date: null,
             notes: null,
-            allocation: { label: 'Team & Founders', segment_type: 'team-founders' },
+            allocation: {
+              label: 'Team & Founders',
+              segment_type: 'team-founders',
+            },
           },
         ],
       })

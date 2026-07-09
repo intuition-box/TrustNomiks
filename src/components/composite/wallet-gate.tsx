@@ -20,12 +20,22 @@ interface WalletGateProps {
  * for only where an on-chain action starts, with the reason stated inline.
  * Everywhere else the app stays wallet-silent.
  */
-export function WalletGate({ reason, title = 'Connect to continue', children, className }: WalletGateProps) {
+export function WalletGate({
+  reason,
+  title = 'Connect to continue',
+  children,
+  className,
+}: WalletGateProps) {
   const { isConnected } = useAccount()
 
   if (!walletEnabled) {
     return (
-      <div className={cn('rounded-xl border border-dashed bg-surface-1 p-4 text-sm text-muted-foreground', className)}>
+      <div
+        className={cn(
+          'rounded-xl border border-dashed bg-surface-1 p-4 text-sm text-muted-foreground',
+          className,
+        )}
+      >
         On-chain features are disabled in this environment.
       </div>
     )

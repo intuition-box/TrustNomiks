@@ -1,14 +1,27 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Loader2, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+} from 'lucide-react'
 import { GraphLoader } from '@/components/patterns/graph-loader'
-import { StudioSpine, type StudioSectionMeta } from '@/features/studio/studio-spine'
+import {
+  StudioSpine,
+  type StudioSectionMeta,
+} from '@/features/studio/studio-spine'
 import { StudioGraphPane } from '@/features/studio/studio-graph-pane'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatCategoryLabel, formatSectorLabel } from '@/types/form'
 import { SECTION_LABELS } from '@/components/token-form/form-helpers'
-import { TokenFormProvider, useTokenForm } from '@/components/token-form/token-form-context'
+import {
+  TokenFormProvider,
+  useTokenForm,
+} from '@/components/token-form/token-form-context'
 import { COMPLETION_STEP } from '@/components/token-form/use-token-form-state'
 import { CompletionScreen } from '@/components/token-form/CompletionScreen'
 import { RemovalConfirmDialog } from '@/components/token-form/RemovalConfirmDialog'
@@ -73,13 +86,63 @@ function NewTokenPageInner() {
   }
 
   const spineSections: StudioSectionMeta[] = [
-    { key: 'identity', label: 'Identity', accentVar: '--data-token', tier: 'core', live: liveIdentityScore, max: 20 },
-    { key: 'supply', label: 'Supply', accentVar: '--data-supply', tier: 'core', live: liveSupplyScore, max: 15 },
-    { key: 'allocation', label: 'Allocation', accentVar: '--data-allocation', tier: 'core', live: liveAllocationScore, max: 20 },
-    { key: 'vesting', label: 'Vesting', accentVar: '--data-vesting', tier: 'enrich', live: liveVestingScore, max: 20 },
-    { key: 'emission', label: 'Emission', accentVar: '--data-emission', tier: 'enrich', live: liveEmissionScore, max: 10 },
-    { key: 'sources', label: 'Sources', accentVar: '--data-source', tier: 'enrich', live: liveSourcesScore, max: 10 },
-    { key: 'risk', label: 'Risk flags', accentVar: '--data-risk', tier: 'enrich', live: _lw7flags.length > 0 ? 1 : 0, max: 0, optional: true },
+    {
+      key: 'identity',
+      label: 'Identity',
+      accentVar: '--data-token',
+      tier: 'core',
+      live: liveIdentityScore,
+      max: 20,
+    },
+    {
+      key: 'supply',
+      label: 'Supply',
+      accentVar: '--data-supply',
+      tier: 'core',
+      live: liveSupplyScore,
+      max: 15,
+    },
+    {
+      key: 'allocation',
+      label: 'Allocation',
+      accentVar: '--data-allocation',
+      tier: 'core',
+      live: liveAllocationScore,
+      max: 20,
+    },
+    {
+      key: 'vesting',
+      label: 'Vesting',
+      accentVar: '--data-vesting',
+      tier: 'enrich',
+      live: liveVestingScore,
+      max: 20,
+    },
+    {
+      key: 'emission',
+      label: 'Emission',
+      accentVar: '--data-emission',
+      tier: 'enrich',
+      live: liveEmissionScore,
+      max: 10,
+    },
+    {
+      key: 'sources',
+      label: 'Sources',
+      accentVar: '--data-source',
+      tier: 'enrich',
+      live: liveSourcesScore,
+      max: 10,
+    },
+    {
+      key: 'risk',
+      label: 'Risk flags',
+      accentVar: '--data-risk',
+      tier: 'enrich',
+      live: _lw7flags.length > 0 ? 1 : 0,
+      max: 0,
+      optional: true,
+    },
   ]
 
   const savedAgoLabel = (() => {
@@ -92,7 +155,10 @@ function NewTokenPageInner() {
   })()
 
   const autosaveChip = (
-    <span aria-live="polite" className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+    <span
+      aria-live="polite"
+      className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
+    >
       {autosave.status === 'saving' && (
         <>
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Saving…
@@ -111,15 +177,18 @@ function NewTokenPageInner() {
       )}
       {autosave.status === 'invalid' && (
         <>
-          <AlertCircle className="h-3.5 w-3.5 text-warning" aria-hidden /> Fix the errors to save
+          <AlertCircle className="h-3.5 w-3.5 text-warning" aria-hidden /> Fix
+          the errors to save
         </>
       )}
       {autosave.status === 'error' && (
         <>
-          <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden /> Save failed
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden />{' '}
+          Save failed
         </>
       )}
-      {autosave.status === 'idle' && (tokenId ? 'Autosave is on' : 'Name + ticker create the draft')}
+      {autosave.status === 'idle' &&
+        (tokenId ? 'Autosave is on' : 'Name + ticker create the draft')}
     </span>
   )
 
@@ -130,7 +199,6 @@ function NewTokenPageInner() {
 
   return (
     <div className="mx-auto max-w-6xl pb-16">
-
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div className="space-y-2">
@@ -146,9 +214,14 @@ function NewTokenPageInner() {
           {liveTokenName ? (
             <>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-3xl font-bold tracking-tight">{liveTokenName}</h1>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {liveTokenName}
+                </h1>
                 {liveTokenTicker && (
-                  <Badge variant="secondary" className="font-mono text-base px-3 py-0.5 h-auto">
+                  <Badge
+                    variant="secondary"
+                    className="font-mono text-base px-3 py-0.5 h-auto"
+                  >
                     {liveTokenTicker}
                   </Badge>
                 )}
@@ -156,7 +229,10 @@ function NewTokenPageInner() {
               {(liveChain || liveCategory) && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {liveChain && chainLabel && (
-                    <Badge variant="outline" className="font-normal text-muted-foreground capitalize">
+                    <Badge
+                      variant="outline"
+                      className="font-normal text-muted-foreground capitalize"
+                    >
                       {chainLabel}
                     </Badge>
                   )}
@@ -175,7 +251,8 @@ function NewTokenPageInner() {
                 {isEditMode ? 'Edit token' : 'Add a token'}
               </h1>
               <p className="text-muted-foreground text-sm">
-                Structure the token cluster by cluster. The graph grows as your data lands.
+                Structure the token cluster by cluster. The graph grows as your
+                data lands.
               </p>
             </>
           )}
@@ -184,7 +261,9 @@ function NewTokenPageInner() {
         {/* Mobile score (compact) */}
         <div className="flex-shrink-0 rounded-xl border bg-surface-1 px-4 py-2.5 text-center lg:hidden">
           <div className="relative inline-block">
-            <span className="tabular text-xl font-semibold">{liveTotalScore}</span>
+            <span className="tabular text-xl font-semibold">
+              {liveTotalScore}
+            </span>
             {showFlash && (
               <span
                 key={flashKey}
@@ -212,7 +291,6 @@ function NewTokenPageInner() {
 
       {/* ── Studio layout: spine · active section · living graph ─────────────── */}
       <div className="flex items-start gap-6">
-
         {/* Spine (desktop) */}
         <aside className="sticky top-20 hidden w-60 shrink-0 lg:block">
           <StudioSpine
@@ -226,7 +304,6 @@ function NewTokenPageInner() {
 
         {/* ── Active section ──────────────────────────────────────────────────── */}
         <div className="min-w-0 flex-1 space-y-5">
-
           {/* ── Section 1: Identity ───────────────────────────────────────────── */}
           <Step1Identity />
 
@@ -258,24 +335,43 @@ function NewTokenPageInner() {
               onClick={() => prevSectionKey && goSection(prevSectionKey)}
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">{prevSectionKey ? SECTION_LABELS[prevSectionKey] : 'Back'}</span>
+              <span className="hidden sm:inline">
+                {prevSectionKey ? SECTION_LABELS[prevSectionKey] : 'Back'}
+              </span>
             </Button>
             {autosaveChip}
             {nextSectionKey ? (
-              <Button type="button" size="sm" onClick={handleContinue} disabled={loading}>
-                <span className="hidden sm:inline">Continue: {SECTION_LABELS[nextSectionKey]}</span>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleContinue}
+                disabled={loading}
+              >
+                <span className="hidden sm:inline">
+                  Continue: {SECTION_LABELS[nextSectionKey]}
+                </span>
                 <span className="sm:hidden">Continue</span>
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </Button>
             ) : (
-              <Button type="button" size="sm" variant="brand" onClick={handleFinish} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+              <Button
+                type="button"
+                size="sm"
+                variant="brand"
+                onClick={handleFinish}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" aria-hidden />
+                )}
                 Finish and review
               </Button>
             )}
           </div>
-
-        </div>{/* end active section column */}
+        </div>
+        {/* end active section column */}
 
         {/* ── Living graph pane (desktop) ─────────────────────────────────────── */}
         <aside className="sticky top-20 hidden w-72 shrink-0 xl:block">
@@ -283,7 +379,12 @@ function NewTokenPageInner() {
             name={liveTokenName}
             ticker={liveTokenTicker}
             segmentLabels={_lw3segs
-              .filter((s) => s.label || s.segment_type || (parseFloat(s.percentage) || 0) > 0)
+              .filter(
+                (s) =>
+                  s.label ||
+                  s.segment_type ||
+                  (parseFloat(s.percentage) || 0) > 0,
+              )
               .map((s) => s.label)}
             vestingCount={completedSteps.includes(4) ? allocations.length : 0}
             hasEmission={Boolean(_lw5type)}
@@ -291,7 +392,8 @@ function NewTokenPageInner() {
             riskCount={_lw7flags.length}
           />
         </aside>
-      </div>{/* end studio layout */}
+      </div>
+      {/* end studio layout */}
       <RemovalConfirmDialog />
     </div>
   )

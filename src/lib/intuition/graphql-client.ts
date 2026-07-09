@@ -1,4 +1,11 @@
-import { createPublicClient, http, parseAbi, type Address, type Hex, type PublicClient } from 'viem'
+import {
+  createPublicClient,
+  http,
+  parseAbi,
+  type Address,
+  type Hex,
+  type PublicClient,
+} from 'viem'
 import {
   INTUITION_CHAIN,
   INTUITION_CHAIN_ID,
@@ -28,7 +35,10 @@ interface GraphQLResponse<TData> {
 }
 
 export class IntuitionGraphQLError extends Error {
-  constructor(message: string, readonly status?: number) {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
     super(message)
     this.name = 'IntuitionGraphQLError'
   }
@@ -214,7 +224,11 @@ interface AccountActivityQueryData {
 }
 
 const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
-  query AccountActivity($wallet: String!, $positionLimit: Int!, $createdLimit: Int!) {
+  query AccountActivity(
+    $wallet: String!
+    $positionLimit: Int!
+    $createdLimit: Int!
+  ) {
     positions(
       where: { account_id: { _eq: $wallet }, shares: { _gt: "0" } }
       limit: $positionLimit
@@ -245,17 +259,43 @@ const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
             data
             created_at
             transaction_hash
-            creator { id label image }
+            creator {
+              id
+              label
+              image
+            }
           }
           triple {
             term_id
             counter_term_id
             created_at
             transaction_hash
-            creator { id label image }
-            subject { term_id label image type data }
-            predicate { term_id label image type data }
-            object { term_id label image type data }
+            creator {
+              id
+              label
+              image
+            }
+            subject {
+              term_id
+              label
+              image
+              type
+              data
+            }
+            predicate {
+              term_id
+              label
+              image
+              type
+              data
+            }
+            object {
+              term_id
+              label
+              image
+              type
+              data
+            }
             term {
               vaults(where: { curve_id: { _eq: "1" } }) {
                 term_id
@@ -287,7 +327,9 @@ const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
     ) {
       aggregate {
         count
-        sum { shares }
+        sum {
+          shares
+        }
       }
     }
     atoms(
@@ -302,7 +344,11 @@ const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
       data
       created_at
       transaction_hash
-      creator { id label image }
+      creator {
+        id
+        label
+        image
+      }
       term {
         vaults(where: { curve_id: { _eq: "1" } }) {
           term_id
@@ -316,7 +362,9 @@ const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
       }
     }
     atoms_aggregate(where: { creator_id: { _eq: $wallet } }) {
-      aggregate { count }
+      aggregate {
+        count
+      }
     }
     triples(
       where: { creator_id: { _eq: $wallet } }
@@ -327,10 +375,32 @@ const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
       counter_term_id
       created_at
       transaction_hash
-      creator { id label image }
-      subject { term_id label image type data }
-      predicate { term_id label image type data }
-      object { term_id label image type data }
+      creator {
+        id
+        label
+        image
+      }
+      subject {
+        term_id
+        label
+        image
+        type
+        data
+      }
+      predicate {
+        term_id
+        label
+        image
+        type
+        data
+      }
+      object {
+        term_id
+        label
+        image
+        type
+        data
+      }
       term {
         vaults(where: { curve_id: { _eq: "1" } }) {
           term_id
@@ -355,7 +425,9 @@ const ACCOUNT_ACTIVITY_QUERY = /* GraphQL */ `
       }
     }
     triples_aggregate(where: { creator_id: { _eq: $wallet } }) {
-      aggregate { count }
+      aggregate {
+        count
+      }
     }
   }
 `
@@ -381,13 +453,25 @@ const EXPORT_RUNS_QUERY = /* GraphQL */ `
       data
       created_at
       transaction_hash
-      creator { id label image }
-      value { thing { name description url } }
+      creator {
+        id
+        label
+        image
+      }
+      value {
+        thing {
+          name
+          description
+          url
+        }
+      }
     }
     atoms_aggregate(
       where: { creator_id: { _eq: $wallet }, label: { _ilike: $labelPattern } }
     ) {
-      aggregate { count }
+      aggregate {
+        count
+      }
     }
   }
 `
@@ -401,24 +485,55 @@ const EXPORT_RUN_ATOM_QUERY = /* GraphQL */ `
       data
       created_at
       transaction_hash
-      creator { id label image }
-      value { thing { name description url } }
+      creator {
+        id
+        label
+        image
+      }
+      value {
+        thing {
+          name
+          description
+          url
+        }
+      }
     }
   }
 `
 
 const EXPORT_RUN_CLAIMS_QUERY = /* GraphQL */ `
   query ExportRunClaims($claimTermIds: [String!]) {
-    claimTriples: triples(where: { term_id: { _in: $claimTermIds } }, limit: 10000) {
+    claimTriples: triples(
+      where: { term_id: { _in: $claimTermIds } }
+      limit: 10000
+    ) {
       term_id
       subject_id
       predicate_id
       object_id
       created_at
       transaction_hash
-      subject { term_id label image type data }
-      predicate { term_id label image type data }
-      object { term_id label image type data }
+      subject {
+        term_id
+        label
+        image
+        type
+        data
+      }
+      predicate {
+        term_id
+        label
+        image
+        type
+        data
+      }
+      object {
+        term_id
+        label
+        image
+        type
+        data
+      }
     }
   }
 `
@@ -436,8 +551,18 @@ const TRUSTNOMIKS_STAKE_EXPORT_RUNS_QUERY = /* GraphQL */ `
       data
       created_at
       transaction_hash
-      creator { id label image }
-      value { thing { name description url } }
+      creator {
+        id
+        label
+        image
+      }
+      value {
+        thing {
+          name
+          description
+          url
+        }
+      }
     }
   }
 `
@@ -507,18 +632,21 @@ export async function fetchExportRunsByWallet(
     offset,
   }
 
-  const data = await postIntuitionGraphQL<ExportRunsQueryData, typeof variables>(
-    EXPORT_RUNS_QUERY,
-    variables,
-  )
+  const data = await postIntuitionGraphQL<
+    ExportRunsQueryData,
+    typeof variables
+  >(EXPORT_RUNS_QUERY, variables)
 
-  const parsedCandidates = parseExportRunAtoms(data.atoms)
-    .filter(({ payload }) => {
+  const parsedCandidates = parseExportRunAtoms(data.atoms).filter(
+    ({ payload }) => {
       if (payload.walletAddress) {
-        return payload.walletAddress.toLowerCase() === normalizedWallet.toLowerCase()
+        return (
+          payload.walletAddress.toLowerCase() === normalizedWallet.toLowerCase()
+        )
       }
       return true
-    })
+    },
+  )
 
   const runs: MyRunSummary[] = parsedCandidates.map(({ atom, payload }) => {
     const claimIds = claimTermIdsForRun({ atom, payload })
@@ -550,7 +678,10 @@ export async function fetchExportRunsByWallet(
     aggregates: {
       distinctTokens: new Set(runs.map((run) => run.tokenId)).size,
       totalAtomsCreated: runs.length,
-      totalTriplesCreated: runs.reduce((sum, run) => sum + run.triplesCreated, 0),
+      totalTriplesCreated: runs.reduce(
+        (sum, run) => sum + run.triplesCreated,
+        0,
+      ),
       totalRuns: total,
       runsByStatus: {
         pending: 0,
@@ -563,7 +694,9 @@ export async function fetchExportRunsByWallet(
   }
 }
 
-export async function fetchExportRunDetail(runTermId: string): Promise<RunDetailResponse> {
+export async function fetchExportRunDetail(
+  runTermId: string,
+): Promise<RunDetailResponse> {
   const detail = await postIntuitionGraphQL<
     ExportRunAtomQueryData,
     { runTermId: string }
@@ -575,17 +708,20 @@ export async function fetchExportRunDetail(runTermId: string): Promise<RunDetail
 
   const payload = parseExportRunPayload(detail.atom.value?.thing?.description)
   if (!payload) {
-    throw new IntuitionGraphQLError('Export run is not a valid TrustNomiks export')
+    throw new IntuitionGraphQLError(
+      'Export run is not a valid TrustNomiks export',
+    )
   }
 
   const termIds = payload.claimTermIds.filter((id) => TERM_ID_REGEX.test(id))
 
-  const claims = termIds.length === 0
-    ? { claimTriples: [] }
-    : await postIntuitionGraphQL<ExportRunClaimsQueryData, { claimTermIds: string[] }>(
-      EXPORT_RUN_CLAIMS_QUERY,
-      { claimTermIds: termIds },
-    )
+  const claims =
+    termIds.length === 0
+      ? { claimTriples: [] }
+      : await postIntuitionGraphQL<
+          ExportRunClaimsQueryData,
+          { claimTermIds: string[] }
+        >(EXPORT_RUN_CLAIMS_QUERY, { claimTermIds: termIds })
 
   const atomsByTermId = new Map<string, RawAtom>()
   atomsByTermId.set(detail.atom.term_id, detail.atom)
@@ -597,7 +733,10 @@ export async function fetchExportRunDetail(runTermId: string): Promise<RunDetail
 
   const atomMappings = Array.from(atomsByTermId.values()).map((atom) => ({
     atomId: atom.term_id,
-    atomType: atom.term_id === detail.atom!.term_id ? 'export_run' : inferAtomType(atom),
+    atomType:
+      atom.term_id === detail.atom!.term_id
+        ? 'export_run'
+        : inferAtomType(atom),
     normalizedData: atom.data ?? atom.label ?? atom.term_id,
     termId: atom.term_id,
     txHash: atom.transaction_hash ?? '',
@@ -618,7 +757,12 @@ export async function fetchExportRunDetail(runTermId: string): Promise<RunDetail
       status: 'confirmed' as const,
       errorMessage: null,
     }))
-    .filter((mapping) => mapping.subjectTermId && mapping.predicateTermId && mapping.objectTermId)
+    .filter(
+      (mapping) =>
+        mapping.subjectTermId &&
+        mapping.predicateTermId &&
+        mapping.objectTermId,
+    )
 
   const provenanceMappings = termIds.map((termId) => ({
     tripleId: termId,
@@ -686,7 +830,9 @@ export async function fetchTrustNomiksStakeByWallet(
     claimTermIds,
   })
 
-  const positionTermIds = uniqueTermIds(positions.positions.map((position) => position.term_id))
+  const positionTermIds = uniqueTermIds(
+    positions.positions.map((position) => position.term_id),
+  )
   const chainStake = await readTrustStakeFromChain(
     normalizedWallet,
     positionTermIds,
@@ -730,11 +876,16 @@ const STAKE_READ_ABI = parseAbi([
   'function convertToAssets(bytes32 termId, uint256 curveId, uint256 shares) view returns (uint256)',
 ])
 
-function parseExportRunPayload(raw: string | null | undefined): ExportRunPayload | null {
+function parseExportRunPayload(
+  raw: string | null | undefined,
+): ExportRunPayload | null {
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)
-    if (parsed?.type === 'TrustNomiksExportRun' && parsed?.app === 'TrustNomiks') {
+    if (
+      parsed?.type === 'TrustNomiksExportRun' &&
+      parsed?.app === 'TrustNomiks'
+    ) {
       return parsed as ExportRunPayload
     }
     return null
@@ -792,19 +943,19 @@ async function readTrustStakeFromChain(
   })
   const curveId = defaultCurveIdFromResult(curveConfig)
   const stakes = await mapLimit(termIds, 8, async (termId) => {
-    const shares = await client.readContract({
+    const shares = (await client.readContract({
       address: MULTIVAULT_ADDRESS,
       abi: STAKE_READ_ABI,
       functionName: 'getShares',
       args: [walletAddress, termId as Hex, curveId],
-    }) as bigint
+    })) as bigint
     if (shares === BigInt(0)) return BigInt(0)
-    return await client.readContract({
+    return (await client.readContract({
       address: MULTIVAULT_ADDRESS,
       abi: STAKE_READ_ABI,
       functionName: 'convertToAssets',
       args: [termId as Hex, curveId, shares],
-    }) as bigint
+    })) as bigint
   })
 
   return {
@@ -814,7 +965,11 @@ async function readTrustStakeFromChain(
 }
 
 function defaultCurveIdFromResult(result: unknown): bigint {
-  if (typeof result === 'object' && result !== null && 'defaultCurveId' in result) {
+  if (
+    typeof result === 'object' &&
+    result !== null &&
+    'defaultCurveId' in result
+  ) {
     return (result as { defaultCurveId: bigint }).defaultCurveId
   }
   if (Array.isArray(result) && typeof result[1] === 'bigint') {
@@ -831,7 +986,7 @@ async function mapLimit<T, R>(
   const results: R[] = []
   for (let i = 0; i < items.length; i += limit) {
     const batch = items.slice(i, i + limit)
-    results.push(...await Promise.all(batch.map(mapper)))
+    results.push(...(await Promise.all(batch.map(mapper))))
   }
   return results
 }
@@ -852,7 +1007,9 @@ function mapPosition(position: RawPosition): IntuitionPositionSummary {
   }
 }
 
-function mapAtom(atom: RawAtom | null | undefined): IntuitionAtomSummary | null {
+function mapAtom(
+  atom: RawAtom | null | undefined,
+): IntuitionAtomSummary | null {
   if (!atom) return null
   return {
     termId: atom.term_id,
@@ -885,7 +1042,9 @@ function mapTriple(
   }
 }
 
-function mapVault(vault: RawVault | null | undefined): IntuitionVaultSummary | null {
+function mapVault(
+  vault: RawVault | null | undefined,
+): IntuitionVaultSummary | null {
   if (!vault) return null
   return {
     termId: vault.term_id,

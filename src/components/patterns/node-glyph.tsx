@@ -1,8 +1,15 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { NODE_FAMILY_MAP, type NodeType } from '@/lib/knowledge-graph/graph-types'
-import { FAMILY_GLYPH, DATA_TEXT_CLASS, type GlyphShape } from '@/lib/design/tokens'
+import {
+  NODE_FAMILY_MAP,
+  type NodeType,
+} from '@/lib/knowledge-graph/graph-types'
+import {
+  FAMILY_GLYPH,
+  DATA_TEXT_CLASS,
+  type GlyphShape,
+} from '@/lib/design/tokens'
 
 interface NodeGlyphProps {
   type: NodeType
@@ -34,7 +41,11 @@ export function NodeGlyph({
 
   return (
     <span
-      className={cn('inline-flex shrink-0 items-center justify-center', colorClass, className)}
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center',
+        colorClass,
+        className,
+      )}
       style={{ width: s, height: s }}
       {...rest}
     >
@@ -43,7 +54,9 @@ export function NodeGlyph({
         height={s}
         viewBox={`0 0 ${s} ${s}`}
         fill="none"
-        style={withGlow ? { filter: 'drop-shadow(0 0 4px currentColor)' } : undefined}
+        style={
+          withGlow ? { filter: 'drop-shadow(0 0 4px currentColor)' } : undefined
+        }
       >
         {renderShape(shape, c, s)}
       </svg>
@@ -55,7 +68,16 @@ function renderShape(shape: GlyphShape, c: number, s: number) {
   const r = s * 0.36
   switch (shape) {
     case 'ring':
-      return <circle cx={c} cy={c} r={r} fill="none" stroke="currentColor" strokeWidth={s * 0.16} />
+      return (
+        <circle
+          cx={c}
+          cy={c}
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={s * 0.16}
+        />
+      )
     case 'circle':
       return <circle cx={c} cy={c} r={r} fill="currentColor" />
     case 'diamond':
@@ -71,6 +93,15 @@ function renderShape(shape: GlyphShape, c: number, s: number) {
         />
       )
     case 'square':
-      return <rect x={c - r} y={c - r} width={r * 2} height={r * 2} fill="currentColor" rx={s * 0.12} />
+      return (
+        <rect
+          x={c - r}
+          y={c - r}
+          width={r * 2}
+          height={r * 2}
+          fill="currentColor"
+          rx={s * 0.12}
+        />
+      )
   }
 }

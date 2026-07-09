@@ -34,7 +34,15 @@ interface StudioSpineProps {
 }
 
 /** ○ empty / ◐ started / ● complete, in the section's taxonomy color. */
-function StateDot({ live, max, accentVar }: { live: number; max: number; accentVar: string }) {
+function StateDot({
+  live,
+  max,
+  accentVar,
+}: {
+  live: number
+  max: number
+  accentVar: string
+}) {
   const color = `hsl(var(${accentVar}))`
   const complete = max > 0 && live >= max
   const started = live > 0
@@ -72,7 +80,14 @@ export function StudioSpine({
 }: StudioSpineProps) {
   if (orientation === 'horizontal') {
     return (
-      <div className={cn('flex items-center gap-1.5 overflow-x-auto pb-1', className)} role="tablist" aria-label="Form sections">
+      <div
+        className={cn(
+          'flex items-center gap-1.5 overflow-x-auto pb-1',
+          className,
+        )}
+        role="tablist"
+        aria-label="Form sections"
+      >
         {sections.map((s) => (
           <button
             key={s.key}
@@ -98,7 +113,11 @@ export function StudioSpine({
   const core = sections.filter((s) => s.tier === 'core')
   const enrich = sections.filter((s) => s.tier === 'enrich')
 
-  const renderGroup = (label: string, hint: string, items: StudioSectionMeta[]) => (
+  const renderGroup = (
+    label: string,
+    hint: string,
+    items: StudioSectionMeta[],
+  ) => (
     <div>
       <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-faint-foreground">
         {label} <span className="normal-case tracking-normal">· {hint}</span>
@@ -146,7 +165,9 @@ export function StudioSpine({
           Completeness
         </p>
         <div className="relative mb-3 flex items-end gap-1.5">
-          <span className="tabular text-4xl font-semibold leading-none tracking-tight">{score}</span>
+          <span className="tabular text-4xl font-semibold leading-none tracking-tight">
+            {score}
+          </span>
           <span className="text-sm text-muted-foreground">/ 100</span>
           {flash?.show && (
             <span
@@ -167,7 +188,10 @@ export function StudioSpine({
       </div>
 
       {/* Section nav */}
-      <nav className="space-y-4 rounded-xl border bg-surface-1 p-3" aria-label="Form sections">
+      <nav
+        className="space-y-4 rounded-xl border bg-surface-1 p-3"
+        aria-label="Form sections"
+      >
         {renderGroup('Core', 'unlocks the graph', core)}
         {renderGroup('Enrich', 'deepens it', enrich)}
       </nav>

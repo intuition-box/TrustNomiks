@@ -28,12 +28,19 @@ export function useCoinGeckoSearch(query: string, debounceMs = 300) {
     setError(null)
 
     try {
-      const res = await fetch(`/api/coingecko/search?query=${encodeURIComponent(q)}`, {
-        signal: controller.signal,
-      })
+      const res = await fetch(
+        `/api/coingecko/search?query=${encodeURIComponent(q)}`,
+        {
+          signal: controller.signal,
+        },
+      )
 
       if (!res.ok) {
-        throw new Error(res.status === 429 ? 'Rate limit exceeded, please wait' : 'Search failed')
+        throw new Error(
+          res.status === 429
+            ? 'Rate limit exceeded, please wait'
+            : 'Search failed',
+        )
       }
 
       const data = await res.json()

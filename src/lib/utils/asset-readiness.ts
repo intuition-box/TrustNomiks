@@ -37,7 +37,8 @@ const ASSET_DEFINITIONS: Array<{
     requiredClusters: ['allocation'],
     requiresCoingecko: false,
     label: 'Alloc',
-    chipColor: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    chipColor:
+      'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30',
     phase: 1,
   },
   {
@@ -53,7 +54,8 @@ const ASSET_DEFINITIONS: Array<{
     requiredClusters: ['supply', 'allocation', 'vesting'],
     requiresCoingecko: false,
     label: 'Unlock',
-    chipColor: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    chipColor:
+      'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
     phase: 1,
   },
   {
@@ -69,7 +71,8 @@ const ASSET_DEFINITIONS: Array<{
     requiredClusters: ['supply'],
     requiresCoingecko: true,
     label: 'USD',
-    chipColor: 'bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30',
+    chipColor:
+      'bg-violet-500/20 text-violet-600 dark:text-violet-400 border-violet-500/30',
     phase: 2,
   },
 ]
@@ -80,7 +83,7 @@ const ASSET_DEFINITIONS: Array<{
  */
 export function computeAssetReadiness(
   clusterScores: ClusterScores | null,
-  coingeckoId: string | null
+  coingeckoId: string | null,
 ): AssetReadiness[] {
   if (!clusterScores) {
     return ASSET_DEFINITIONS.map((def) => ({
@@ -119,10 +122,10 @@ export function computeAssetReadiness(
  */
 export function hasAnyVisualAsset(
   clusterScores: ClusterScores | null,
-  coingeckoId: string | null
+  coingeckoId: string | null,
 ): boolean {
   return computeAssetReadiness(clusterScores, coingeckoId).some(
-    (a) => a.ready && a.phase === 1
+    (a) => a.ready && a.phase === 1,
   )
 }
 
@@ -132,7 +135,11 @@ export function hasAnyVisualAsset(
 export function isAssetReady(
   asset: VisualAsset,
   clusterScores: ClusterScores | null,
-  coingeckoId: string | null
+  coingeckoId: string | null,
 ): boolean {
-  return computeAssetReadiness(clusterScores, coingeckoId).find((a) => a.asset === asset)?.ready ?? false
+  return (
+    computeAssetReadiness(clusterScores, coingeckoId).find(
+      (a) => a.asset === asset,
+    )?.ready ?? false
+  )
 }

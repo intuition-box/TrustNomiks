@@ -37,7 +37,10 @@ export function UnlockTimelineChart({
   return (
     <div className="space-y-3">
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+        <AreaChart
+          data={data}
+          margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
+        >
           <XAxis
             dataKey={data[0]?.date ? 'date' : 'month'}
             tick={{ fontSize: 11 }}
@@ -57,12 +60,17 @@ export function UnlockTimelineChart({
             width={60}
           />
           <Tooltip
-            wrapperStyle={{ outline: 'none', background: 'transparent', border: 'none', boxShadow: 'none' }}
+            wrapperStyle={{
+              outline: 'none',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
+            }}
             content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null
               const total = payload.reduce(
                 (sum, p) => sum + (typeof p.value === 'number' ? p.value : 0),
-                0
+                0,
               )
               return (
                 <div
@@ -76,8 +84,12 @@ export function UnlockTimelineChart({
                   <p className="font-medium mb-1">
                     {typeof label === 'number' ? `Month ${label}` : label}
                   </p>
-                  <p className="text-xs mb-2" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                    Total: {formatCompactNumber(total)} ({((total / maxSupply) * 100).toFixed(1)}%)
+                  <p
+                    className="text-xs mb-2"
+                    style={{ color: 'hsl(var(--muted-foreground))' }}
+                  >
+                    Total: {formatCompactNumber(total)} (
+                    {((total / maxSupply) * 100).toFixed(1)}%)
                   </p>
                   {payload
                     .filter((p) => typeof p.value === 'number' && p.value > 0)
@@ -92,7 +104,9 @@ export function UnlockTimelineChart({
                             className="inline-block h-2 w-2 rounded-full"
                             style={{ backgroundColor: p.color }}
                           />
-                          <span className="truncate max-w-32">{p.dataKey as string}</span>
+                          <span className="truncate max-w-32">
+                            {p.dataKey as string}
+                          </span>
                         </div>
                         <span className="font-mono">
                           {formatCompactNumber(p.value as number)}

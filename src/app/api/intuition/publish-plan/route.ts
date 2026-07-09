@@ -15,19 +15,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'tokenId is required' }, { status: 400 })
   }
   if (!walletParam) {
-    return NextResponse.json({ error: 'wallet is required for verifiable TrustNomiks exports' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'wallet is required for verifiable TrustNomiks exports' },
+      { status: 400 },
+    )
   }
 
   let walletAddress: string
   try {
     walletAddress = normalizeWalletAddress(walletParam)
   } catch {
-    return NextResponse.json({ error: 'wallet must be a valid EVM address' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'wallet must be a valid EVM address' },
+      { status: 400 },
+    )
   }
 
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser()
     if (authErr || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -84,7 +93,12 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('Publish plan error:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to generate publish plan' },
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Failed to generate publish plan',
+      },
       { status: 500 },
     )
   }

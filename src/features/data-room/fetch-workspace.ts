@@ -24,7 +24,7 @@ export interface DataRoomTokenListItem {
  */
 export async function fetchWorkspaceData(
   supabase: SupabaseClient,
-  token: DataRoomTokenListItem
+  token: DataRoomTokenListItem,
 ): Promise<TokenWorkspaceData> {
   const [supplyRes, allocRes, emissionRes] = await Promise.all([
     supabase
@@ -50,7 +50,7 @@ export async function fetchWorkspaceData(
     const { data } = await supabase
       .from('vesting_schedules')
       .select(
-        'allocation_id, cliff_months, duration_months, frequency, tge_percentage, cliff_unlock_percentage'
+        'allocation_id, cliff_months, duration_months, frequency, tge_percentage, cliff_unlock_percentage',
       )
       .in('allocation_id', allocationIds)
 

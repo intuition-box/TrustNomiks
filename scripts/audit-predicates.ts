@@ -30,7 +30,10 @@ import { createPublicClient, http, stringToHex, toHex } from 'viem'
 import type { Hex } from 'viem'
 import { calculateAtomId } from '@0xintuition/sdk'
 import { batchIsTermCreated } from '../src/lib/intuition/read-batcher'
-import { INTUITION_CHAIN, MULTIVAULT_ADDRESS } from '../src/lib/intuition/config'
+import {
+  INTUITION_CHAIN,
+  MULTIVAULT_ADDRESS,
+} from '../src/lib/intuition/config'
 import registry from '../src/lib/intuition/canonical-registry.json'
 
 type Entry = {
@@ -56,9 +59,13 @@ function pad(s: string, n: number): string {
 }
 
 async function main() {
-  const client = createPublicClient({ chain: INTUITION_CHAIN, transport: http() })
+  const client = createPublicClient({
+    chain: INTUITION_CHAIN,
+    transport: http(),
+  })
 
-  const predicates = (registry as { predicates: Record<string, Entry> }).predicates
+  const predicates = (registry as { predicates: Record<string, Entry> })
+    .predicates
   const entries = Object.entries(predicates)
 
   // Build the recompute + assert encoding equivalence (executor vs stringToHex).
@@ -91,10 +98,15 @@ async function main() {
   console.log('rpc        :', INTUITION_CHAIN.rpcUrls.default.http[0])
   console.log(`predicates : ${rows.length}`)
   console.log(`unique ids : ${allIds.length} (registry ∪ recompute)`)
-  console.log('encoding   : stringToHex(uri) == toHex(TextEncoder.encode(uri))  ✅ asserted\n')
+  console.log(
+    'encoding   : stringToHex(uri) == toHex(TextEncoder.encode(uri))  ✅ asserted\n',
+  )
 
-  const onchain = await batchIsTermCreated(client, allIds, { failureMode: 'throw' })
-  const exists = (id: Hex): boolean => onchain.get(id.toLowerCase() as Hex) === true
+  const onchain = await batchIsTermCreated(client, allIds, {
+    failureMode: 'throw',
+  })
+  const exists = (id: Hex): boolean =>
+    onchain.get(id.toLowerCase() as Hex) === true
 
   const classified = rows.map((r) => {
     const regOn = exists(r.registryTermId)
@@ -180,7 +192,9 @@ async function main() {
   }
 
   // ── Other non-healthy predicates ─────────────────────────────────────────────
-  const others = classified.filter((c) => c.cls !== 'HEALTHY' && c.name !== 'has_contract_address')
+  const others = classified.filter(
+    (c) => c.cls !== 'HEALTHY' && c.name !== 'has_contract_address',
+  )
   console.log('\n=== Other non-HEALTHY predicates ===')
   if (others.length === 0) {
     console.log('(none — every other predicate is HEALTHY)')
@@ -189,9 +203,13 @@ async function main() {
       console.log(`  · ${o.name} → ${o.cls}`)
       if (o.cls === 'DATA_ERROR') {
         console.log(`      registry : ${o.registryTermId}`)
-        console.log(`      correct  : ${o.recomputeTermId}  (on-chain: ${o.recOn})`)
+        console.log(
+          `      correct  : ${o.recomputeTermId}  (on-chain: ${o.recOn})`,
+        )
       } else {
-        console.log(`      termId   : ${o.registryTermId}  (registry==recompute, not minted)`)
+        console.log(
+          `      termId   : ${o.registryTermId}  (registry==recompute, not minted)`,
+        )
       }
     }
   }

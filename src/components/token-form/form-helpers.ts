@@ -11,7 +11,8 @@ export interface SaveOpts {
   silent?: boolean
 }
 
-export type AutosaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'invalid' | 'error'
+export type AutosaveStatus =
+  'idle' | 'pending' | 'saving' | 'saved' | 'invalid' | 'error'
 
 export const SECTION_ORDER: StudioSectionKey[] = [
   'identity',
@@ -53,7 +54,10 @@ export const formatNumber = (value: string) => {
 }
 
 // Calculate token amount from percentage
-export const calculateTokenAmount = (percentage: string, maxSupply: string): string => {
+export const calculateTokenAmount = (
+  percentage: string,
+  maxSupply: string,
+): string => {
   if (!percentage || !maxSupply) return '0'
   const percentNum = parseFloat(percentage)
   // Handle both string and number for maxSupply
@@ -65,7 +69,10 @@ export const calculateTokenAmount = (percentage: string, maxSupply: string): str
 }
 
 // Calculate percentage from token amount (reverse calculation)
-export const calculatePercentage = (tokenAmount: string, maxSupply: string): string => {
+export const calculatePercentage = (
+  tokenAmount: string,
+  maxSupply: string,
+): string => {
   if (!tokenAmount || !maxSupply) return ''
   // Handle both string and number for tokenAmount
   const amountStr = String(tokenAmount).replace(/,/g, '')

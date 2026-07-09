@@ -33,10 +33,14 @@ vi.mock('@0xintuition/protocol', async () => {
   )
   return {
     ...actual,
-    multiVaultCreateAtoms: (...args: unknown[]) => mockMultiVaultCreateAtoms(...args),
-    multiVaultCreateTriples: (...args: unknown[]) => mockMultiVaultCreateTriples(...args),
-    eventParseAtomCreated: (...args: unknown[]) => mockEventParseAtomCreated(...args),
-    eventParseTripleCreated: (...args: unknown[]) => mockEventParseTripleCreated(...args),
+    multiVaultCreateAtoms: (...args: unknown[]) =>
+      mockMultiVaultCreateAtoms(...args),
+    multiVaultCreateTriples: (...args: unknown[]) =>
+      mockMultiVaultCreateTriples(...args),
+    eventParseAtomCreated: (...args: unknown[]) =>
+      mockEventParseAtomCreated(...args),
+    eventParseTripleCreated: (...args: unknown[]) =>
+      mockEventParseTripleCreated(...args),
   }
 })
 
@@ -48,8 +52,10 @@ const mockReadPublishConfig = vi.fn()
 
 vi.mock('./read-batcher', () => ({
   batchIsTermCreated: (...args: unknown[]) => mockBatchIsTermCreated(...args),
-  batchPreviewAtomCreates: (...args: unknown[]) => mockBatchPreviewAtomCreates(...args),
-  batchPreviewTripleCreates: (...args: unknown[]) => mockBatchPreviewTripleCreates(...args),
+  batchPreviewAtomCreates: (...args: unknown[]) =>
+    mockBatchPreviewAtomCreates(...args),
+  batchPreviewTripleCreates: (...args: unknown[]) =>
+    mockBatchPreviewTripleCreates(...args),
   readPublishConfig: (...args: unknown[]) => mockReadPublishConfig(...args),
 }))
 
@@ -76,10 +82,14 @@ function makeAtom(
   }
 }
 
-const SUB = '0x1111111111111111111111111111111111111111111111111111111111111111' as Hex
-const PRED = '0x2222222222222222222222222222222222222222222222222222222222222222' as Hex
-const OBJ = '0x3333333333333333333333333333333333333333333333333333333333333333' as Hex
-const TRIPLE_TERM = '0x4444444444444444444444444444444444444444444444444444444444444444' as Hex
+const SUB =
+  '0x1111111111111111111111111111111111111111111111111111111111111111' as Hex
+const PRED =
+  '0x2222222222222222222222222222222222222222222222222222222222222222' as Hex
+const OBJ =
+  '0x3333333333333333333333333333333333333333333333333333333333333333' as Hex
+const TRIPLE_TERM =
+  '0x4444444444444444444444444444444444444444444444444444444444444444' as Hex
 
 /** A triple whose three atom term ids come from the atoms created in the plan. */
 function makeTriple(
@@ -174,7 +184,9 @@ function existsMap(
 }
 
 /** Drain the generator into a list of events. */
-async function collect(gen: AsyncGenerator<PublishEvent>): Promise<PublishEvent[]> {
+async function collect(
+  gen: AsyncGenerator<PublishEvent>,
+): Promise<PublishEvent[]> {
   const events: PublishEvent[] = []
   for await (const ev of gen) {
     events.push(ev)
@@ -199,18 +211,29 @@ describe('executePublishPlan — atom phase', () => {
     it('skips an atom that the per-chunk recheck now reports as existing (no write for it) and records it confirmed', async () => {
       const atomA = makeAtom('atom:A', 'atom-A')
       const atomB = makeAtom('atom:B', 'atom-B')
-      const plan = makePlan({ atoms: { toCreate: [atomA, atomB], existing: [] } })
+      const plan = makePlan({
+        atoms: { toCreate: [atomA, atomB], existing: [] },
+      })
 
       // Deterministic by call order:
       //   call 0 = initial recheck (assumeMissing) → neither exists → both need creation
       //   call 1 = per-chunk recheck (assumeMissing) → A now exists, B still missing
       mockBatchIsTermCreated
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], [])) // initial
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], [atomA.computedTermId])) // per-chunk: A exists
+        .mockResolvedValueOnce(
+          existsMap([atomA.computedTermId, atomB.computedTermId], []),
+        ) // initial
+        .mockResolvedValueOnce(
+          existsMap(
+            [atomA.computedTermId, atomB.computedTermId],
+            [atomA.computedTermId],
+          ),
+        ) // per-chunk: A exists
 
       // Only atomB is submitted → one created event for B's term id.
       mockMultiVaultCreateAtoms.mockResolvedValue('0xtxB')
-      mockEventParseAtomCreated.mockResolvedValue([atomEvent(atomB.computedTermId)])
+      mockEventParseAtomCreated.mockResolvedValue([
+        atomEvent(atomB.computedTermId),
+      ])
 
       const events = await collect(
         executePublishPlan(plan, walletClient(), publicClient()),
@@ -242,10 +265,14 @@ describe('executePublishPlan — atom phase', () => {
     it('does NOT call multiVaultCreateAtoms when the whole chunk already exists on the per-chunk recheck', async () => {
       const atomA = makeAtom('atom:A', 'atom-A')
       const atomB = makeAtom('atom:B', 'atom-B')
-      const plan = makePlan({ atoms: { toCreate: [atomA, atomB], existing: [] } })
+      const plan = makePlan({
+        atoms: { toCreate: [atomA, atomB], existing: [] },
+      })
 
       mockBatchIsTermCreated
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], [])) // initial: none exist → both need creation
+        .mockResolvedValueOnce(
+          existsMap([atomA.computedTermId, atomB.computedTermId], []),
+        ) // initial: none exist → both need creation
         .mockResolvedValueOnce(
           existsMap(
             [atomA.computedTermId, atomB.computedTermId],
@@ -310,11 +337,20 @@ describe('executePublishPlan — atom phase', () => {
 
       mockBatchIsTermCreated
         // initial recheck: neither exists → both need creation
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], []))
+        .mockResolvedValueOnce(
+          existsMap([atomA.computedTermId, atomB.computedTermId], []),
+        )
         // per-chunk recheck: neither exists → both submitted
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], []))
+        .mockResolvedValueOnce(
+          existsMap([atomA.computedTermId, atomB.computedTermId], []),
+        )
         // post-revert recheck: A exists, B still missing
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], [atomA.computedTermId]))
+        .mockResolvedValueOnce(
+          existsMap(
+            [atomA.computedTermId, atomB.computedTermId],
+            [atomA.computedTermId],
+          ),
+        )
 
       mockMultiVaultCreateAtoms.mockRejectedValue(
         new Error('execution reverted: MultiVault_AtomExists()'),
@@ -342,7 +378,9 @@ describe('executePublishPlan — atom phase', () => {
 
       // Triples phase must NOT run.
       expect(mockMultiVaultCreateTriples).not.toHaveBeenCalled()
-      expect(events.some((e) => e.type === 'phase_start' && e.phase === 'triples')).toBe(false)
+      expect(
+        events.some((e) => e.type === 'phase_start' && e.phase === 'triples'),
+      ).toBe(false)
       // Run still terminates with a complete event.
       expect(events.some((e) => e.type === 'complete')).toBe(true)
     })
@@ -359,8 +397,12 @@ describe('executePublishPlan — atom phase', () => {
       })
 
       mockBatchIsTermCreated
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], [])) // initial: need both
-        .mockResolvedValueOnce(existsMap([atomA.computedTermId, atomB.computedTermId], [])) // per-chunk: submit both
+        .mockResolvedValueOnce(
+          existsMap([atomA.computedTermId, atomB.computedTermId], []),
+        ) // initial: need both
+        .mockResolvedValueOnce(
+          existsMap([atomA.computedTermId, atomB.computedTermId], []),
+        ) // per-chunk: submit both
         // post-revert recheck: BOTH now exist → revert was purely already-existing atoms
         .mockResolvedValueOnce(
           existsMap(
@@ -389,12 +431,18 @@ describe('executePublishPlan — atom phase', () => {
         (e) => e.type === 'chunk_success' && e.phase === 'atoms',
       )!
       expect(atomSuccess).toBeDefined()
-      expect(atomSuccess.chunkMappings!.atomMappings!.every((m) => m.status === 'confirmed')).toBe(true)
+      expect(
+        atomSuccess.chunkMappings!.atomMappings!.every(
+          (m) => m.status === 'confirmed',
+        ),
+      ).toBe(true)
       expect(events.some((e) => e.type === 'abort')).toBe(false)
 
       // Triples phase DOES run since atoms are all accounted for.
       expect(mockMultiVaultCreateTriples).toHaveBeenCalledTimes(1)
-      expect(events.some((e) => e.type === 'phase_start' && e.phase === 'triples')).toBe(true)
+      expect(
+        events.some((e) => e.type === 'phase_start' && e.phase === 'triples'),
+      ).toBe(true)
     })
   })
 
@@ -405,15 +453,23 @@ describe('executePublishPlan — atom phase', () => {
       const atomA = makeAtom('atom:A', 'atom-A')
       const plan = makePlan({ atoms: { toCreate: [atomA], existing: [] } })
 
-      mockBatchIsTermCreated.mockResolvedValue(existsMap([atomA.computedTermId], []))
+      mockBatchIsTermCreated.mockResolvedValue(
+        existsMap([atomA.computedTermId], []),
+      )
       mockMultiVaultCreateAtoms.mockResolvedValue('0xtxA')
-      mockEventParseAtomCreated.mockResolvedValue([atomEvent(atomA.computedTermId)])
+      mockEventParseAtomCreated.mockResolvedValue([
+        atomEvent(atomA.computedTermId),
+      ])
 
       await collect(executePublishPlan(plan, walletClient(), publicClient()))
 
       // Initial recheck (call 0) and per-chunk recheck (call 1) both assumeMissing.
-      const initialOpts = mockBatchIsTermCreated.mock.calls[0][2] as { failureMode: string }
-      const perChunkOpts = mockBatchIsTermCreated.mock.calls[1][2] as { failureMode: string }
+      const initialOpts = mockBatchIsTermCreated.mock.calls[0][2] as {
+        failureMode: string
+      }
+      const perChunkOpts = mockBatchIsTermCreated.mock.calls[1][2] as {
+        failureMode: string
+      }
       expect(initialOpts.failureMode).toBe('assumeMissing')
       expect(perChunkOpts.failureMode).toBe('assumeMissing')
     })
@@ -428,7 +484,9 @@ describe('executePublishPlan — atom phase', () => {
       mockBatchIsTermCreated.mockResolvedValue(new Map<Hex, boolean>())
 
       mockMultiVaultCreateAtoms.mockResolvedValue('0xtxA')
-      mockEventParseAtomCreated.mockResolvedValue([atomEvent(atomA.computedTermId)])
+      mockEventParseAtomCreated.mockResolvedValue([
+        atomEvent(atomA.computedTermId),
+      ])
 
       const events = await collect(
         executePublishPlan(plan, walletClient(), publicClient()),
@@ -445,7 +503,9 @@ describe('executePublishPlan — atom phase', () => {
       const success = events.find(
         (e) => e.type === 'chunk_success' && e.phase === 'atoms',
       )!
-      const aMapping = success.chunkMappings!.atomMappings!.find((m) => m.atomId === 'atom:A')!
+      const aMapping = success.chunkMappings!.atomMappings!.find(
+        (m) => m.atomId === 'atom:A',
+      )!
       expect(aMapping.status).toBe('confirmed')
       expect(aMapping.txHash).toBe('0xtxA')
     })
@@ -491,16 +551,24 @@ describe('executePublishPlan — triple phase TripleExists handling', () => {
 
     mockBatchIsTermCreated
       .mockResolvedValueOnce(atomsExist()) // initial atom recheck: both exist → no atom write
-      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, [])) // triple pre-write recheck: all missing → submit both
-      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, [termIds[0]])) // post-revert: first exists, rest missing
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) =>
+        existsMap(termIds, []),
+      ) // triple pre-write recheck: all missing → submit both
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) =>
+        existsMap(termIds, [termIds[0]]),
+      ) // post-revert: first exists, rest missing
 
     mockMultiVaultCreateTriples.mockRejectedValue(
       new Error('execution reverted: MultiVault_TripleExists()'),
     )
 
-    const events = await collect(executePublishPlan(plan, walletClient(), publicClient()))
+    const events = await collect(
+      executePublishPlan(plan, walletClient(), publicClient()),
+    )
 
-    const failed = events.find((e) => e.type === 'chunk_failed' && e.phase === 'triples')!
+    const failed = events.find(
+      (e) => e.type === 'chunk_failed' && e.phase === 'triples',
+    )!
     expect(failed).toBeDefined()
     const mappings = failed.chunkMappings!.claimMappings!
     expect(mappings).toHaveLength(2)
@@ -509,12 +577,18 @@ describe('executePublishPlan — triple phase TripleExists handling', () => {
 
     // The confirmed one is exactly the triple the post-revert recheck reported as
     // existing (termIds[0] = first submitted = triple:1); the other really failed.
-    expect(mappings.find((m) => m.status === 'confirmed')!.tripleId).toBe('triple:1')
-    expect(mappings.find((m) => m.status === 'failed')!.tripleId).toBe('triple:2')
+    expect(mappings.find((m) => m.status === 'confirmed')!.tripleId).toBe(
+      'triple:1',
+    )
+    expect(mappings.find((m) => m.status === 'failed')!.tripleId).toBe(
+      'triple:2',
+    )
 
     // The post-revert recheck itself must use assumeMissing: a read failure there
     // must fail the triple, not silently confirm it.
-    const postRevertOpts = mockBatchIsTermCreated.mock.calls[2][2] as { failureMode: string }
+    const postRevertOpts = mockBatchIsTermCreated.mock.calls[2][2] as {
+      failureMode: string
+    }
     expect(postRevertOpts.failureMode).toBe('assumeMissing')
 
     // The triples phase does NOT abort; the run completes.
@@ -527,19 +601,33 @@ describe('executePublishPlan — triple phase TripleExists handling', () => {
 
     mockBatchIsTermCreated
       .mockResolvedValueOnce(atomsExist())
-      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, [])) // submit both
-      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, termIds)) // post-revert: ALL exist
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) =>
+        existsMap(termIds, []),
+      ) // submit both
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) =>
+        existsMap(termIds, termIds),
+      ) // post-revert: ALL exist
 
     mockMultiVaultCreateTriples.mockRejectedValue(
       new Error('execution reverted: MultiVault_TripleExists()'),
     )
 
-    const events = await collect(executePublishPlan(plan, walletClient(), publicClient()))
+    const events = await collect(
+      executePublishPlan(plan, walletClient(), publicClient()),
+    )
 
-    const success = events.find((e) => e.type === 'chunk_success' && e.phase === 'triples')!
+    const success = events.find(
+      (e) => e.type === 'chunk_success' && e.phase === 'triples',
+    )!
     expect(success).toBeDefined()
-    expect(success.chunkMappings!.claimMappings!.every((m) => m.status === 'confirmed')).toBe(true)
-    expect(events.some((e) => e.type === 'chunk_failed' && e.phase === 'triples')).toBe(false)
+    expect(
+      success.chunkMappings!.claimMappings!.every(
+        (m) => m.status === 'confirmed',
+      ),
+    ).toBe(true)
+    expect(
+      events.some((e) => e.type === 'chunk_failed' && e.phase === 'triples'),
+    ).toBe(false)
     expect(events.some((e) => e.type === 'complete')).toBe(true)
   })
 
@@ -548,12 +636,16 @@ describe('executePublishPlan — triple phase TripleExists handling', () => {
 
     mockBatchIsTermCreated
       .mockResolvedValueOnce(atomsExist())
-      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) => existsMap(termIds, termIds)) // all exist → nothing submitted
+      .mockImplementationOnce(async (_c: unknown, termIds: Hex[]) =>
+        existsMap(termIds, termIds),
+      ) // all exist → nothing submitted
 
     await collect(executePublishPlan(plan, walletClient(), publicClient()))
 
     // call 0 = atom initial recheck; call 1 = triple pre-write recheck.
-    const tripleRecheckOpts = mockBatchIsTermCreated.mock.calls[1][2] as { failureMode: string }
+    const tripleRecheckOpts = mockBatchIsTermCreated.mock.calls[1][2] as {
+      failureMode: string
+    }
     expect(tripleRecheckOpts.failureMode).toBe('assumeMissing')
     expect(mockMultiVaultCreateTriples).not.toHaveBeenCalled()
   })

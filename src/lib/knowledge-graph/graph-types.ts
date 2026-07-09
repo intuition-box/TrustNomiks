@@ -23,27 +23,27 @@ export type AtomType =
   | 'sector'
   | 'chain'
   | 'predicate' // on-chain-only: rendered in the run drill-down when not confirmed
-  | 'literal'   // on-chain-only: rendered in the run drill-down when not confirmed
+  | 'literal' // on-chain-only: rendered in the run drill-down when not confirmed
 
 export type NodeType = AtomType | 'triple' | 'graph_root'
 
 export const NODE_FAMILY_MAP: Record<NodeType, NodeFamily> = {
-  token:       'atom',
-  allocation:  'atom',
-  vesting:     'atom',
-  emission:    'atom',
-  risk_flag:   'atom',
+  token: 'atom',
+  allocation: 'atom',
+  vesting: 'atom',
+  emission: 'atom',
+  risk_flag: 'atom',
   data_source: 'source',
-  export_run:  'hub',
+  export_run: 'hub',
   application: 'hub',
-  wallet:      'atom',
-  category:    'atom',
-  sector:      'atom',
-  chain:       'atom',
-  predicate:   'atom',
-  literal:     'atom',
-  triple:      'triple',
-  graph_root:  'hub',
+  wallet: 'atom',
+  category: 'atom',
+  sector: 'atom',
+  chain: 'atom',
+  predicate: 'atom',
+  literal: 'atom',
+  triple: 'triple',
+  graph_root: 'hub',
 }
 
 // ── Graph primitives ────────────────────────────────────────────────────────

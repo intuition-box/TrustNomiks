@@ -20,7 +20,11 @@
  *    `metadata.onChain.status` so the canvas can color accordingly.
  */
 
-import type { GraphNode, GraphEdge, NodeType } from '@/lib/knowledge-graph/graph-types'
+import type {
+  GraphNode,
+  GraphEdge,
+  NodeType,
+} from '@/lib/knowledge-graph/graph-types'
 import { NODE_FAMILY_MAP } from '@/lib/knowledge-graph/graph-types'
 import type {
   RunDetailMeta,
@@ -129,7 +133,9 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
   }
 
   const canonicalAtomsById = new Map(canonicalAtoms.map((a) => [a.atom_id, a]))
-  const canonicalTriplesById = new Map(canonicalTriples.map((t) => [t.triple_id, t]))
+  const canonicalTriplesById = new Map(
+    canonicalTriples.map((t) => [t.triple_id, t]),
+  )
   const atomByAtomId = new Map(atomMappings.map((a) => [a.atomId, a]))
 
   // term_id → atom_id lookup. Comparisons are case-insensitive because
@@ -149,7 +155,8 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
 
     // Hide internal atoms (predicate / literal) ONLY when confirmed —
     // on the happy path they are noise, but failures must stay visible.
-    if (INTERNAL_ATOM_TYPES.has(am.atomType) && am.status === 'confirmed') continue
+    if (INTERNAL_ATOM_TYPES.has(am.atomType) && am.status === 'confirmed')
+      continue
 
     const nodeType = ATOM_TYPE_TO_NODE_TYPE[am.atomType]
     if (!nodeType) {
@@ -174,7 +181,6 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
       },
     })
     nodeIds.add(am.atomId)
-
   }
 
   if (!nodeIds.has(tokenAtomId)) {
@@ -201,22 +207,32 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     const canonical = canonicalTriplesById.get(cm.tripleId)
 
     const subjectAtomId =
-      canonical?.subject_id ?? termIdToAtomId.get(cm.subjectTermId.toLowerCase())
+      canonical?.subject_id ??
+      termIdToAtomId.get(cm.subjectTermId.toLowerCase())
     const objectAtomId =
       canonical?.object_id ?? termIdToAtomId.get(cm.objectTermId.toLowerCase())
 
     const predicateAtomId = termIdToAtomId.get(cm.predicateTermId.toLowerCase())
-    const predicateMapping = predicateAtomId ? atomByAtomId.get(predicateAtomId) : undefined
+    const predicateMapping = predicateAtomId
+      ? atomByAtomId.get(predicateAtomId)
+      : undefined
     const predicateLabel =
-      canonical?.predicate ?? predicateMapping?.normalizedData ?? '(unknown predicate)'
+      canonical?.predicate ??
+      predicateMapping?.normalizedData ??
+      '(unknown predicate)'
 
-    const objectMapping = objectAtomId ? atomByAtomId.get(objectAtomId) : undefined
+    const objectMapping = objectAtomId
+      ? atomByAtomId.get(objectAtomId)
+      : undefined
     const isLiteralTriple =
       canonical?.object_id == null &&
-      (canonical?.object_literal != null || objectMapping?.atomType === 'literal')
+      (canonical?.object_literal != null ||
+        objectMapping?.atomType === 'literal')
     const objectLiteralValue =
       canonical?.object_literal ??
-      (objectMapping?.atomType === 'literal' ? objectMapping.normalizedData : null)
+      (objectMapping?.atomType === 'literal'
+        ? objectMapping.normalizedData
+        : null)
 
     if (!subjectAtomId || !nodeIds.has(subjectAtomId)) {
       diagnostics.triplesSkippedMissingSubject += 1
@@ -291,8 +307,10 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
     const provNodeId = `provenance:${relation}:${pm.tripleId}:${pm.sourceAtomId}`
     if (nodeIds.has(provNodeId)) continue
     nodeIds.add(provNodeId)
-    const subjectNodeId = relation === 'includes_claim' ? pm.sourceAtomId : pm.tripleId
-    const objectNodeId = relation === 'includes_claim' ? pm.tripleId : pm.sourceAtomId
+    const subjectNodeId =
+      relation === 'includes_claim' ? pm.sourceAtomId : pm.tripleId
+    const objectNodeId =
+      relation === 'includes_claim' ? pm.tripleId : pm.sourceAtomId
 
     nodes.push({
       id: provNodeId,
@@ -306,7 +324,8 @@ export function buildRunGraph(input: BuildRunGraphInput): BuildRunGraphResult {
         subject_id: subjectNodeId,
         object_id: objectNodeId,
         object_literal: null,
-        claim_group: relation === 'includes_claim' ? 'export_membership' : 'provenance',
+        claim_group:
+          relation === 'includes_claim' ? 'export_membership' : 'provenance',
         origin_row_id: null,
         isProvenance: relation === 'based_on',
         isExportMembership: relation === 'includes_claim',

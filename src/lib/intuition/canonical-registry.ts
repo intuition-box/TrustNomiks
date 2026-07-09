@@ -56,12 +56,14 @@ export function getCanonicalRegistry(): CanonicalRegistry {
 }
 
 /** Lookup a predicate by its internal snake_case key. Throws if missing. */
-export function getCanonicalPredicate(internalKey: string): CanonicalPredicateEntry {
+export function getCanonicalPredicate(
+  internalKey: string,
+): CanonicalPredicateEntry {
   const entry = REGISTRY.predicates[internalKey]
   if (!entry) {
     throw new Error(
       `[canonical-registry] predicate "${internalKey}" missing from registry. ` +
-      `Add it to PREDICATE_MAP and run \`npm run intuition:pin-predicates\`.`,
+        `Add it to PREDICATE_MAP and run \`npm run intuition:pin-predicates\`.`,
     )
   }
   return entry

@@ -5,8 +5,8 @@ import type { RawBundle } from './bundle-builder'
 // Mock @0xintuition/sdk
 vi.mock('@0xintuition/sdk', () => ({
   calculateAtomId: vi.fn((data: Hex) => data),
-  calculateTripleId: vi.fn((s: Hex, p: Hex, o: Hex) =>
-    `${s}${p}${o}`.slice(0, 66) as Hex,
+  calculateTripleId: vi.fn(
+    (s: Hex, p: Hex, o: Hex) => `${s}${p}${o}`.slice(0, 66) as Hex,
   ),
 }))
 
@@ -18,8 +18,10 @@ const mockReadPublishConfig = vi.fn()
 
 vi.mock('./read-batcher', () => ({
   batchIsTermCreated: (...args: unknown[]) => mockBatchIsTermCreated(...args),
-  batchPreviewAtomCreates: (...args: unknown[]) => mockBatchPreviewAtomCreates(...args),
-  batchPreviewTripleCreates: (...args: unknown[]) => mockBatchPreviewTripleCreates(...args),
+  batchPreviewAtomCreates: (...args: unknown[]) =>
+    mockBatchPreviewAtomCreates(...args),
+  batchPreviewTripleCreates: (...args: unknown[]) =>
+    mockBatchPreviewTripleCreates(...args),
   readPublishConfig: (...args: unknown[]) => mockReadPublishConfig(...args),
 }))
 
@@ -27,9 +29,12 @@ import { resolveExistence } from './existence-resolver'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-const TERM_A = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1' as Hex
-const TERM_B = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1' as Hex
-const TERM_C = '0xccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1' as Hex
+const TERM_A =
+  '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1' as Hex
+const TERM_B =
+  '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1' as Hex
+const TERM_C =
+  '0xccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1' as Hex
 
 function makeBundle(): RawBundle {
   return {
@@ -42,9 +47,21 @@ function makeBundle(): RawBundle {
       normalizedData: 'export:run-1',
     },
     atoms: [
-      { atomId: 'atom:token:TestCoin', atomType: 'token', normalizedData: 'token:TestCoin' },
-      { atomId: 'atom:predicate:has_name', atomType: 'predicate', normalizedData: 'predicate:has_name' },
-      { atomId: 'atom:literal:TestCoin', atomType: 'literal', normalizedData: 'literal:TestCoin' },
+      {
+        atomId: 'atom:token:TestCoin',
+        atomType: 'token',
+        normalizedData: 'token:TestCoin',
+      },
+      {
+        atomId: 'atom:predicate:has_name',
+        atomType: 'predicate',
+        normalizedData: 'predicate:has_name',
+      },
+      {
+        atomId: 'atom:literal:TestCoin',
+        atomType: 'literal',
+        normalizedData: 'literal:TestCoin',
+      },
     ],
     triples: [
       {
@@ -71,13 +88,15 @@ describe('resolveExistence', () => {
     vi.clearAllMocks()
 
     // Default mock: return false for all queried termIds (nothing exists yet)
-    mockBatchIsTermCreated.mockImplementation(async (_client: unknown, termIds: Hex[]) => {
-      const map = new Map<Hex, boolean>()
-      for (const id of termIds) {
-        map.set((id as string).toLowerCase() as Hex, false)
-      }
-      return map
-    })
+    mockBatchIsTermCreated.mockImplementation(
+      async (_client: unknown, termIds: Hex[]) => {
+        const map = new Map<Hex, boolean>()
+        for (const id of termIds) {
+          map.set((id as string).toLowerCase() as Hex, false)
+        }
+        return map
+      },
+    )
     mockReadPublishConfig.mockResolvedValue({
       atomCost: BigInt('400000000000000'),
       tripleCost: BigInt('400000000000000'),
@@ -116,16 +135,18 @@ describe('resolveExistence', () => {
     // The mock SDK passes through the data as the term ID
     // So term IDs are the encoded normalizedData strings
     // Mock: first atom exists, others don't
-    mockBatchIsTermCreated.mockImplementation(async (_client: unknown, termIds: Hex[]) => {
-      const map = new Map<Hex, boolean>()
-      for (const id of termIds) {
-        map.set(id.toLowerCase() as Hex, false)
-      }
-      // Mark the first one as existing
-      const firstKey = (termIds[0] as string).toLowerCase() as Hex
-      map.set(firstKey, true)
-      return map
-    })
+    mockBatchIsTermCreated.mockImplementation(
+      async (_client: unknown, termIds: Hex[]) => {
+        const map = new Map<Hex, boolean>()
+        for (const id of termIds) {
+          map.set(id.toLowerCase() as Hex, false)
+        }
+        // Mark the first one as existing
+        const firstKey = (termIds[0] as string).toLowerCase() as Hex
+        map.set(firstKey, true)
+        return map
+      },
+    )
 
     const plan = await resolveExistence(makeBundle(), publicClient())
 
@@ -141,7 +162,8 @@ describe('resolveExistence', () => {
 
     // Second batchIsTermCreated call should be for triples
     const tripleCallArgs = mockBatchIsTermCreated.mock.calls.find(
-      (call: unknown[]) => (call[2] as Record<string, string>)?.failureMode === 'assumeMissing',
+      (call: unknown[]) =>
+        (call[2] as Record<string, string>)?.failureMode === 'assumeMissing',
     )
     expect(tripleCallArgs).toBeDefined()
   })
@@ -154,7 +176,8 @@ describe('resolveExistence', () => {
     // Only atom batchIsTermCreated should have been called
     const calls = mockBatchIsTermCreated.mock.calls
     const tripleCalls = calls.filter(
-      (call: unknown[]) => (call[2] as Record<string, string>)?.failureMode === 'assumeMissing',
+      (call: unknown[]) =>
+        (call[2] as Record<string, string>)?.failureMode === 'assumeMissing',
     )
     expect(tripleCalls).toHaveLength(0)
   })
@@ -269,7 +292,9 @@ describe('resolveExistence', () => {
     const plan = await resolveExistence(bundle, publicClient())
 
     // triple:2 should have exists=false and zero termIds
-    const brokenTriple = plan.triples.toCreate.find((t) => t.tripleId === 'triple:2')
+    const brokenTriple = plan.triples.toCreate.find(
+      (t) => t.tripleId === 'triple:2',
+    )
     expect(brokenTriple).toBeDefined()
     expect(brokenTriple!.exists).toBe(false)
     expect(brokenTriple!.computedTripleTermId).toBe('0x0')

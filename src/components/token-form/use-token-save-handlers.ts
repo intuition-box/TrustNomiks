@@ -86,20 +86,28 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     autosaveActiveRef,
   } = state
 
-  const handleRpcError = (error: { code?: string; message?: string }): boolean => {
+  const handleRpcError = (error: {
+    code?: string
+    message?: string
+  }): boolean => {
     if (error.message?.includes('FORBIDDEN') || error.code === '42501') {
       toast.error('You do not have permission to modify this token.')
       return true
     }
     if (error.message?.includes('CONFLICT') || error.code === '40001') {
-      toast.error('This token was modified by someone else. Please refresh and try again.')
+      toast.error(
+        'This token was modified by someone else. Please refresh and try again.',
+      )
       return true
     }
     return false
   }
 
   // Save Step 1 and create/update token
-  const onSubmitStep1 = async (data: TokenIdentityFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep1 = async (
+    data: TokenIdentityFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     try {
       setLoading(true)
 
@@ -111,9 +119,12 @@ export function useTokenSaveHandlers(state: TokenFormState) {
 
       const normalizedCategory = toSupportedCategory(data.category)
       const normalizedSector = toSupportedSector(data.sector)
-      const safeSector = normalizedCategory && normalizedSector && isSectorCompatibleWithCategory(normalizedCategory, normalizedSector)
-        ? normalizedSector
-        : null
+      const safeSector =
+        normalizedCategory &&
+        normalizedSector &&
+        isSectorCompatibleWithCategory(normalizedCategory, normalizedSector)
+          ? normalizedSector
+          : null
 
       if (isEditMode && tokenId) {
         // Update existing token - check for concurrent modifications
@@ -128,8 +139,14 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           return false
         }
 
-        if (currentToken && initialUpdatedAt && currentToken.updated_at !== initialUpdatedAt) {
-          toast.error('This token was modified by someone else. Please refresh and try again.')
+        if (
+          currentToken &&
+          initialUpdatedAt &&
+          currentToken.updated_at !== initialUpdatedAt
+        ) {
+          toast.error(
+            'This token was modified by someone else. Please refresh and try again.',
+          )
           return false
         }
 
@@ -190,12 +207,18 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       setTgeDate(data.tge_date)
       calculateCompletedSteps()
       if (!opts.silent) {
-        toast.success(isEditMode ? 'Identity updated' : 'Token created. All sections are open.')
+        toast.success(
+          isEditMode
+            ? 'Identity updated'
+            : 'Token created. All sections are open.',
+        )
       }
       return true
     } catch (error: unknown) {
       console.error('Error saving token:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save token')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to save token',
+      )
       return false
     } finally {
       setLoading(false)
@@ -203,7 +226,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   }
 
   // Save Step 2 - Supply Metrics
-  const onSubmitStep2 = async (data: SupplyMetricsFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep2 = async (
+    data: SupplyMetricsFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     if (!tokenId) {
       toast.error('Save the token identity first.')
       return false
@@ -216,26 +242,37 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       setMaxSupply(data.max_supply || '')
 
       // Convert string numbers to bigint strings
-      const maxSupplyNum = data.max_supply ? BigInt(data.max_supply.replace(/,/g, '')) : null
-      const initialSupply = data.initial_supply ? BigInt(data.initial_supply.replace(/,/g, '')) : null
-      const tgeSupply = data.tge_supply ? BigInt(data.tge_supply.replace(/,/g, '')) : null
+      const maxSupplyNum = data.max_supply
+        ? BigInt(data.max_supply.replace(/,/g, ''))
+        : null
+      const initialSupply = data.initial_supply
+        ? BigInt(data.initial_supply.replace(/,/g, ''))
+        : null
+      const tgeSupply = data.tge_supply
+        ? BigInt(data.tge_supply.replace(/,/g, ''))
+        : null
       const circulatingSupply = data.circulating_supply
         ? BigInt(data.circulating_supply.replace(/,/g, ''))
         : null
 
-      const { data: newUpdatedAt, error } = await supabase.rpc('save_supply_metrics_tx', {
-        p_token_id: tokenId,
-        p_metrics: {
-          max_supply: maxSupplyNum ? maxSupplyNum.toString() : null,
-          initial_supply: initialSupply ? initialSupply.toString() : null,
-          tge_supply: tgeSupply ? tgeSupply.toString() : null,
-          circulating_supply: circulatingSupply ? circulatingSupply.toString() : null,
-          circulating_date: data.circulating_date || null,
-          source_url: data.source_url || null,
-          notes: data.notes || null,
+      const { data: newUpdatedAt, error } = await supabase.rpc(
+        'save_supply_metrics_tx',
+        {
+          p_token_id: tokenId,
+          p_metrics: {
+            max_supply: maxSupplyNum ? maxSupplyNum.toString() : null,
+            initial_supply: initialSupply ? initialSupply.toString() : null,
+            tge_supply: tgeSupply ? tgeSupply.toString() : null,
+            circulating_supply: circulatingSupply
+              ? circulatingSupply.toString()
+              : null,
+            circulating_date: data.circulating_date || null,
+            source_url: data.source_url || null,
+            notes: data.notes || null,
+          },
+          p_expected_updated_at: initialUpdatedAt,
         },
-        p_expected_updated_at: initialUpdatedAt,
-      })
+      )
 
       if (error) {
         if (handleRpcError(error)) return false
@@ -249,7 +286,11 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       return true
     } catch (error: unknown) {
       console.error('Error saving supply metrics:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save supply metrics')
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to save supply metrics',
+      )
       return false
     } finally {
       setLoading(false)
@@ -257,7 +298,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   }
 
   // Save Step 3 - Allocations
-  const onSubmitStep3 = async (data: AllocationsFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep3 = async (
+    data: AllocationsFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     if (!tokenId) {
       toast.error('Save the token identity first.')
       return false
@@ -266,37 +310,52 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     try {
       setLoading(true)
 
-      const segmentsPayload = data.segments.map(segment => ({
+      const segmentsPayload = data.segments.map((segment) => ({
         id: segment.id || null,
         segment_type: toSupportedSegmentType(segment.segment_type),
         label: segment.label,
         percentage: parseFloat(segment.percentage),
-        token_amount: segment.token_amount ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString() : null,
+        token_amount: segment.token_amount
+          ? BigInt(String(segment.token_amount).replace(/,/g, '')).toString()
+          : null,
         wallet_address: segment.wallet_address || null,
       }))
 
       // Pre-compute completeness for atomic save
       const s1 = step1Form.getValues()
       const s2 = step2Form.getValues()
-      const s3Total = data.segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+      const s3Total = data.segments.reduce(
+        (t, s) => t + (parseFloat(s.percentage) || 0),
+        0,
+      )
       const clusterScoresStep3 = {
         identity: 10 + (s1.contract_address ? 5 : 0) + (s1.tge_date ? 5 : 0),
-        supply: s2.max_supply ? 10 + ((s2.initial_supply || s2.tge_supply) ? 5 : 0) : 0,
-        allocation: (data.segments.length >= 3 ? 10 : 0) + (Math.abs(s3Total - 100) < 0.01 ? 10 : 0),
+        supply: s2.max_supply
+          ? 10 + (s2.initial_supply || s2.tge_supply ? 5 : 0)
+          : 0,
+        allocation:
+          (data.segments.length >= 3 ? 10 : 0) +
+          (Math.abs(s3Total - 100) < 0.01 ? 10 : 0),
         vesting: 0,
       }
       const completeness = Math.min(
-        clusterScoresStep3.identity + clusterScoresStep3.supply + clusterScoresStep3.allocation + clusterScoresStep3.vesting,
-        100
+        clusterScoresStep3.identity +
+          clusterScoresStep3.supply +
+          clusterScoresStep3.allocation +
+          clusterScoresStep3.vesting,
+        100,
       )
 
-      const { data: rpcResult, error } = await supabase.rpc('save_allocations_tx', {
-        p_token_id: tokenId,
-        p_segments: segmentsPayload,
-        p_expected_updated_at: initialUpdatedAt,
-        p_completeness: completeness,
-        p_cluster_scores: clusterScoresStep3,
-      })
+      const { data: rpcResult, error } = await supabase.rpc(
+        'save_allocations_tx',
+        {
+          p_token_id: tokenId,
+          p_segments: segmentsPayload,
+          p_expected_updated_at: initialUpdatedAt,
+          p_completeness: completeness,
+          p_cluster_scores: clusterScoresStep3,
+        },
+      )
 
       if (error) {
         if (handleRpcError(error)) return false
@@ -306,14 +365,23 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       setInitialUpdatedAt(rpcResult.updated_at)
 
       // Refresh allocations state from RPC result
-      const allocationsWithIds = (rpcResult.segments || []).map((alloc: { id: string; segment_type: string; label: string; percentage: number; token_amount: string | null; wallet_address: string | null }) => ({
-        id: alloc.id,
-        segment_type: toSupportedSegmentType(alloc.segment_type),
-        label: alloc.label,
-        percentage: alloc.percentage.toString(),
-        token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
-        wallet_address: alloc.wallet_address || '',
-      }))
+      const allocationsWithIds = (rpcResult.segments || []).map(
+        (alloc: {
+          id: string
+          segment_type: string
+          label: string
+          percentage: number
+          token_amount: string | null
+          wallet_address: string | null
+        }) => ({
+          id: alloc.id,
+          segment_type: toSupportedSegmentType(alloc.segment_type),
+          label: alloc.label,
+          percentage: alloc.percentage.toString(),
+          token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
+          wallet_address: alloc.wallet_address || '',
+        }),
+      )
       setAllocations(allocationsWithIds)
 
       // Sync DB-issued ids back into the form rows (matched by label + type).
@@ -339,7 +407,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       })
 
       // Read-only: fetch vesting data for Step 4 form rebuild
-      const allocationIds = (rpcResult.segments || []).map((s: { id: string }) => s.id)
+      const allocationIds = (rpcResult.segments || []).map(
+        (s: { id: string }) => s.id,
+      )
       const { data: vestingData } = await supabase
         .from('vesting_schedules')
         .select('*')
@@ -347,17 +417,25 @@ export function useTokenSaveHandlers(state: TokenFormState) {
 
       step4Form.reset({
         schedules: buildStep4Schedules(
-          (rpcResult.segments || []).map((alloc: { id: string; segment_type: string }) => ({ id: alloc.id, segment_type: alloc.segment_type })),
-          vestingData || []
+          (rpcResult.segments || []).map(
+            (alloc: { id: string; segment_type: string }) => ({
+              id: alloc.id,
+              segment_type: alloc.segment_type,
+            }),
+          ),
+          vestingData || [],
         ),
       })
 
       calculateCompletedSteps()
-      if (!opts.silent) toast.success('Allocations saved. Vesting builds on these segments.')
+      if (!opts.silent)
+        toast.success('Allocations saved. Vesting builds on these segments.')
       return true
     } catch (error: unknown) {
       console.error('Error saving allocations:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save allocations')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to save allocations',
+      )
       return false
     } finally {
       setLoading(false)
@@ -365,7 +443,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   }
 
   // Save Step 4 - Vesting Schedules
-  const onSubmitStep4 = async (data: VestingSchedulesFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep4 = async (
+    data: VestingSchedulesFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     if (!tokenId) {
       toast.error('Save the token identity first.')
       return false
@@ -374,39 +455,59 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     try {
       setLoading(true)
 
-      const allocationIds = allocations.map(a => a.id)
+      const allocationIds = allocations.map((a) => a.id)
 
-      const schedulesToSave = Object.entries(data.schedules).map(([allocationId, schedule]) => ({
-        allocation_id: allocationId,
-        cliff_months: schedule.cliff_months ? parseInt(schedule.cliff_months) : 0,
-        duration_months: schedule.duration_months ? parseInt(schedule.duration_months) : 0,
-        frequency: normalizeVestingFrequency(schedule.frequency),
-        tge_percentage: schedule.tge_percentage ? parseFloat(schedule.tge_percentage) : 0,
-        cliff_unlock_percentage: schedule.cliff_unlock_percentage ? parseFloat(schedule.cliff_unlock_percentage) : 0,
-        notes: schedule.notes || null,
-      }))
+      const schedulesToSave = Object.entries(data.schedules).map(
+        ([allocationId, schedule]) => ({
+          allocation_id: allocationId,
+          cliff_months: schedule.cliff_months
+            ? parseInt(schedule.cliff_months)
+            : 0,
+          duration_months: schedule.duration_months
+            ? parseInt(schedule.duration_months)
+            : 0,
+          frequency: normalizeVestingFrequency(schedule.frequency),
+          tge_percentage: schedule.tge_percentage
+            ? parseFloat(schedule.tge_percentage)
+            : 0,
+          cliff_unlock_percentage: schedule.cliff_unlock_percentage
+            ? parseFloat(schedule.cliff_unlock_percentage)
+            : 0,
+          notes: schedule.notes || null,
+        }),
+      )
 
       // Pre-compute completeness for atomic save
       const s1v = step1Form.getValues()
       const s2v = step2Form.getValues()
       const s3v = step3Form.getValues()
-      const s3TotalV = s3v.segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+      const s3TotalV = s3v.segments.reduce(
+        (t, s) => t + (parseFloat(s.percentage) || 0),
+        0,
+      )
       const clusterScoresStep4 = {
         identity: 10 + (s1v.contract_address ? 5 : 0) + (s1v.tge_date ? 5 : 0),
-        supply: s2v.max_supply ? 10 + ((s2v.initial_supply || s2v.tge_supply) ? 5 : 0) : 0,
-        allocation: (s3v.segments.length >= 3 ? 10 : 0) + (Math.abs(s3TotalV - 100) < 0.01 ? 10 : 0),
+        supply: s2v.max_supply
+          ? 10 + (s2v.initial_supply || s2v.tge_supply ? 5 : 0)
+          : 0,
+        allocation:
+          (s3v.segments.length >= 3 ? 10 : 0) +
+          (Math.abs(s3TotalV - 100) < 0.01 ? 10 : 0),
         vesting: 20,
       }
       const completeness = calculateCompleteness(s1v, s2v, s3v) + 20
 
-      const { data: newUpdatedAt, error } = await supabase.rpc('save_vesting_schedules_tx', {
-        p_token_id: tokenId,
-        p_allocation_ids: allocationIds,
-        p_schedules: schedulesToSave,
-        p_expected_updated_at: initialUpdatedAt,
-        p_completeness: Math.min(completeness, 100),
-        p_cluster_scores: clusterScoresStep4,
-      })
+      const { data: newUpdatedAt, error } = await supabase.rpc(
+        'save_vesting_schedules_tx',
+        {
+          p_token_id: tokenId,
+          p_allocation_ids: allocationIds,
+          p_schedules: schedulesToSave,
+          p_expected_updated_at: initialUpdatedAt,
+          p_completeness: Math.min(completeness, 100),
+          p_cluster_scores: clusterScoresStep4,
+        },
+      )
 
       if (error) {
         if (handleRpcError(error)) return false
@@ -423,13 +524,23 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       const pgError = error as { code?: string; message?: string } | null
       if (
         pgError?.code === '23514' &&
-        String(pgError?.message || '').includes('vesting_schedules_frequency_check')
+        String(pgError?.message || '').includes(
+          'vesting_schedules_frequency_check',
+        )
       ) {
-        toast.error('Database schema is outdated: apply the vesting frequency migration (yearly).')
+        toast.error(
+          'Database schema is outdated: apply the vesting frequency migration (yearly).',
+        )
       } else if (pgError?.message?.includes('CONFLICT')) {
-        toast.error('This token was modified by someone else. Please refresh and try again.')
+        toast.error(
+          'This token was modified by someone else. Please refresh and try again.',
+        )
       } else {
-        toast.error(error instanceof Error ? error.message : 'Failed to save vesting schedules')
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Failed to save vesting schedules',
+        )
       }
       return false
     } finally {
@@ -438,7 +549,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   }
 
   // Save Step 5 - Emission Model
-  const onSubmitStep5 = async (data: EmissionModelFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep5 = async (
+    data: EmissionModelFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     if (!tokenId) {
       toast.error('Save the token identity first.')
       return false
@@ -448,27 +562,33 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       setLoading(true)
 
       // Prepare inflation schedule as JSONB
-      const inflationSchedule = data.inflation_schedule && data.inflation_schedule.length > 0
-        ? data.inflation_schedule.map(item => ({
-            year: parseInt(item.year),
-            rate: parseFloat(item.rate)
-          }))
-        : null
+      const inflationSchedule =
+        data.inflation_schedule && data.inflation_schedule.length > 0
+          ? data.inflation_schedule.map((item) => ({
+              year: parseInt(item.year),
+              rate: parseFloat(item.rate),
+            }))
+          : null
 
-      const { data: newUpdatedAt, error } = await supabase.rpc('save_emission_model_tx', {
-        p_token_id: tokenId,
-        p_model: {
-          type: data.type,
-          annual_inflation_rate: data.annual_inflation_rate ? parseFloat(data.annual_inflation_rate) : null,
-          inflation_schedule: inflationSchedule,
-          has_burn: data.has_burn || false,
-          burn_details: data.burn_details || null,
-          has_buyback: data.has_buyback || false,
-          buyback_details: data.buyback_details || null,
-          notes: data.notes || null,
+      const { data: newUpdatedAt, error } = await supabase.rpc(
+        'save_emission_model_tx',
+        {
+          p_token_id: tokenId,
+          p_model: {
+            type: data.type,
+            annual_inflation_rate: data.annual_inflation_rate
+              ? parseFloat(data.annual_inflation_rate)
+              : null,
+            inflation_schedule: inflationSchedule,
+            has_burn: data.has_burn || false,
+            burn_details: data.burn_details || null,
+            has_buyback: data.has_buyback || false,
+            buyback_details: data.buyback_details || null,
+            notes: data.notes || null,
+          },
+          p_expected_updated_at: initialUpdatedAt,
         },
-        p_expected_updated_at: initialUpdatedAt,
-      })
+      )
 
       if (error) {
         if (handleRpcError(error)) return false
@@ -482,7 +602,11 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       return true
     } catch (error: unknown) {
       console.error('Error saving emission model:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save emission model')
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to save emission model',
+      )
       return false
     } finally {
       setLoading(false)
@@ -491,7 +615,17 @@ export function useTokenSaveHandlers(state: TokenFormState) {
 
   // Calculate final completeness score with an explicit source count
   // Used by Step 6 to compute scores BEFORE the RPC saves the new sources
-  const calculateFinalCompletenessWithSourceCount = async (sourcesCount: number): Promise<{ totalScore: number; clusterScores: { identity: number; supply: number; allocation: number; vesting: number } }> => {
+  const calculateFinalCompletenessWithSourceCount = async (
+    sourcesCount: number,
+  ): Promise<{
+    totalScore: number
+    clusterScores: {
+      identity: number
+      supply: number
+      allocation: number
+      vesting: number
+    }
+  }> => {
     try {
       const { data: tokenData } = await supabase
         .from('tokens')
@@ -499,7 +633,11 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         .eq('id', tokenId)
         .single()
 
-      if (!tokenData) return { totalScore: 0, clusterScores: { identity: 0, supply: 0, allocation: 0, vesting: 0 } }
+      if (!tokenData)
+        return {
+          totalScore: 0,
+          clusterScores: { identity: 0, supply: 0, allocation: 0, vesting: 0 },
+        }
 
       const { data: supplyData } = await supabase
         .from('supply_metrics')
@@ -515,7 +653,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       const { data: vestingData } = await supabase
         .from('vesting_schedules')
         .select('*')
-        .in('allocation_id', allocData?.map(a => a.id) || [])
+        .in('allocation_id', allocData?.map((a) => a.id) || [])
 
       const { data: emissionData } = await supabase
         .from('emission_models')
@@ -533,12 +671,18 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       })
     } catch (error) {
       console.error('Error calculating completeness:', error)
-      return { totalScore: 0, clusterScores: { identity: 0, supply: 0, allocation: 0, vesting: 0 } }
+      return {
+        totalScore: 0,
+        clusterScores: { identity: 0, supply: 0, allocation: 0, vesting: 0 },
+      }
     }
   }
 
   // Save Step 6 - Data Sources
-  const onSubmitStep6 = async (data: DataSourcesFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep6 = async (
+    data: DataSourcesFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     if (!tokenId) {
       toast.error('Save the token identity first.')
       return false
@@ -561,26 +705,30 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       }))
 
       // Flatten attributions to individual claim_source rows with source index
-      const attributionsToSave = (data.attributions || []).flatMap(attr =>
-        attr.data_source_ids.map(idx => ({
+      const attributionsToSave = (data.attributions || []).flatMap((attr) =>
+        attr.data_source_ids.map((idx) => ({
           source_index: parseInt(idx),
           claim_type: attr.claim_type,
           claim_id: attr.claim_id || null,
-        }))
+        })),
       )
 
       // Pre-compute final completeness BEFORE the RPC
       // Use calculateFinalCompleteness but override sourcesCount with form data
-      const { totalScore: finalCompleteness, clusterScores } = await calculateFinalCompletenessWithSourceCount(data.sources.length)
+      const { totalScore: finalCompleteness, clusterScores } =
+        await calculateFinalCompletenessWithSourceCount(data.sources.length)
 
-      const { data: rpcResult, error } = await supabase.rpc('save_data_sources_tx', {
-        p_token_id: tokenId,
-        p_sources: sourcesToSave,
-        p_attributions: attributionsToSave,
-        p_expected_updated_at: initialUpdatedAt,
-        p_completeness: Math.round(finalCompleteness),
-        p_cluster_scores: clusterScores,
-      })
+      const { data: rpcResult, error } = await supabase.rpc(
+        'save_data_sources_tx',
+        {
+          p_token_id: tokenId,
+          p_sources: sourcesToSave,
+          p_attributions: attributionsToSave,
+          p_expected_updated_at: initialUpdatedAt,
+          p_completeness: Math.round(finalCompleteness),
+          p_cluster_scores: clusterScores,
+        },
+      )
 
       if (error) {
         if (handleRpcError(error)) return false
@@ -594,9 +742,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       return true
     } catch (error: unknown) {
       console.error('Error saving data sources:', error)
-      const msg = error && typeof error === 'object' && 'message' in error
-        ? String((error as { message: unknown }).message)
-        : 'Failed to save data sources'
+      const msg =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : 'Failed to save data sources'
       toast.error(msg || 'Failed to save data sources')
       return false
     } finally {
@@ -610,7 +759,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   // lock as the other steps (mirrors save_data_sources_tx). This replaces the
   // earlier raw client-side delete()+insert(), which was non-atomic and had no
   // server-side ownership guard.
-  const onSubmitStep7 = async (data: RiskFlagsFormData, opts: SaveOpts = {}): Promise<boolean> => {
+  const onSubmitStep7 = async (
+    data: RiskFlagsFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
     if (!tokenId) {
       toast.error('Save the token identity first.')
       return false
@@ -631,11 +783,14 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         justification: flag.justification || null,
       }))
 
-      const { data: rpcResult, error } = await supabase.rpc('save_risk_flags_tx', {
-        p_token_id: tokenId,
-        p_flags: flagsToSave,
-        p_expected_updated_at: initialUpdatedAt,
-      })
+      const { data: rpcResult, error } = await supabase.rpc(
+        'save_risk_flags_tx',
+        {
+          p_token_id: tokenId,
+          p_flags: flagsToSave,
+          p_expected_updated_at: initialUpdatedAt,
+        },
+      )
 
       if (error) {
         if (handleRpcError(error)) return false
@@ -662,9 +817,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         if (finalScore !== null) {
           setCurrentStep(COMPLETION_STEP)
         } else {
-          const { totalScore } = await calculateFinalCompletenessWithSourceCount(
-            step6Form.getValues('sources')?.length ?? 0
-          )
+          const { totalScore } =
+            await calculateFinalCompletenessWithSourceCount(
+              step6Form.getValues('sources')?.length ?? 0,
+            )
           setFinalScore(totalScore)
           setCurrentStep(COMPLETION_STEP)
         }
@@ -672,7 +828,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       return true
     } catch (error: unknown) {
       console.error('Error saving risk flags:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to save risk flags')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to save risk flags',
+      )
       return false
     } finally {
       setLoading(false)
@@ -695,7 +853,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     })
 
     const currentSector = step1Form.getValues('sector')
-    if (currentSector && !isSectorCompatibleWithCategory(category, currentSector)) {
+    if (
+      currentSector &&
+      !isSectorCompatibleWithCategory(category, currentSector)
+    ) {
       step1Form.setValue('sector', undefined, {
         shouldDirty: true,
         shouldValidate: true,
@@ -748,11 +909,15 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   const applySegmentTypeFromGuide = (segmentType: string) => {
     if (segmentGuideRowIndex === null) return
 
-    step3Form.setValue(`segments.${segmentGuideRowIndex}.segment_type`, segmentType, {
-      shouldDirty: true,
-      shouldValidate: true,
-      shouldTouch: true,
-    })
+    step3Form.setValue(
+      `segments.${segmentGuideRowIndex}.segment_type`,
+      segmentType,
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+        shouldTouch: true,
+      },
+    )
     closeSegmentGuide()
   }
 
@@ -773,8 +938,13 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       step4Form.setValue(`schedules.${allocationId}.cliff_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.duration_months`, '0')
       step4Form.setValue(`schedules.${allocationId}.tge_percentage`, '100')
-      step4Form.setValue(`schedules.${allocationId}.cliff_unlock_percentage`, '')
-    } else if (step4Form.getValues(`schedules.${allocationId}.tge_percentage`) === '100') {
+      step4Form.setValue(
+        `schedules.${allocationId}.cliff_unlock_percentage`,
+        '',
+      )
+    } else if (
+      step4Form.getValues(`schedules.${allocationId}.tge_percentage`) === '100'
+    ) {
       // Reset if switching away from immediate
       step4Form.setValue(`schedules.${allocationId}.tge_percentage`, '')
     }
@@ -842,7 +1012,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     }
     setAutosave((a) => ({ status: 'saving', at: a.at }))
     const ok = await enqueueSave(() => saveSectionRef.current(key))
-    setAutosave(ok ? { status: 'saved', at: Date.now() } : { status: 'error', at: null })
+    setAutosave(
+      ok ? { status: 'saved', at: Date.now() } : { status: 'error', at: null },
+    )
   }
 
   // One debounced autosave pipeline across all section forms. Only real user
@@ -855,16 +1027,20 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       (form as any).watch((_values: unknown, info: { type?: string }) => {
         if (info?.type !== 'change') return
         if (!tokenIdRef.current) return
-        setAutosave((a) => (a.status === 'saving' ? a : { status: 'pending', at: a.at }))
-        if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+        setAutosave((a) =>
+          a.status === 'saving' ? a : { status: 'pending', at: a.at },
+        )
+        if (autosaveTimerRef.current)
+          window.clearTimeout(autosaveTimerRef.current)
         autosaveTimerRef.current = window.setTimeout(() => {
           void autosaveActiveRef.current()
         }, 1800)
-      })
+      }),
     )
     return () => {
       subs.forEach((s: { unsubscribe: () => void }) => s.unsubscribe())
-      if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+      if (autosaveTimerRef.current)
+        window.clearTimeout(autosaveTimerRef.current)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -884,7 +1060,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         return
       }
       const ok = await enqueueSave(() =>
-        onSubmitStep1(step1Form.getValues(), { silent: true })
+        onSubmitStep1(step1Form.getValues(), { silent: true }),
       )
       if (ok) {
         setAutosave({ status: 'saved', at: Date.now() })
@@ -899,7 +1075,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   }, [draftNameW, draftTickerW, tokenId, isEditMode])
 
   /** Switch sections; the one being left autosaves in the background. */
-  const goSection = (key: StudioSectionKey, opts: { skipSave?: boolean } = {}) => {
+  const goSection = (
+    key: StudioSectionKey,
+    opts: { skipSave?: boolean } = {},
+  ) => {
     if (key === activeSection) return
     if (!opts.skipSave) void autosaveActiveRef.current()
     setActiveSection(key)
@@ -911,7 +1090,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   const activeIndex = SECTION_ORDER.indexOf(activeSection)
   const prevSectionKey = activeIndex > 0 ? SECTION_ORDER[activeIndex - 1] : null
   const nextSectionKey =
-    activeIndex < SECTION_ORDER.length - 1 ? SECTION_ORDER[activeIndex + 1] : null
+    activeIndex < SECTION_ORDER.length - 1
+      ? SECTION_ORDER[activeIndex + 1]
+      : null
 
   /** Footer "Continue": persist the current section (surfacing errors), then advance. */
   const handleContinue = async () => {
@@ -919,7 +1100,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     if (activeSection === 'identity' && !tokenId) {
       const valid = await form.trigger()
       if (!valid) return
-      const ok = await enqueueSave(() => onSubmitStep1(step1Form.getValues(), { silent: true }))
+      const ok = await enqueueSave(() =>
+        onSubmitStep1(step1Form.getValues(), { silent: true }),
+      )
       if (!ok) return
       setAutosave({ status: 'saved', at: Date.now() })
     } else if (tokenId && form.formState.isDirty) {
@@ -929,8 +1112,14 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         const valid = await form.trigger()
         if (!valid) return
         setAutosave((a) => ({ status: 'saving', at: a.at }))
-        const ok = await enqueueSave(() => saveSectionRef.current(activeSection))
-        setAutosave(ok ? { status: 'saved', at: Date.now() } : { status: 'error', at: null })
+        const ok = await enqueueSave(() =>
+          saveSectionRef.current(activeSection),
+        )
+        setAutosave(
+          ok
+            ? { status: 'saved', at: Date.now() }
+            : { status: 'error', at: null },
+        )
         if (!ok) return
       }
     }
@@ -952,13 +1141,18 @@ export function useTokenSaveHandlers(state: TokenFormState) {
    */
   const autofillFromCoinGecko = async (coinId: string) => {
     try {
-      const res = await fetch(`/api/coingecko/profile?id=${encodeURIComponent(coinId)}`)
+      const res = await fetch(
+        `/api/coingecko/profile?id=${encodeURIComponent(coinId)}`,
+      )
       if (!res.ok) return
       const profile: CoinGeckoProfile = await res.json()
       let filled = 0
 
       if (!step1Form.getValues('name') && profile.name) {
-        step1Form.setValue('name', profile.name, { shouldDirty: true, shouldValidate: true })
+        step1Form.setValue('name', profile.name, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
         filled++
       }
       if (!step1Form.getValues('ticker') && profile.symbol) {
@@ -972,15 +1166,22 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       let chain = step1Form.getValues('chain')
       if (!chain) {
         const knownPlatforms = Object.entries(CHAIN_PLATFORM).filter(
-          ([, platform]) => profile.platforms[platform]
+          ([, platform]) => profile.platforms[platform],
         )
         if (knownPlatforms.length === 1) {
           chain = knownPlatforms[0][0]
-          step1Form.setValue('chain', chain, { shouldDirty: true, shouldValidate: true })
+          step1Form.setValue('chain', chain, {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
           filled++
         }
       }
-      if (!step1Form.getValues('contract_address') && chain && CHAIN_PLATFORM[chain]) {
+      if (
+        !step1Form.getValues('contract_address') &&
+        chain &&
+        CHAIN_PLATFORM[chain]
+      ) {
         const contract = profile.platforms[CHAIN_PLATFORM[chain]]
         if (contract) {
           step1Form.setValue('contract_address', contract, {
@@ -993,12 +1194,15 @@ export function useTokenSaveHandlers(state: TokenFormState) {
 
       const fillSupply = (
         field: 'max_supply' | 'circulating_supply',
-        value: number | null
+        value: number | null,
       ) => {
         if (value == null || value <= 0) return
         if (step2Form.getValues(field)) return
         const formatted = formatNumber(Math.round(value).toString())
-        step2Form.setValue(field, formatted, { shouldDirty: true, shouldValidate: true })
+        step2Form.setValue(field, formatted, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
         if (field === 'max_supply') setMaxSupply(formatted)
         filled++
       }
@@ -1020,7 +1224,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       }
 
       if (filled > 0) {
-        toast.success(`Prefilled ${filled} field${filled === 1 ? '' : 's'} from CoinGecko`)
+        toast.success(
+          `Prefilled ${filled} field${filled === 1 ? '' : 's'} from CoinGecko`,
+        )
       }
     } catch (error) {
       console.error('CoinGecko autofill failed:', error)
@@ -1030,7 +1236,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   /** Scale every segment proportionally so the sum lands exactly on 100. */
   const normalizeAllocations = () => {
     const segments = step3Form.getValues('segments')
-    const total = segments.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
+    const total = segments.reduce(
+      (t, s) => t + (parseFloat(s.percentage) || 0),
+      0,
+    )
     if (total <= 0) return
     let allocatedSoFar = 0
     segments.forEach((segment, index) => {
@@ -1044,11 +1253,17 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         shouldDirty: true,
         shouldValidate: false,
       })
-      step3Form.setValue(`segments.${index}.token_amount`, calculateTokenAmount(String(next), maxSupply), {
-        shouldValidate: false,
-      })
+      step3Form.setValue(
+        `segments.${index}.token_amount`,
+        calculateTokenAmount(String(next), maxSupply),
+        {
+          shouldValidate: false,
+        },
+      )
     })
-    setAutosave((a) => (a.status === 'saving' ? a : { status: 'pending', at: a.at }))
+    setAutosave((a) =>
+      a.status === 'saving' ? a : { status: 'pending', at: a.at },
+    )
     if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
     autosaveTimerRef.current = window.setTimeout(() => {
       void autosaveActiveRef.current()

@@ -23,15 +23,29 @@ import { TokenPriceCard } from '@/components/token-price-card'
 import { PublishPanel } from '@/components/intuition/publish-panel'
 import type { NodeType } from '@/lib/knowledge-graph/graph-types'
 import { SectionCard } from '@/components/composite/section-card'
-import { DataBadge, StatusPill, RiskPill, type TokenStatus } from '@/components/composite/data-badge'
+import {
+  DataBadge,
+  StatusPill,
+  RiskPill,
+  type TokenStatus,
+} from '@/components/composite/data-badge'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { EmptyState } from '@/components/composite/empty-state'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import type { VestingTimelineResult } from '@/lib/utils/vesting-timeline'
-import { formatNumber, formatDate, segmentColor, riskSeverity } from './detail-helpers'
-import { getSourceClaims, getClaimLabel, ClaimSourceBadges } from './claim-sources'
+import {
+  formatNumber,
+  formatDate,
+  segmentColor,
+  riskSeverity,
+} from './detail-helpers'
+import {
+  getSourceClaims,
+  getClaimLabel,
+  ClaimSourceBadges,
+} from './claim-sources'
 import { StatusManager } from './StatusManager'
 import type { TokenData } from './types'
 
@@ -58,7 +72,9 @@ export function DetailView({
   vestingSegmentInfos,
   maxSupplyNum,
 }: DetailViewProps) {
-  const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<number | null>(null)
+  const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<
+    number | null
+  >(null)
   const [enrichOpen, setEnrichOpen] = useState(false)
   const router = useRouter()
 
@@ -84,36 +100,55 @@ export function DetailView({
                   src={token.coingecko_image}
                   alt={token.name}
                   className="h-9 w-9 rounded-full"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = 'none'
+                  }}
                 />
               ) : (
                 <NodeGlyph type="token" size={20} withGlow />
               )}
-              <h1 className="text-3xl font-bold tracking-tight">{token.name}</h1>
-              <span className="font-mono text-2xl text-data-token">{token.ticker}</span>
-              <StatusPill status={(token.status as TokenStatus)} />
+              <h1 className="text-3xl font-bold tracking-tight">
+                {token.name}
+              </h1>
+              <span className="font-mono text-2xl text-data-token">
+                {token.ticker}
+              </span>
+              <StatusPill status={token.status as TokenStatus} />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               {token.chain && <DataBadge type="chain" label={token.chain} />}
               {token.category && (
-                <DataBadge type="category" label={formatCategoryLabel(token.category)} />
+                <DataBadge
+                  type="category"
+                  label={formatCategoryLabel(token.category)}
+                />
               )}
               {token.sector && (
-                <DataBadge type="sector" label={formatSectorLabel(token.sector)} />
+                <DataBadge
+                  type="sector"
+                  label={formatSectorLabel(token.sector)}
+                />
               )}
             </div>
 
             {/* Completeness bar */}
             <div className="max-w-md space-y-1.5 pt-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-muted-foreground">Completeness</span>
-                <span className="tabular font-semibold">{token.completeness}%</span>
+                <span className="font-medium text-muted-foreground">
+                  Completeness
+                </span>
+                <span className="tabular font-semibold">
+                  {token.completeness}%
+                </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full transition-[width] duration-500"
-                  style={{ width: `${Math.min(100, token.completeness)}%`, background: 'var(--gradient-brand)' }}
+                  style={{
+                    width: `${Math.min(100, token.completeness)}%`,
+                    background: 'var(--gradient-brand)',
+                  }}
                 />
               </div>
             </div>
@@ -133,7 +168,9 @@ export function DetailView({
             <div className="flex items-center gap-2.5 border-b px-5 py-4">
               <NodeGlyph type="token" size={14} />
               <div>
-                <h2 className="text-base font-semibold leading-tight">Knowledge graph</h2>
+                <h2 className="text-base font-semibold leading-tight">
+                  Knowledge graph
+                </h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {token.ticker} and its sourced sub-entities
                 </p>
@@ -144,16 +181,21 @@ export function DetailView({
             </div>
             {/* Legend */}
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t px-5 py-3">
-              {([
-                ['token', 'Token'],
-                ['allocation', 'Allocation'],
-                ['vesting', 'Vesting'],
-                ['emission', 'Emission'],
-                ['data_source', 'Source'],
-                ['risk_flag', 'Risk'],
-                ['chain', 'Chain'],
-              ] as Array<[NodeType, string]>).map(([type, label]) => (
-                <span key={type} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              {(
+                [
+                  ['token', 'Token'],
+                  ['allocation', 'Allocation'],
+                  ['vesting', 'Vesting'],
+                  ['emission', 'Emission'],
+                  ['data_source', 'Source'],
+                  ['risk_flag', 'Risk'],
+                  ['chain', 'Chain'],
+                ] as Array<[NodeType, string]>
+              ).map(([type, label]) => (
+                <span
+                  key={type}
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
                   <NodeGlyph type={type} size={10} />
                   {label}
                 </span>
@@ -180,30 +222,52 @@ export function DetailView({
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Contract address</p>
-                <p className="mt-1 break-all font-mono text-sm">{token.contract_address || 'Not set'}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Contract address
+                </p>
+                <p className="mt-1 break-all font-mono text-sm">
+                  {token.contract_address || 'Not set'}
+                </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">TGE date</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  TGE date
+                </p>
                 <p className="mt-1 text-sm">{formatDate(token.tge_date)}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Category</p>
-                <p className="mt-1 text-sm">{token.category ? formatCategoryLabel(token.category) : 'Not set'}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Category
+                </p>
+                <p className="mt-1 text-sm">
+                  {token.category
+                    ? formatCategoryLabel(token.category)
+                    : 'Not set'}
+                </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Sector</p>
-                <p className="mt-1 text-sm">{token.sector ? formatSectorLabel(token.sector) : 'Not set'}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Sector
+                </p>
+                <p className="mt-1 text-sm">
+                  {token.sector ? formatSectorLabel(token.sector) : 'Not set'}
+                </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Created</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Created
+                </p>
                 <p className="mt-1 text-sm">{formatDate(token.created_at)}</p>
               </div>
             </div>
             {token.notes && (
               <div className="mt-4">
-                <p className="text-xs font-medium text-muted-foreground">Notes</p>
-                <p className="mt-1 text-sm text-muted-foreground">{token.notes}</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Notes
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {token.notes}
+                </p>
               </div>
             )}
             <ClaimSourceBadges token={token} claimType="token_identity" />
@@ -219,31 +283,40 @@ export function DetailView({
               <>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Max supply</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Max supply
+                    </p>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.max_supply)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Initial supply</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Initial supply
+                    </p>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.initial_supply)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">TGE supply</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      TGE supply
+                    </p>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.tge_supply)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground">Circulating supply</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Circulating supply
+                    </p>
                     <p className="tabular mt-1 font-mono text-2xl font-semibold">
                       {formatNumber(token.supply_metrics.circulating_supply)}
                     </p>
                     {token.supply_metrics.circulating_date && (
                       <p className="mt-1 text-xs text-faint-foreground">
-                        As of {formatDate(token.supply_metrics.circulating_date)}
+                        As of{' '}
+                        {formatDate(token.supply_metrics.circulating_date)}
                       </p>
                     )}
                   </div>
@@ -256,7 +329,12 @@ export function DetailView({
                 description="Max supply, initial supply and circulation are missing for this token."
                 onboardingHint="Contribute it in the studio, Supply section."
                 actions={
-                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=supply`)}>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      router.push(`/tokens/new?id=${token.id}&section=supply`)
+                    }
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Contribute it
                   </Button>
@@ -291,11 +369,15 @@ export function DetailView({
                           key={segment.id}
                           className={cn(
                             'cursor-pointer transition-opacity duration-75',
-                            hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
+                            hoveredAllocationIndex !== null &&
+                              hoveredAllocationIndex !== index
                               ? 'opacity-25'
-                              : 'opacity-100'
+                              : 'opacity-100',
                           )}
-                          style={{ width: `${segment.percentage}%`, backgroundColor: segmentColor(segment, index) }}
+                          style={{
+                            width: `${segment.percentage}%`,
+                            backgroundColor: segmentColor(segment, index),
+                          }}
                           onMouseEnter={() => setHoveredAllocationIndex(index)}
                           onMouseLeave={() => setHoveredAllocationIndex(null)}
                         />
@@ -310,9 +392,10 @@ export function DetailView({
                           style={{ width: `${segment.percentage}%` }}
                           className={cn(
                             'text-center cursor-pointer transition-opacity duration-75',
-                            hoveredAllocationIndex !== null && hoveredAllocationIndex !== index
+                            hoveredAllocationIndex !== null &&
+                              hoveredAllocationIndex !== index
                               ? 'opacity-25'
-                              : 'opacity-100'
+                              : 'opacity-100',
                           )}
                           onMouseEnter={() => setHoveredAllocationIndex(index)}
                           onMouseLeave={() => setHoveredAllocationIndex(null)}
@@ -337,16 +420,25 @@ export function DetailView({
                             className="h-2 w-2 shrink-0 rounded-full"
                             style={{
                               backgroundColor: segmentColor(
-                                token.allocation_segments[hoveredAllocationIndex],
-                                hoveredAllocationIndex
+                                token.allocation_segments[
+                                  hoveredAllocationIndex
+                                ],
+                                hoveredAllocationIndex,
                               ),
                             }}
                           />
                           <span className="text-sm font-medium">
-                            {token.allocation_segments[hoveredAllocationIndex].label}
+                            {
+                              token.allocation_segments[hoveredAllocationIndex]
+                                .label
+                            }
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {token.allocation_segments[hoveredAllocationIndex].percentage}%
+                            {
+                              token.allocation_segments[hoveredAllocationIndex]
+                                .percentage
+                            }
+                            %
                           </span>
                         </div>
                       )}
@@ -362,8 +454,11 @@ export function DetailView({
                       className={cn(
                         'flex flex-col gap-3 rounded-lg bg-surface-2 p-3 sm:flex-row sm:items-center sm:justify-between',
                         'cursor-default transition-all duration-75',
-                        hoveredAllocationIndex === index && 'ring-1 ring-border-strong',
-                        hoveredAllocationIndex !== null && hoveredAllocationIndex !== index && 'opacity-40'
+                        hoveredAllocationIndex === index &&
+                          'ring-1 ring-border-strong',
+                        hoveredAllocationIndex !== null &&
+                          hoveredAllocationIndex !== index &&
+                          'opacity-40',
                       )}
                       onMouseEnter={() => setHoveredAllocationIndex(index)}
                       onMouseLeave={() => setHoveredAllocationIndex(null)}
@@ -371,24 +466,33 @@ export function DetailView({
                       <div className="flex items-center gap-3">
                         <div
                           className="h-3 w-3 shrink-0 rounded-full"
-                          style={{ backgroundColor: segmentColor(segment, index) }}
+                          style={{
+                            backgroundColor: segmentColor(segment, index),
+                          }}
                         />
                         <div>
                           <p className="font-medium">{segment.label}</p>
                           <p className="text-xs capitalize text-muted-foreground">
                             {formatSegmentTypeLabel(segment.segment_type)}
                           </p>
-                          <ClaimSourceBadges token={token} claimType="allocation_segment" claimId={segment.id} />
+                          <ClaimSourceBadges
+                            token={token}
+                            claimType="allocation_segment"
+                            claimId={segment.id}
+                          />
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="tabular font-semibold">{segment.percentage}%</p>
+                        <p className="tabular font-semibold">
+                          {segment.percentage}%
+                        </p>
                         <p className="tabular font-mono text-xs text-muted-foreground">
                           {formatNumber(segment.token_amount)} tokens
                         </p>
                         {segment.wallet_address && (
                           <p className="mt-1 font-mono text-xs text-faint-foreground">
-                            {segment.wallet_address.slice(0, 6)}...{segment.wallet_address.slice(-4)}
+                            {segment.wallet_address.slice(0, 6)}...
+                            {segment.wallet_address.slice(-4)}
                           </p>
                         )}
                       </div>
@@ -402,7 +506,14 @@ export function DetailView({
                 description="The distribution breakdown across segments has not been recorded."
                 onboardingHint="Contribute it in the studio, Allocation section."
                 actions={
-                  <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=allocation`)}>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      router.push(
+                        `/tokens/new?id=${token.id}&section=allocation`,
+                      )
+                    }
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Contribute it
                   </Button>
@@ -419,7 +530,12 @@ export function DetailView({
             aria-expanded={enrichOpen}
           >
             {enrichOpen ? 'Hide enrichment' : 'Enrich'}
-            <ChevronDown className={cn('h-4 w-4 transition-transform', enrichOpen && 'rotate-180')} />
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 transition-transform',
+                enrichOpen && 'rotate-180',
+              )}
+            />
           </button>
 
           {enrichOpen && (
@@ -432,32 +548,51 @@ export function DetailView({
               >
                 {token.vesting_schedules.length > 0 ? (
                   <div className="space-y-5">
-                    {vestingResult && vestingSegmentInfos.length > 0 && maxSupplyNum > 0 && (
-                      <UnlockTimelineChart
-                        data={vestingResult.timeline}
-                        segments={vestingSegmentInfos}
-                        maxSupply={maxSupplyNum}
-                        customSegments={vestingResult.customSegments}
-                        height={280}
-                      />
-                    )}
+                    {vestingResult &&
+                      vestingSegmentInfos.length > 0 &&
+                      maxSupplyNum > 0 && (
+                        <UnlockTimelineChart
+                          data={vestingResult.timeline}
+                          segments={vestingSegmentInfos}
+                          maxSupply={maxSupplyNum}
+                          customSegments={vestingResult.customSegments}
+                          height={280}
+                        />
+                      )}
                     <div className="space-y-3">
                       {token.vesting_schedules.map((schedule, index) => (
-                        <div key={index} className="flex items-start gap-3 rounded-lg bg-surface-2 p-3">
-                          <NodeGlyph type="vesting" size={16} className="mt-0.5" />
+                        <div
+                          key={index}
+                          className="flex items-start gap-3 rounded-lg bg-surface-2 p-3"
+                        >
+                          <NodeGlyph
+                            type="vesting"
+                            size={16}
+                            className="mt-0.5"
+                          />
                           <div className="flex-1">
-                            <p className="font-medium">{schedule.allocation.label}</p>
-                            <ClaimSourceBadges token={token} claimType="vesting_schedule" claimId={schedule.allocation_id} />
+                            <p className="font-medium">
+                              {schedule.allocation.label}
+                            </p>
+                            <ClaimSourceBadges
+                              token={token}
+                              claimType="vesting_schedule"
+                              claimId={schedule.allocation_id}
+                            />
                             {schedule.frequency === 'immediate' ? (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 100% unlocked immediately at TGE
                               </p>
                             ) : (
                               <p className="mt-1 text-sm text-muted-foreground">
-                                {schedule.tge_percentage > 0 && `${schedule.tge_percentage}% at TGE`}
-                                {schedule.cliff_months > 0 && `${schedule.tge_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
-                                {schedule.cliff_unlock_percentage > 0 && ` (${schedule.cliff_unlock_percentage}% released at cliff end)`}
-                                {schedule.duration_months > 0 && ` → ${schedule.duration_months}m ${schedule.frequency} vesting`}
+                                {schedule.tge_percentage > 0 &&
+                                  `${schedule.tge_percentage}% at TGE`}
+                                {schedule.cliff_months > 0 &&
+                                  `${schedule.tge_percentage > 0 ? ', then ' : ''}${schedule.cliff_months}m cliff`}
+                                {schedule.cliff_unlock_percentage > 0 &&
+                                  ` (${schedule.cliff_unlock_percentage}% released at cliff end)`}
+                                {schedule.duration_months > 0 &&
+                                  ` → ${schedule.duration_months}m ${schedule.frequency} vesting`}
                               </p>
                             )}
                           </div>
@@ -471,7 +606,14 @@ export function DetailView({
                     description="Unlock schedules per allocation segment have not been recorded."
                     onboardingHint="Contribute it in the studio, Vesting section."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=vesting`)}>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          router.push(
+                            `/tokens/new?id=${token.id}&section=vesting`,
+                          )
+                        }
+                      >
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
@@ -490,14 +632,18 @@ export function DetailView({
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground">Emission type</p>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Emission type
+                        </p>
                         <p className="mt-1 text-lg font-semibold capitalize">
                           {token.emission_models.type.replace('_', ' ')}
                         </p>
                       </div>
                       {token.emission_models.annual_inflation_rate != null && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground">Annual inflation rate</p>
+                          <p className="text-xs font-medium text-muted-foreground">
+                            Annual inflation rate
+                          </p>
                           <p className="tabular mt-1 text-lg font-semibold">
                             {token.emission_models.annual_inflation_rate}%
                           </p>
@@ -510,7 +656,9 @@ export function DetailView({
                         <div className="flex items-start gap-2">
                           <AlertCircle className="mt-0.5 h-5 w-5 text-warning" />
                           <div>
-                            <p className="font-medium text-warning">Burn mechanism active</p>
+                            <p className="font-medium text-warning">
+                              Burn mechanism active
+                            </p>
                             {token.emission_models.burn_details && (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {token.emission_models.burn_details}
@@ -526,7 +674,9 @@ export function DetailView({
                         <div className="flex items-start gap-2">
                           <CheckCircle2 className="mt-0.5 h-5 w-5 text-info" />
                           <div>
-                            <p className="font-medium text-info">Buyback program active</p>
+                            <p className="font-medium text-info">
+                              Buyback program active
+                            </p>
                             {token.emission_models.buyback_details && (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {token.emission_models.buyback_details}
@@ -537,7 +687,10 @@ export function DetailView({
                       </div>
                     )}
 
-                    <ClaimSourceBadges token={token} claimType="emission_model" />
+                    <ClaimSourceBadges
+                      token={token}
+                      claimType="emission_model"
+                    />
                   </div>
                 ) : (
                   <EmptyState
@@ -545,7 +698,14 @@ export function DetailView({
                     description="Inflation, burn and buyback mechanics have not been recorded."
                     onboardingHint="Contribute it in the studio, Emission section."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=emission`)}>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          router.push(
+                            `/tokens/new?id=${token.id}&section=emission`,
+                          )
+                        }
+                      >
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
@@ -565,12 +725,23 @@ export function DetailView({
                     {token.data_sources.map((source, index) => {
                       const claims = getSourceClaims(token, source.id)
                       return (
-                        <div key={index} className="space-y-2 rounded-lg bg-surface-2 p-3">
+                        <div
+                          key={index}
+                          className="space-y-2 rounded-lg bg-surface-2 p-3"
+                        >
                           <div className="flex flex-wrap items-center gap-2">
-                            <DataBadge type="data_source" label={source.source_type.replace('_', ' ')} emphasis="outline" />
-                            <p className="font-medium">{source.document_name}</p>
+                            <DataBadge
+                              type="data_source"
+                              label={source.source_type.replace('_', ' ')}
+                              emphasis="outline"
+                            />
+                            <p className="font-medium">
+                              {source.document_name}
+                            </p>
                             {source.version && (
-                              <span className="text-xs text-faint-foreground">v{source.version}</span>
+                              <span className="text-xs text-faint-foreground">
+                                v{source.version}
+                              </span>
                             )}
                           </div>
 
@@ -580,7 +751,9 @@ export function DetailView({
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 break-all font-mono text-sm text-primary hover:underline"
                           >
-                            {source.url.length > 60 ? `${source.url.slice(0, 60)}...` : source.url}
+                            {source.url.length > 60
+                              ? `${source.url.slice(0, 60)}...`
+                              : source.url}
                             <ExternalLink className="h-3 w-3 shrink-0" />
                           </a>
 
@@ -593,13 +766,19 @@ export function DetailView({
                               )}
                               {claims.length > 0 && (
                                 <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="shrink-0 text-xs text-muted-foreground">Used for:</span>
+                                  <span className="shrink-0 text-xs text-muted-foreground">
+                                    Used for:
+                                  </span>
                                   {claims.map((cs, i) => (
                                     <span
                                       key={i}
                                       className="rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary"
                                     >
-                                      {getClaimLabel(token, cs.claim_type, cs.claim_id)}
+                                      {getClaimLabel(
+                                        token,
+                                        cs.claim_type,
+                                        cs.claim_id,
+                                      )}
                                     </span>
                                   ))}
                                 </div>
@@ -616,7 +795,14 @@ export function DetailView({
                     description="No reference documents have been attached to this token."
                     onboardingHint="Contribute it in the studio, Sources section."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=sources`)}>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          router.push(
+                            `/tokens/new?id=${token.id}&section=sources`,
+                          )
+                        }
+                      >
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>
@@ -634,12 +820,19 @@ export function DetailView({
                 {token.risk_flags.length > 0 ? (
                   <div className="space-y-3">
                     {token.risk_flags.map((flag) => {
-                      const description = getRiskFlagTypeDescription(flag.flag_type)
+                      const description = getRiskFlagTypeDescription(
+                        flag.flag_type,
+                      )
                       return (
-                        <div key={flag.id} className="space-y-2 rounded-lg bg-surface-2 p-3">
+                        <div
+                          key={flag.id}
+                          className="space-y-2 rounded-lg bg-surface-2 p-3"
+                        >
                           <div className="flex flex-wrap items-center gap-2">
                             <RiskPill severity={riskSeverity(flag.severity)} />
-                            <p className="font-medium">{formatRiskFlagTypeLabel(flag.flag_type)}</p>
+                            <p className="font-medium">
+                              {formatRiskFlagTypeLabel(flag.flag_type)}
+                            </p>
                             {!flag.is_flagged && (
                               <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
                                 Cleared
@@ -647,12 +840,18 @@ export function DetailView({
                             )}
                           </div>
                           {description && (
-                            <p className="text-xs text-muted-foreground">{description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {description}
+                            </p>
                           )}
                           {flag.justification && (
                             <div className="border-t border-border/40 pt-2">
-                              <p className="text-xs font-medium text-muted-foreground">Justification</p>
-                              <p className="mt-0.5 text-sm">{flag.justification}</p>
+                              <p className="text-xs font-medium text-muted-foreground">
+                                Justification
+                              </p>
+                              <p className="mt-0.5 text-sm">
+                                {flag.justification}
+                              </p>
                             </div>
                           )}
                         </div>
@@ -665,7 +864,12 @@ export function DetailView({
                     description="No risk signals have been identified for this token."
                     onboardingHint="Add a flag in the studio to surface a risk."
                     actions={
-                      <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}&section=risk`)}>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          router.push(`/tokens/new?id=${token.id}&section=risk`)
+                        }
+                      >
                         <Plus className="mr-2 h-4 w-4" />
                         Contribute it
                       </Button>

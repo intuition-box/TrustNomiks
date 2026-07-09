@@ -64,8 +64,14 @@ export function CompareTray({ tokens, onRemove, onClear }: CompareTrayProps) {
           size="sm"
           variant="brand"
           disabled={tokens.length < 2}
-          title={tokens.length < 2 ? 'Pick at least 2 tokens to compare' : undefined}
-          onClick={() => router.push(`/data-room?compare=${tokens.map((t) => t.id).join(',')}`)}
+          title={
+            tokens.length < 2 ? 'Pick at least 2 tokens to compare' : undefined
+          }
+          onClick={() =>
+            router.push(
+              `/data-room?compare=${tokens.map((t) => t.id).join(',')}`,
+            )
+          }
         >
           Compare {tokens.length >= 2 ? tokens.length : ''}
           <ArrowRight className="h-4 w-4" aria-hidden />

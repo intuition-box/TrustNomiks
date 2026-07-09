@@ -24,7 +24,12 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn('flex items-center p-3', collapsed ? 'justify-center' : 'justify-between')}>
+      <div
+        className={cn(
+          'flex items-center p-3',
+          collapsed ? 'justify-center' : 'justify-between',
+        )}
+      >
         {!collapsed && (
           <Link href="/dashboard" className="flex items-center px-2">
             <Image
@@ -38,14 +43,26 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
             />
           </Link>
         )}
-        <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Toggle sidebar width">
-          {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          aria-label="Toggle sidebar width"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-5 w-5" />
+          ) : (
+            <PanelLeftClose className="h-5 w-5" />
+          )}
         </Button>
       </div>
 
       <Separator />
 
-      <nav className={cn('flex-1 space-y-5 py-4', collapsed ? 'px-2' : 'px-3')} aria-label="Main">
+      <nav
+        className={cn('flex-1 space-y-5 py-4', collapsed ? 'px-2' : 'px-3')}
+        aria-label="Main"
+      >
         {NAV_ZONES.map((zone, zoneIndex) => (
           <div key={zone.label}>
             {collapsed ? (
@@ -80,7 +97,13 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
                         className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-primary"
                       />
                     )}
-                    <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-primary')} aria-hidden />
+                    <Icon
+                      className={cn(
+                        'h-5 w-5 shrink-0',
+                        isActive && 'text-primary',
+                      )}
+                      aria-hidden
+                    />
                     {!collapsed && item.label}
                   </Link>
                 )

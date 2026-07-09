@@ -42,7 +42,12 @@ export async function GET(request: NextRequest) {
   if (!allowed) {
     return NextResponse.json(
       { error: 'Rate limit exceeded' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((retryAfterMs ?? 1000) / 1000)) } }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil((retryAfterMs ?? 1000) / 1000)),
+        },
+      },
     )
   }
 
@@ -56,12 +61,18 @@ export async function GET(request: NextRequest) {
       sparkline: 'false',
     })
 
-    const res = await fetch(`${COINGECKO_BASE}/coins/${encodeURIComponent(id)}?${params}`, {
-      headers: { Accept: 'application/json' },
-    })
+    const res = await fetch(
+      `${COINGECKO_BASE}/coins/${encodeURIComponent(id)}?${params}`,
+      {
+        headers: { Accept: 'application/json' },
+      },
+    )
 
     if (!res.ok) {
-      return NextResponse.json({ error: 'CoinGecko API error' }, { status: res.status })
+      return NextResponse.json(
+        { error: 'CoinGecko API error' },
+        { status: res.status },
+      )
     }
 
     const raw: CoinGeckoCoinResponse = await res.json()
@@ -81,6 +92,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data)
   } catch {
-    return NextResponse.json({ error: 'Failed to reach CoinGecko' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Failed to reach CoinGecko' },
+      { status: 502 },
+    )
   }
 }

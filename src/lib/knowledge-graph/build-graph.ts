@@ -29,23 +29,23 @@ import { NODE_FAMILY_MAP } from './graph-types'
 export const HUB_NODE_ID = 'graph:trustnomiks'
 
 const ATOM_TYPE_MAP: Record<string, NodeType> = {
-  token:       'token',
-  allocation:  'allocation',
-  vesting:     'vesting',
-  emission:    'emission',
+  token: 'token',
+  allocation: 'allocation',
+  vesting: 'vesting',
+  emission: 'emission',
   data_source: 'data_source',
-  risk_flag:   'risk_flag',
-  category:    'category',
-  sector:      'sector',
-  chain:       'chain',
+  risk_flag: 'risk_flag',
+  category: 'category',
+  sector: 'sector',
+  chain: 'chain',
 }
 
 // ── Options ──────────────────────────────────────────────────────────────────
 
 export interface BuildGraphOptions {
-  includeSources?: boolean    // default true
-  includeTaxonomy?: boolean   // default true — category, sector, chain nodes
-  includeLiterals?: boolean   // default false — literal triples shown on focus/detail
+  includeSources?: boolean // default true
+  includeTaxonomy?: boolean // default true — category, sector, chain nodes
+  includeLiterals?: boolean // default false — literal triples shown on focus/detail
 }
 
 // ── Main builder ─────────────────────────────────────────────────────────────
@@ -56,8 +56,16 @@ export function buildGraph(
   claimSources: CanonicalSource[],
   options: BuildGraphOptions = {},
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {
-  const { includeSources = true, includeTaxonomy = true, includeLiterals = false } = options
-  const TAXONOMY_NODE_TYPES: Set<NodeType> = new Set(['category', 'sector', 'chain'])
+  const {
+    includeSources = true,
+    includeTaxonomy = true,
+    includeLiterals = false,
+  } = options
+  const TAXONOMY_NODE_TYPES: Set<NodeType> = new Set([
+    'category',
+    'sector',
+    'chain',
+  ])
 
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
@@ -116,7 +124,8 @@ export function buildGraph(
 
     // Filter decisions
     if (isLiteralTriple && !includeLiterals) continue
-    if (!includeSources && triple.object_id?.startsWith('atom:source:')) continue
+    if (!includeSources && triple.object_id?.startsWith('atom:source:'))
+      continue
     if (!nodeIds.has(triple.subject_id)) continue
     if (triple.object_id && !nodeIds.has(triple.object_id)) continue
 
@@ -183,12 +192,14 @@ export function buildGraph(
       if (cg && rowId) {
         const key = `${cg}:${rowId}`
         const arr = triplesByClaimKey.get(key)
-        if (arr) arr.push(node.id); else triplesByClaimKey.set(key, [node.id])
+        if (arr) arr.push(node.id)
+        else triplesByClaimKey.set(key, [node.id])
       }
       if (cg && tid) {
         const key = `${cg}:${tid}`
         const arr = triplesByGroupToken.get(key)
-        if (arr) arr.push(node.id); else triplesByGroupToken.set(key, [node.id])
+        if (arr) arr.push(node.id)
+        else triplesByGroupToken.set(key, [node.id])
       }
     }
 
@@ -200,12 +211,14 @@ export function buildGraph(
       // Try specific match: claim_type + claim_id → triple with matching claim_group + origin_row_id
       let targetTripleIds: string[] = []
       if (cs.claim_id) {
-        targetTripleIds = triplesByClaimKey.get(`${cs.claim_type}:${cs.claim_id}`) ?? []
+        targetTripleIds =
+          triplesByClaimKey.get(`${cs.claim_type}:${cs.claim_id}`) ?? []
       }
 
       // Fallback: claim_type + token_id → all triples of that claim_group for that token
       if (targetTripleIds.length === 0) {
-        targetTripleIds = triplesByGroupToken.get(`${cs.claim_type}:${cs.token_id}`) ?? []
+        targetTripleIds =
+          triplesByGroupToken.get(`${cs.claim_type}:${cs.token_id}`) ?? []
       }
 
       for (const tripleId of targetTripleIds) {

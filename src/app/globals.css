@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Class-based dark mode (next-themes toggles `.dark` on <html>).
    Default theme is dark (see ThemeProvider) → `.dark` is present on first paint. */
@@ -18,9 +18,9 @@
   --foreground: 240 10% 6%;
 
   /* Elevation ladder */
-  --surface-1: 240 20% 99%;   /* resting card */
-  --surface-2: 240 14% 96%;   /* raised / hover */
-  --surface-3: 0 0% 100%;     /* overlay / dialog */
+  --surface-1: 240 20% 99%; /* resting card */
+  --surface-2: 240 14% 96%; /* raised / hover */
+  --surface-3: 0 0% 100%; /* overlay / dialog */
 
   --card: 240 20% 99%;
   --card-foreground: 240 10% 6%;
@@ -28,9 +28,9 @@
   --popover-foreground: 240 10% 6%;
 
   /* Brand */
-  --primary: 239 70% 58%;            /* indigo / graph-root */
+  --primary: 239 70% 58%; /* indigo / graph-root */
   --primary-foreground: 0 0% 100%;
-  --secondary: 258 75% 60%;          /* violet / token */
+  --secondary: 258 75% 60%; /* violet / token */
   --secondary-foreground: 0 0% 100%;
 
   --muted: 240 5% 93%;
@@ -64,21 +64,21 @@
   --risk-high: 25 95% 48%;
 
   /* ── DATA CATEGORY (graph taxonomy, promoted to first-class) ── */
-  --data-hub: 239 70% 58%;          /* graph_root */
+  --data-hub: 239 70% 58%; /* graph_root */
   --data-token: 258 75% 58%;
   --data-allocation: 38 92% 45%;
   --data-vesting: 160 84% 33%;
   --data-emission: 0 84% 55%;
-  --data-risk: 25 95% 48%;          /* risk_flag */
-  --data-source: 217 91% 52%;       /* data_source */
-  --data-export: 173 80% 34%;       /* export_run */
+  --data-risk: 25 95% 48%; /* risk_flag */
+  --data-source: 217 91% 52%; /* data_source */
+  --data-export: 173 80% 34%; /* export_run */
   --data-application: 175 77% 26%;
   --data-wallet: 215 19% 35%;
   --data-category: 215 16% 42%;
   --data-sector: 272 80% 56%;
   --data-chain: 199 89% 42%;
-  --data-supply: 187 85% 32%;       /* supply cluster (form + meters) */
-  --data-triple: 215 16% 50%;       /* triple / predicate / literal */
+  --data-supply: 187 85% 32%; /* supply cluster (form + meters) */
+  --data-triple: 215 16% 50%; /* triple / predicate / literal */
 
   /* Graph chrome */
   --graph-canvas: 240 20% 99%;
@@ -90,7 +90,7 @@
 
 /* ── DARK (default — what users see first) ────────────────────────────────── */
 .dark {
-  --background: 240 10% 4%;          /* the void */
+  --background: 240 10% 4%; /* the void */
   --foreground: 0 0% 98%;
 
   --surface-1: 240 8% 7%;
@@ -148,7 +148,7 @@
   --data-category: 215 16% 58%;
   --data-sector: 272 88% 65%;
   --data-chain: 199 89% 48%;
-  --data-supply: 187 80% 45%;       /* supply cluster (form + meters) */
+  --data-supply: 187 80% 45%; /* supply cluster (form + meters) */
   --data-triple: 215 20% 65%;
 
   --graph-canvas: 240 10% 4%;
@@ -224,8 +224,9 @@
   --color-data-triple: hsl(var(--data-triple));
 
   /* Fonts (loaded via next/font in layout.tsx) */
-  --font-sans: var(--font-geist-sans), "Inter", system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  --font-sans: var(--font-geist-sans), 'Inter', system-ui, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', monospace;
 
   /* Radius scale (Tailwind rounded-*) */
   --radius-xs: calc(var(--radius) - 6px);
@@ -236,11 +237,15 @@
   --radius-2xl: calc(var(--radius) + 12px);
 
   /* Animation utilities (graph-as-signature) */
-  --animate-node-spawn: node-spawn var(--dur-slow, 320ms) var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1));
-  --animate-edge-particle: edge-particle var(--dur-slower, 480ms) var(--ease-out, cubic-bezier(0.16,1,0.3,1));
-  --animate-stake-swell: stake-swell var(--dur-slow, 320ms) var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1));
+  --animate-node-spawn: node-spawn var(--dur-slow, 320ms)
+    var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  --animate-edge-particle: edge-particle var(--dur-slower, 480ms)
+    var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+  --animate-stake-swell: stake-swell var(--dur-slow, 320ms)
+    var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
   --animate-graph-breathe: graph-breathe 6s ease-in-out infinite;
-  --animate-count-up: count-up var(--dur-slower, 480ms) var(--ease-out, cubic-bezier(0.16,1,0.3,1));
+  --animate-count-up: count-up var(--dur-slower, 480ms)
+    var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 /* ============================================================================
@@ -259,8 +264,16 @@
   --stagger-ingest: 64ms;
 
   /* The owned signature gradient (graph-root → token). Use sparingly. */
-  --gradient-brand: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
-  --gradient-brand-soft: linear-gradient(135deg, hsl(var(--primary) / 0.16), hsl(var(--secondary) / 0.16));
+  --gradient-brand: linear-gradient(
+    135deg,
+    hsl(var(--primary)),
+    hsl(var(--secondary))
+  );
+  --gradient-brand-soft: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.16),
+    hsl(var(--secondary) / 0.16)
+  );
 }
 
 /* ============================================================================
@@ -274,17 +287,29 @@
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
   /* Tabular numerics for all data surfaces (supply, %, stake, counts) */
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-  code, kbd, samp {
+  code,
+  kbd,
+  samp {
     font-family: var(--font-mono);
   }
   /* One strong AA focus ring, every focusable, both themes */
-  :where(a, button, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+  :where(
+    a,
+    button,
+    input,
+    select,
+    textarea,
+    [role='button'],
+    [tabindex]
+  ):focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
     border-radius: var(--radius-xs);
@@ -309,17 +334,22 @@
   }
   /* Luminous: the "data glows on the void" effect. Pass --glow to set hue. */
   .glow-brand {
-    box-shadow: 0 0 0 1px hsl(var(--primary)), 0 0 24px -4px hsl(var(--primary) / 0.7);
+    box-shadow:
+      0 0 0 1px hsl(var(--primary)),
+      0 0 24px -4px hsl(var(--primary) / 0.7);
   }
   .glow-data {
-    box-shadow: 0 0 0 1px var(--glow, hsl(var(--primary))), 0 0 20px -6px var(--glow, hsl(var(--primary)));
+    box-shadow:
+      0 0 0 1px var(--glow, hsl(var(--primary))),
+      0 0 20px -6px var(--glow, hsl(var(--primary)));
   }
   /* Glass / refraction — interactive controls only (stake slider, palette, publish) */
   .glass {
     background: color-mix(in oklab, hsl(var(--surface-2)) 70%, transparent);
     backdrop-filter: blur(12px) saturate(140%);
     -webkit-backdrop-filter: blur(12px) saturate(140%);
-    border: 1px solid color-mix(in oklab, hsl(var(--border-strong)) 60%, transparent);
+    border: 1px solid
+      color-mix(in oklab, hsl(var(--border-strong)) 60%, transparent);
   }
 }
 
@@ -327,40 +357,95 @@
    MOTION VOCABULARY (graph-as-signature) — replaces the orphaned smoke-* keyframes
    ============================================================================ */
 @keyframes node-spawn {
-  0%   { transform: scale(0);    opacity: 0; }
-  60%  { transform: scale(1.12); opacity: 1; }
-  100% { transform: scale(1);    opacity: 1; }
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 @keyframes edge-particle {
-  0%   { offset-distance: 0%;   opacity: 0; }
-  15%  { opacity: 1; }
-  85%  { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
 }
-@keyframes stake-swell {           /* $TRUST stake → node mass + halo */
-  0%   { transform: scale(1);    filter: brightness(1); }
-  50%  { transform: scale(1.18); filter: brightness(1.4); }
-  100% { transform: scale(1.06); filter: brightness(1.15); }
+@keyframes stake-swell {
+  /* $TRUST stake → node mass + halo */
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.18);
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: scale(1.06);
+    filter: brightness(1.15);
+  }
 }
-@keyframes graph-breathe {         /* idle ambient, very low alpha */
-  0%, 100% { opacity: 0.45; }
-  50%      { opacity: 0.7; }
+@keyframes graph-breathe {
+  /* idle ambient, very low alpha */
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 @keyframes count-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-@keyframes score-flash {           /* kept — completeness points gained */
-  0%   { opacity: 1; transform: translateY(0) scale(1.25); }
-  50%  { opacity: 1; transform: translateY(-14px) scale(1); }
-  100% { opacity: 0; transform: translateY(-22px) scale(0.9); }
+@keyframes score-flash {
+  /* kept — completeness points gained */
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1.25);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-14px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.9);
+  }
 }
 @keyframes shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;

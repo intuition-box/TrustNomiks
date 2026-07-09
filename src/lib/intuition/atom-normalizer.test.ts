@@ -12,22 +12,33 @@ import {
   predicateNormalizedData,
 } from './atom-normalizer'
 import { getCanonicalRegistry } from './canonical-registry'
-import type { CanonicalAtom, CanonicalTriple } from '@/lib/knowledge-graph/graph-types'
+import type {
+  CanonicalAtom,
+  CanonicalTriple,
+} from '@/lib/knowledge-graph/graph-types'
 
 // ── normalizePredicate ──────────────────────────────────────────────────────
 
 describe('normalizePredicate', () => {
   it('maps known predicates to snake_case', () => {
-    expect(normalizePredicate('has Allocation Segment')).toBe('has_allocation_segment')
+    expect(normalizePredicate('has Allocation Segment')).toBe(
+      'has_allocation_segment',
+    )
     expect(normalizePredicate('has Max Supply')).toBe('has_max_supply')
     expect(normalizePredicate('has TGE Date')).toBe('has_tge_date')
-    expect(normalizePredicate('has Cliff Unlock Percentage')).toBe('has_cliff_unlock_percentage')
-    expect(normalizePredicate('has Annual Inflation Rate')).toBe('has_annual_inflation_rate')
+    expect(normalizePredicate('has Cliff Unlock Percentage')).toBe(
+      'has_cliff_unlock_percentage',
+    )
+    expect(normalizePredicate('has Annual Inflation Rate')).toBe(
+      'has_annual_inflation_rate',
+    )
     expect(normalizePredicate('based_on')).toBe('based_on')
   })
 
   it('falls back to snake_case for unknown predicates', () => {
-    expect(normalizePredicate('Some Unknown Predicate')).toBe('some_unknown_predicate')
+    expect(normalizePredicate('Some Unknown Predicate')).toBe(
+      'some_unknown_predicate',
+    )
     expect(normalizePredicate('  Has Spaces  ')).toBe('has_spaces')
   })
 })
@@ -143,7 +154,9 @@ describe('ID generators', () => {
     expect(c).not.toBe(a)
 
     // Normalization is applied before hashing — "21,000,000" and "21000000" collide.
-    expect(literalToAtomId('t1', '21,000,000')).toBe(literalToAtomId('t2', '21000000'))
+    expect(literalToAtomId('t1', '21,000,000')).toBe(
+      literalToAtomId('t2', '21000000'),
+    )
   })
 })
 
@@ -180,19 +193,41 @@ describe('canonical registry', () => {
   it('every non-excluded predicate from PREDICATE_MAP is in the registry', () => {
     // Excluded V1 predicates have no on-chain atom and no registry entry.
     const EXCLUDED = new Set([
-      'has_status', 'has_completeness',
-      'has_risk_flag', 'has_severity', 'is_flagged', 'has_justification',
+      'has_status',
+      'has_completeness',
+      'has_risk_flag',
+      'has_severity',
+      'is_flagged',
+      'has_justification',
     ])
     const sampleRawKeys = [
-      'has Allocation Segment', 'has Vesting Schedule', 'has Emission Model',
-      'has Data Source', 'has Category', 'has Sector', 'has Chain',
-      'has Name', 'has Ticker', 'has Contract Address', 'has TGE Date',
-      'has Max Supply', 'has Initial Supply', 'has TGE Supply', 'has Circulating Supply',
-      'has Percentage', 'has Token Amount', 'has Wallet Address',
-      'has Cliff Months', 'has Duration Months', 'has Frequency',
-      'has TGE Percentage', 'has Cliff Unlock Percentage',
+      'has Allocation Segment',
+      'has Vesting Schedule',
+      'has Emission Model',
+      'has Data Source',
+      'has Category',
+      'has Sector',
+      'has Chain',
+      'has Name',
+      'has Ticker',
+      'has Contract Address',
+      'has TGE Date',
+      'has Max Supply',
+      'has Initial Supply',
+      'has TGE Supply',
+      'has Circulating Supply',
+      'has Percentage',
+      'has Token Amount',
+      'has Wallet Address',
+      'has Cliff Months',
+      'has Duration Months',
+      'has Frequency',
+      'has TGE Percentage',
+      'has Cliff Unlock Percentage',
       'has Annual Inflation Rate',
-      'has URL', 'has Version', 'has Verified At',
+      'has URL',
+      'has Version',
+      'has Verified At',
       'based_on',
     ]
     const registry = getCanonicalRegistry()
@@ -211,9 +246,39 @@ describe('canonical registry', () => {
 describe('collectUniquePredicates', () => {
   it('deduplicates predicates and always includes based_on', () => {
     const triples: CanonicalTriple[] = [
-      { triple_id: 't1', subject_id: 's1', predicate: 'has Name', object_id: 'o1', object_literal: null, token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
-      { triple_id: 't2', subject_id: 's2', predicate: 'has Name', object_id: 'o2', object_literal: null, token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
-      { triple_id: 't3', subject_id: 's3', predicate: 'has Chain', object_id: null, object_literal: 'Ethereum', token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
+      {
+        triple_id: 't1',
+        subject_id: 's1',
+        predicate: 'has Name',
+        object_id: 'o1',
+        object_literal: null,
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
+      {
+        triple_id: 't2',
+        subject_id: 's2',
+        predicate: 'has Name',
+        object_id: 'o2',
+        object_literal: null,
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
+      {
+        triple_id: 't3',
+        subject_id: 's3',
+        predicate: 'has Chain',
+        object_id: null,
+        object_literal: 'Ethereum',
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
     ]
 
     const result = collectUniquePredicates(triples)
@@ -232,8 +297,28 @@ describe('collectUniquePredicates', () => {
 describe('filterTriples', () => {
   it('excludes risk_flag triples', () => {
     const triples: CanonicalTriple[] = [
-      { triple_id: 't1', subject_id: 'atom:token:abc', predicate: 'has Risk Flag', object_id: 'atom:risk:r1', object_literal: null, token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
-      { triple_id: 't2', subject_id: 'atom:token:abc', predicate: 'has Name', object_id: null, object_literal: 'Bitcoin', token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
+      {
+        triple_id: 't1',
+        subject_id: 'atom:token:abc',
+        predicate: 'has Risk Flag',
+        object_id: 'atom:risk:r1',
+        object_literal: null,
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
+      {
+        triple_id: 't2',
+        subject_id: 'atom:token:abc',
+        predicate: 'has Name',
+        object_id: null,
+        object_literal: 'Bitcoin',
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
     ]
 
     const filtered = filterTriples(triples)
@@ -243,9 +328,39 @@ describe('filterTriples', () => {
 
   it('excludes status and completeness triples', () => {
     const triples: CanonicalTriple[] = [
-      { triple_id: 't1', subject_id: 'atom:token:abc', predicate: 'has Status', object_id: null, object_literal: 'validated', token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
-      { triple_id: 't2', subject_id: 'atom:token:abc', predicate: 'has Completeness', object_id: null, object_literal: '85', token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
-      { triple_id: 't3', subject_id: 'atom:token:abc', predicate: 'has Max Supply', object_id: null, object_literal: '21000000', token_id: 'tok', claim_group: null, origin_table: null, origin_row_id: null },
+      {
+        triple_id: 't1',
+        subject_id: 'atom:token:abc',
+        predicate: 'has Status',
+        object_id: null,
+        object_literal: 'validated',
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
+      {
+        triple_id: 't2',
+        subject_id: 'atom:token:abc',
+        predicate: 'has Completeness',
+        object_id: null,
+        object_literal: '85',
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
+      {
+        triple_id: 't3',
+        subject_id: 'atom:token:abc',
+        predicate: 'has Max Supply',
+        object_id: null,
+        object_literal: '21000000',
+        token_id: 'tok',
+        claim_group: null,
+        origin_table: null,
+        origin_row_id: null,
+      },
     ]
 
     const filtered = filterTriples(triples)
@@ -259,8 +374,20 @@ describe('filterTriples', () => {
 describe('filterAtoms', () => {
   it('excludes risk_flag atoms', () => {
     const atoms: CanonicalAtom[] = [
-      { atom_id: 'atom:token:abc', atom_type: 'token', label: 'BTC', token_id: 'abc', metadata: {} },
-      { atom_id: 'atom:risk:r1', atom_type: 'risk_flag', label: 'High Inflation', token_id: 'abc', metadata: {} },
+      {
+        atom_id: 'atom:token:abc',
+        atom_type: 'token',
+        label: 'BTC',
+        token_id: 'abc',
+        metadata: {},
+      },
+      {
+        atom_id: 'atom:risk:r1',
+        atom_type: 'risk_flag',
+        label: 'High Inflation',
+        token_id: 'abc',
+        metadata: {},
+      },
     ]
 
     const filtered = filterAtoms(atoms)

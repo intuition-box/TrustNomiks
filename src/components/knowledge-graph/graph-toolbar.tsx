@@ -54,7 +54,8 @@ export function GraphToolbar({
       <div className="flex flex-wrap items-center gap-1">
         {FILTERABLE_TYPES.map((type) => {
           const config = NODE_CONFIG[type]
-          const active = activeFilters.length === 0 || activeFilters.includes(type)
+          const active =
+            activeFilters.length === 0 || activeFilters.includes(type)
           return (
             <button
               key={type}
@@ -69,7 +70,10 @@ export function GraphToolbar({
             >
               <span
                 className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: config.color, opacity: active ? 1 : 0.3 }}
+                style={{
+                  backgroundColor: config.color,
+                  opacity: active ? 1 : 0.3,
+                }}
               />
               {config.label}
             </button>
@@ -91,7 +95,9 @@ export function GraphToolbar({
           title="Refresh data"
           aria-label="Refresh graph data"
         >
-          <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
+          <RefreshCw
+            className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
+          />
         </Button>
 
         <Button

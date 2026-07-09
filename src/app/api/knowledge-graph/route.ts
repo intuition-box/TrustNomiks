@@ -25,14 +25,23 @@ export async function GET(request: NextRequest) {
   const bust = params.get('bust') === 'true'
 
   if (scope !== 'global' && scope !== 'token') {
-    return NextResponse.json({ error: 'scope must be "global" or "token"' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'scope must be "global" or "token"' },
+      { status: 400 },
+    )
   }
   if (scope === 'token' && !tokenIdsParam) {
-    return NextResponse.json({ error: 'tokenIds required when scope=token' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'tokenIds required when scope=token' },
+      { status: 400 },
+    )
   }
 
   const tokenIds = tokenIdsParam
-    ? tokenIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+    ? tokenIdsParam
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
     : []
 
   const cacheKey = `${scope}:${tokenIds.join(',')}:${includeSources}:${includeTaxonomy}:${includeLiterals}`
@@ -43,7 +52,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser()
     if (authErr || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -59,7 +71,8 @@ export async function GET(request: NextRequest) {
       scopeTokenIds = (validTokens ?? []).map((t: { id: string }) => t.id)
       if (scopeTokenIds.length === 0) {
         const empty: KnowledgeGraphResponse = {
-          nodes: [], edges: [],
+          nodes: [],
+          edges: [],
           meta: { totalTokens: 0, totalNodes: 0, totalEdges: 0 },
         }
         return NextResponse.json(empty)
@@ -72,20 +85,37 @@ export async function GET(request: NextRequest) {
 
     const [atomsResult, triplesResult, sourcesResult] = await Promise.all([
       supabase.from('kg_atoms_v1').select('*').or(orFilter).limit(10000),
-      supabase.from('kg_triples_v1').select('*').in('token_id', scopeTokenIds).limit(50000),
+      supabase
+        .from('kg_triples_v1')
+        .select('*')
+        .in('token_id', scopeTokenIds)
+        .limit(50000),
       includeSources
-        ? supabase.from('kg_triple_sources_v1').select('*').in('token_id', scopeTokenIds).limit(10000)
+        ? supabase
+            .from('kg_triple_sources_v1')
+            .select('*')
+            .in('token_id', scopeTokenIds)
+            .limit(10000)
         : Promise.resolve({ data: [], error: null }),
     ])
 
     if (atomsResult.error) {
-      return NextResponse.json({ error: atomsResult.error.message }, { status: 500 })
+      return NextResponse.json(
+        { error: atomsResult.error.message },
+        { status: 500 },
+      )
     }
     if (triplesResult.error) {
-      return NextResponse.json({ error: triplesResult.error.message }, { status: 500 })
+      return NextResponse.json(
+        { error: triplesResult.error.message },
+        { status: 500 },
+      )
     }
     if (sourcesResult.error) {
-      return NextResponse.json({ error: sourcesResult.error.message }, { status: 500 })
+      return NextResponse.json(
+        { error: sourcesResult.error.message },
+        { status: 500 },
+      )
     }
 
     // ── Build graph ──────────────────────────────────────────────────
@@ -111,6 +141,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
   } catch (err) {
     console.error('Knowledge graph error:', err)
-    return NextResponse.json({ error: 'Failed to build knowledge graph' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to build knowledge graph' },
+      { status: 500 },
+    )
   }
 }

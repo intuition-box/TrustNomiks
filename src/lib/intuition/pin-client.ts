@@ -43,20 +43,68 @@ interface OrganizationInput {
 }
 
 const PIN_THING = /* GraphQL */ `
-  mutation pinThing($name: String!, $description: String!, $image: String!, $url: String!) {
-    pinThing(thing: { name: $name, description: $description, image: $image, url: $url }) { uri }
+  mutation pinThing(
+    $name: String!
+    $description: String!
+    $image: String!
+    $url: String!
+  ) {
+    pinThing(
+      thing: {
+        name: $name
+        description: $description
+        image: $image
+        url: $url
+      }
+    ) {
+      uri
+    }
   }
 `
 
 const PIN_PERSON = /* GraphQL */ `
-  mutation pinPerson($name: String!, $description: String!, $image: String!, $url: String!, $email: String!, $identifier: String!) {
-    pinPerson(person: { name: $name, description: $description, image: $image, url: $url, email: $email, identifier: $identifier }) { uri }
+  mutation pinPerson(
+    $name: String!
+    $description: String!
+    $image: String!
+    $url: String!
+    $email: String!
+    $identifier: String!
+  ) {
+    pinPerson(
+      person: {
+        name: $name
+        description: $description
+        image: $image
+        url: $url
+        email: $email
+        identifier: $identifier
+      }
+    ) {
+      uri
+    }
   }
 `
 
 const PIN_ORGANIZATION = /* GraphQL */ `
-  mutation pinOrganization($name: String!, $description: String!, $image: String!, $url: String!, $email: String!) {
-    pinOrganization(organization: { name: $name, description: $description, image: $image, url: $url, email: $email }) { uri }
+  mutation pinOrganization(
+    $name: String!
+    $description: String!
+    $image: String!
+    $url: String!
+    $email: String!
+  ) {
+    pinOrganization(
+      organization: {
+        name: $name
+        description: $description
+        image: $image
+        url: $url
+        email: $email
+      }
+    ) {
+      uri
+    }
   }
 `
 
@@ -69,7 +117,10 @@ interface GraphQLResponse<T> {
  *  whole bundle build. 15s is generous — pinThing typically takes ~500ms. */
 const PIN_TIMEOUT_MS = 15_000
 
-async function postGraphQL<T>(query: string, variables: Record<string, string>): Promise<T> {
+async function postGraphQL<T>(
+  query: string,
+  variables: Record<string, string>,
+): Promise<T> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), PIN_TIMEOUT_MS)
   try {
@@ -80,11 +131,15 @@ async function postGraphQL<T>(query: string, variables: Record<string, string>):
       signal: ctrl.signal,
     })
     if (!res.ok) {
-      throw new Error(`[pin-client] HTTP ${res.status} from ${INTUITION_GRAPHQL_ENDPOINT}`)
+      throw new Error(
+        `[pin-client] HTTP ${res.status} from ${INTUITION_GRAPHQL_ENDPOINT}`,
+      )
     }
     const json = (await res.json()) as GraphQLResponse<T>
     if (json.errors?.length) {
-      throw new Error(`[pin-client] GraphQL errors: ${json.errors.map((e) => e.message).join('; ')}`)
+      throw new Error(
+        `[pin-client] GraphQL errors: ${json.errors.map((e) => e.message).join('; ')}`,
+      )
     }
     if (!json.data) {
       throw new Error('[pin-client] empty response data')
@@ -92,7 +147,9 @@ async function postGraphQL<T>(query: string, variables: Record<string, string>):
     return json.data
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`[pin-client] pin request timed out after ${PIN_TIMEOUT_MS}ms`)
+      throw new Error(
+        `[pin-client] pin request timed out after ${PIN_TIMEOUT_MS}ms`,
+      )
     }
     throw err
   } finally {
@@ -102,7 +159,9 @@ async function postGraphQL<T>(query: string, variables: Record<string, string>):
 
 function assertIpfsUri(uri: unknown, schemaType: string): string {
   if (typeof uri !== 'string' || !uri.startsWith('ipfs://')) {
-    throw new Error(`[pin-client] ${schemaType} returned invalid uri: ${JSON.stringify(uri)}`)
+    throw new Error(
+      `[pin-client] ${schemaType} returned invalid uri: ${JSON.stringify(uri)}`,
+    )
   }
   return uri
 }
@@ -135,14 +194,19 @@ export async function pinPerson(input: PersonInput): Promise<string> {
 }
 
 /** Pin a schema.org Organization. Reserved for future entities (DAOs, protocol teams). */
-export async function pinOrganization(input: OrganizationInput): Promise<string> {
-  const data = await postGraphQL<{ pinOrganization: PinResponse }>(PIN_ORGANIZATION, {
-    name: input.name,
-    description: input.description ?? '',
-    image: input.image ?? '',
-    url: input.url ?? '',
-    email: input.email ?? '',
-  })
+export async function pinOrganization(
+  input: OrganizationInput,
+): Promise<string> {
+  const data = await postGraphQL<{ pinOrganization: PinResponse }>(
+    PIN_ORGANIZATION,
+    {
+      name: input.name,
+      description: input.description ?? '',
+      image: input.image ?? '',
+      url: input.url ?? '',
+      email: input.email ?? '',
+    },
+  )
   return assertIpfsUri(data.pinOrganization?.uri, 'pinOrganization')
 }
 
@@ -154,8 +218,11 @@ export type PinPayload =
 
 export async function pinByPayload(payload: PinPayload): Promise<string> {
   switch (payload.schema) {
-    case 'Thing':        return pinThing(payload.data)
-    case 'Person':       return pinPerson(payload.data)
-    case 'Organization': return pinOrganization(payload.data)
+    case 'Thing':
+      return pinThing(payload.data)
+    case 'Person':
+      return pinPerson(payload.data)
+    case 'Organization':
+      return pinOrganization(payload.data)
   }
 }

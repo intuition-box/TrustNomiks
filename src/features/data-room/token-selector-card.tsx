@@ -27,7 +27,12 @@ interface TokenSelectorCardProps {
  * Data Room picker card. Every token appears, thin ones included: readiness is
  * shown (ClusterMeter + hint), never used to hide entries (docs/redesign/08 §8).
  */
-export function TokenSelectorCard({ token, ready, selected, onClick }: TokenSelectorCardProps) {
+export function TokenSelectorCard({
+  token,
+  ready,
+  selected,
+  onClick,
+}: TokenSelectorCardProps) {
   return (
     <button
       onClick={onClick}
@@ -58,7 +63,9 @@ export function TokenSelectorCard({ token, ready, selected, onClick }: TokenSele
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate text-sm font-medium">{token.name}</span>
-            <span className="flex-shrink-0 font-mono text-xs text-muted-foreground">{token.ticker}</span>
+            <span className="flex-shrink-0 font-mono text-xs text-muted-foreground">
+              {token.ticker}
+            </span>
           </div>
           <div className="mt-1 flex items-center justify-between gap-2">
             <ClusterMeter

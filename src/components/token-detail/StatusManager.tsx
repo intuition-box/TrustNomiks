@@ -24,7 +24,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { convertTokenToTriples, downloadTriplesAsJSON } from '@/lib/utils/triples-export'
+import {
+  convertTokenToTriples,
+  downloadTriplesAsJSON,
+} from '@/lib/utils/triples-export'
 import { STATUS_RANK } from './detail-helpers'
 import type { TokenData } from './types'
 
@@ -120,7 +123,9 @@ export function StatusManager({ token, setToken }: StatusManagerProps) {
           notes: v.notes,
           allocation: {
             label: v.allocation.label,
-            segment_type: token.allocation_segments.find((a) => a.id === v.allocation_id)?.segment_type || '',
+            segment_type:
+              token.allocation_segments.find((a) => a.id === v.allocation_id)
+                ?.segment_type || '',
           },
         })),
         emission: token.emission_models || undefined,
@@ -158,7 +163,10 @@ export function StatusManager({ token, setToken }: StatusManagerProps) {
           </SelectContent>
         </Select>
 
-        <Button variant="outline" onClick={() => router.push(`/tokens/new?id=${token.id}`)}>
+        <Button
+          variant="outline"
+          onClick={() => router.push(`/tokens/new?id=${token.id}`)}
+        >
           <Edit className="mr-2 h-4 w-4" />
           Edit
         </Button>
@@ -179,13 +187,21 @@ export function StatusManager({ token, setToken }: StatusManagerProps) {
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the token
-                <span className="font-semibold"> {token.name} ({token.ticker})</span> and all its associated data.
+                This action cannot be undone. This will permanently delete the
+                token
+                <span className="font-semibold">
+                  {' '}
+                  {token.name} ({token.ticker})
+                </span>{' '}
+                and all its associated data.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-destructive-foreground"
+              >
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -194,17 +210,32 @@ export function StatusManager({ token, setToken }: StatusManagerProps) {
       </div>
 
       {/* Downgrade confirmation (existing pendingStatus flow) */}
-      <AlertDialog open={!!pendingStatus} onOpenChange={(open) => { if (!open) setPendingStatus(null) }}>
+      <AlertDialog
+        open={!!pendingStatus}
+        onOpenChange={(open) => {
+          if (!open) setPendingStatus(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Downgrade token status?</AlertDialogTitle>
             <AlertDialogDescription>
-              You are about to change the status of {token?.name} ({token?.ticker}) from &quot;{token?.status?.replace('_', ' ')}&quot; to &quot;{pendingStatus?.replace('_', ' ')}&quot;. This may require re-validation later.
+              You are about to change the status of {token?.name} (
+              {token?.ticker}) from &quot;{token?.status?.replace('_', ' ')}
+              &quot; to &quot;{pendingStatus?.replace('_', ' ')}&quot;. This may
+              require re-validation later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (pendingStatus) { handleStatusChange(pendingStatus); setPendingStatus(null) } }}>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingStatus) {
+                  handleStatusChange(pendingStatus)
+                  setPendingStatus(null)
+                }
+              }}
+            >
               Confirm Downgrade
             </AlertDialogAction>
           </AlertDialogFooter>

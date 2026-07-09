@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (!platform || !contractAddress) {
     return NextResponse.json(
       { error: 'Unsupported chain or missing contract_address' },
-      { status: 404 }
+      { status: 404 },
     )
   }
 
@@ -38,21 +38,32 @@ export async function GET(request: NextRequest) {
   if (!allowed) {
     return NextResponse.json(
       { error: 'Rate limit exceeded' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((retryAfterMs ?? 1000) / 1000)) } }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil((retryAfterMs ?? 1000) / 1000)),
+        },
+      },
     )
   }
 
   try {
     const res = await fetch(
       `${COINGECKO_BASE}/coins/${platform}/contract/${contractAddress.toLowerCase()}`,
-      { headers: { Accept: 'application/json' } }
+      { headers: { Accept: 'application/json' } },
     )
 
     if (!res.ok) {
       if (res.status === 404) {
-        return NextResponse.json({ error: 'Token not found on CoinGecko' }, { status: 404 })
+        return NextResponse.json(
+          { error: 'Token not found on CoinGecko' },
+          { status: 404 },
+        )
       }
-      return NextResponse.json({ error: 'CoinGecko API error' }, { status: res.status })
+      return NextResponse.json(
+        { error: 'CoinGecko API error' },
+        { status: res.status },
+      )
     }
 
     const data: CoinGeckoResolveResult = await res.json()
@@ -68,6 +79,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(resolved)
   } catch {
-    return NextResponse.json({ error: 'Failed to reach CoinGecko' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Failed to reach CoinGecko' },
+      { status: 502 },
+    )
   }
 }

@@ -34,15 +34,24 @@ export function SectionCard({
   const accentColor = `hsl(var(${DATA_CSS_VAR[accent]}))`
   return (
     <section
-      className={cn('overflow-hidden rounded-xl border bg-surface-1', className)}
+      className={cn(
+        'overflow-hidden rounded-xl border bg-surface-1',
+        className,
+      )}
       style={{ borderLeft: `3px solid ${accentColor}` }}
     >
       <div className="flex items-start justify-between gap-3 border-b px-5 py-4">
         <div className="flex items-center gap-2.5">
           <NodeGlyph type={accent} size={14} aria-hidden />
           <div>
-            <Heading className="text-base font-semibold leading-tight">{title}</Heading>
-            {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+            <Heading className="text-base font-semibold leading-tight">
+              {title}
+            </Heading>
+            {description && (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {description}
+              </p>
+            )}
           </div>
         </div>
         {action}

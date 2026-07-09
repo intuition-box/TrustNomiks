@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -26,7 +32,10 @@ import type { RunStatus } from '@/lib/intuition/types'
 
 const DEFAULT_PAGE_SIZE = 20
 
-const STATUS_VARIANTS: Record<RunStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const STATUS_VARIANTS: Record<
+  RunStatus,
+  'default' | 'secondary' | 'destructive' | 'outline'
+> = {
   completed: 'default',
   partial: 'secondary',
   failed: 'destructive',
@@ -61,7 +70,10 @@ export function MyExportsBlock() {
         setData(json)
         setPage(json.page)
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to load your publish history'
+        const msg =
+          err instanceof Error
+            ? err.message
+            : 'Failed to load your publish history'
         setError(msg)
         toast.error(msg)
       } finally {
@@ -91,12 +103,14 @@ export function MyExportsBlock() {
             My Exports
           </CardTitle>
           <CardDescription>
-            Your on-chain publish history, filtered by the currently connected wallet.
+            Your on-chain publish history, filtered by the currently connected
+            wallet.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-start gap-3">
           <p className="text-sm text-muted-foreground">
-            Connect your wallet to see the runs you have published to Intuition testnet.
+            Connect your wallet to see the runs you have published to Intuition
+            testnet.
           </p>
           <WalletConnectButton />
         </CardContent>
@@ -106,7 +120,9 @@ export function MyExportsBlock() {
 
   // ── Render: loaded / loading / error ────────────────────────────────────
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1
+  const totalPages = data
+    ? Math.max(1, Math.ceil(data.total / data.pageSize))
+    : 1
   const canPrev = page > 1
   const canNext = data ? page < totalPages : false
 
@@ -179,7 +195,8 @@ export function MyExportsBlock() {
         {/* Empty state */}
         {data && data.runs.length === 0 && (
           <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            This wallet has no publish runs yet. Publish a token from its detail page to get started.
+            This wallet has no publish runs yet. Publish a token from its detail
+            page to get started.
           </div>
         )}
 
@@ -203,7 +220,8 @@ export function MyExportsBlock() {
         {data && data.total > data.pageSize && (
           <div className="flex items-center justify-between border-t pt-3">
             <p className="text-sm text-muted-foreground">
-              Page {data.page} of {totalPages} · {data.total} run{data.total === 1 ? '' : 's'} total
+              Page {data.page} of {totalPages} · {data.total} run
+              {data.total === 1 ? '' : 's'} total
             </p>
             <div className="flex gap-2">
               <Button
@@ -257,12 +275,17 @@ function AggregatesRow({
         value={totalRuns}
         hint={
           <div className="flex flex-wrap gap-1">
-            {(['completed', 'partial', 'failed', 'running'] as const).map((s) =>
-              runsByStatus[s] > 0 ? (
-                <Badge key={s} variant={STATUS_VARIANTS[s]} className="text-[10px]">
-                  {runsByStatus[s]} {s}
-                </Badge>
-              ) : null,
+            {(['completed', 'partial', 'failed', 'running'] as const).map(
+              (s) =>
+                runsByStatus[s] > 0 ? (
+                  <Badge
+                    key={s}
+                    variant={STATUS_VARIANTS[s]}
+                    className="text-[10px]"
+                  >
+                    {runsByStatus[s]} {s}
+                  </Badge>
+                ) : null,
             )}
           </div>
         }
@@ -282,8 +305,12 @@ function Stat({
 }) {
   return (
     <div className="rounded-lg border p-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value.toLocaleString()}</p>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">
+        {value.toLocaleString()}
+      </p>
       {hint && <div className="mt-2">{hint}</div>}
     </div>
   )
@@ -312,13 +339,23 @@ function RunCard({
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>{started.toLocaleString()}</span>
-          {completed && <span>·&nbsp;completed {completed.toLocaleString()}</span>}
+          {completed && (
+            <span>·&nbsp;completed {completed.toLocaleString()}</span>
+          )}
           <span>·&nbsp;{run.txHashCount} tx</span>
         </div>
 
         <div className="flex flex-wrap gap-3 pt-1 text-xs">
-          <CounterChip label="atoms" created={run.atomsCreated} failed={run.atomsFailed} />
-          <CounterChip label="triples" created={run.triplesCreated} failed={run.triplesFailed} />
+          <CounterChip
+            label="atoms"
+            created={run.atomsCreated}
+            failed={run.atomsFailed}
+          />
+          <CounterChip
+            label="triples"
+            created={run.triplesCreated}
+            failed={run.triplesFailed}
+          />
         </div>
       </div>
 
@@ -359,7 +396,9 @@ function CounterChip({
       <span className="font-medium tabular-nums">{created}</span>
       <span className="text-muted-foreground">{label} created</span>
       {failed > 0 && (
-        <span className="text-red-600 tabular-nums dark:text-red-400">· {failed} failed</span>
+        <span className="text-red-600 tabular-nums dark:text-red-400">
+          · {failed} failed
+        </span>
       )}
     </span>
   )

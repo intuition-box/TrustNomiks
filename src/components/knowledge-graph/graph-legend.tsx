@@ -20,17 +20,23 @@ export function GraphLegend() {
 
   return (
     <div className="absolute bottom-3 left-3 z-10">
-      <div className={cn(
-        'rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm shadow-sm',
-        'transition-all duration-200',
-      )}>
+      <div
+        className={cn(
+          'rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm shadow-sm',
+          'transition-all duration-200',
+        )}
+      >
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
         >
           Legend
-          {open ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronUp className="h-3 w-3 ml-auto" />}
+          {open ? (
+            <ChevronDown className="h-3 w-3 ml-auto" />
+          ) : (
+            <ChevronUp className="h-3 w-3 ml-auto" />
+          )}
         </button>
 
         {open && (
@@ -40,11 +46,19 @@ export function GraphLegend() {
               return (
                 <div key={type} className="flex items-center gap-2">
                   {type === 'triple' ? (
-                    <span className="w-2.5 h-2.5 shrink-0 rotate-45" style={{ backgroundColor: config.color }} />
+                    <span
+                      className="w-2.5 h-2.5 shrink-0 rotate-45"
+                      style={{ backgroundColor: config.color }}
+                    />
                   ) : (
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: config.color }} />
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: config.color }}
+                    />
                   )}
-                  <span className="text-[10px] text-muted-foreground">{config.label}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {config.label}
+                  </span>
                 </div>
               )
             })}

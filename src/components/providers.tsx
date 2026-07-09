@@ -3,7 +3,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider } from 'wagmi'
-import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit'
+import {
+  RainbowKitProvider,
+  darkTheme,
+  lightTheme,
+} from '@rainbow-me/rainbowkit'
 import { useTheme } from 'next-themes'
 import { wagmiConfig, walletEnabled } from '@/config/wagmi'
 

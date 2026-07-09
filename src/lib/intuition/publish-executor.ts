@@ -33,10 +33,7 @@ import {
   TRIPLE_CHUNK_SIZE,
   PROVENANCE_CHUNK_SIZE,
 } from './config'
-import {
-  calculateAtomId,
-  calculateTripleId,
-} from '@0xintuition/sdk'
+import { calculateAtomId, calculateTripleId } from '@0xintuition/sdk'
 import { batchIsTermCreated } from './read-batcher'
 import type {
   PublishPlan,
@@ -132,11 +129,13 @@ export async function* executePublishPlan(
   const atomsToCreate = plan.atoms.toCreate
 
   // IMPROVED FIX: Verify which atoms actually exist and get their real term IDs
-  console.log('🔧 IMPROVED FIX: Checking which atoms actually exist on-chain...')
+  console.log(
+    '🔧 IMPROVED FIX: Checking which atoms actually exist on-chain...',
+  )
 
   const realExistingAtoms: typeof atomsToCreate = []
   const needToCreate: typeof atomsToCreate = []
-  const atomTermIdToAtom = new Map<string, typeof atomsToCreate[0][]>()
+  const atomTermIdToAtom = new Map<string, (typeof atomsToCreate)[0][]>()
 
   for (const atom of atomsToCreate) {
     const computedTermId = computeAtomTermId(atom.normalizedData)
@@ -153,29 +152,40 @@ export async function* executePublishPlan(
   // Treat unknowns as "needs creation"; the per-chunk recheck and the
   // MultiVault_AtomExists handler below are the net against double-creation.
   // (Restores the legacy "if can't check, try to create" semantics.)
-  const atomRecheckResults = await batchIsTermCreated(publicClient, atomRecheckTermIds, {
-    failureMode: 'assumeMissing',
-  })
+  const atomRecheckResults = await batchIsTermCreated(
+    publicClient,
+    atomRecheckTermIds,
+    {
+      failureMode: 'assumeMissing',
+    },
+  )
 
   for (const [, atoms] of atomTermIdToAtom) {
     for (const atom of atoms) {
       const termId = computeAtomTermId(atom.normalizedData)
-      const exists = atomRecheckResults.get(termId.toLowerCase() as Hex) ?? false
+      const exists =
+        atomRecheckResults.get(termId.toLowerCase() as Hex) ?? false
       if (exists) {
         createdAtomTermIds.set(atom.atomId, termId)
         realExistingAtoms.push(atom)
-        console.log(`✅ FOUND existing atom: "${atom.normalizedData}" (${atom.atomId})`)
+        console.log(
+          `✅ FOUND existing atom: "${atom.normalizedData}" (${atom.atomId})`,
+        )
       } else {
         needToCreate.push(atom)
-        console.log(`❌ NEEDS creation: "${atom.normalizedData}" (${atom.atomId})`)
+        console.log(
+          `❌ NEEDS creation: "${atom.normalizedData}" (${atom.atomId})`,
+        )
       }
     }
   }
 
-  console.log(`Found ${realExistingAtoms.length} existing atoms, ${needToCreate.length} need creation`)
+  console.log(
+    `Found ${realExistingAtoms.length} existing atoms, ${needToCreate.length} need creation`,
+  )
 
   // Deduplicate atoms by their normalized data to avoid creating duplicates
-  const atomsByData = new Map<string, typeof needToCreate[0]>()
+  const atomsByData = new Map<string, (typeof needToCreate)[0]>()
   for (const atom of needToCreate) {
     if (!atomsByData.has(atom.normalizedData)) {
       atomsByData.set(atom.normalizedData, atom)
@@ -183,12 +193,16 @@ export async function* executePublishPlan(
       // Map duplicate atoms to the first instance
       const termId = computeAtomTermId(atom.normalizedData)
       createdAtomTermIds.set(atom.atomId, termId)
-      console.log(`🔄 Mapped duplicate atom: "${atom.normalizedData}" (${atom.atomId}) -> existing instance`)
+      console.log(
+        `🔄 Mapped duplicate atom: "${atom.normalizedData}" (${atom.atomId}) -> existing instance`,
+      )
     }
   }
 
   const finalAtomsToCreate = Array.from(atomsByData.values())
-  console.log(`✅ ENABLING atom creation - ${finalAtomsToCreate.length} unique atoms will be created (${needToCreate.length} total requested), ${realExistingAtoms.length} already exist`)
+  console.log(
+    `✅ ENABLING atom creation - ${finalAtomsToCreate.length} unique atoms will be created (${needToCreate.length} total requested), ${realExistingAtoms.length} already exist`,
+  )
 
   const atomChunks = chunkArray(finalAtomsToCreate, ATOM_CHUNK_SIZE)
   let atomsProcessed = 0
@@ -198,7 +212,12 @@ export async function* executePublishPlan(
     type: 'phase_start',
     phase: 'atoms',
     totalChunks: atomChunks.length,
-    progress: { currentChunk: 0, totalChunks: atomChunks.length, itemsProcessed: 0, totalItems: finalAtomsToCreate.length },
+    progress: {
+      currentChunk: 0,
+      totalChunks: atomChunks.length,
+      itemsProcessed: 0,
+      totalItems: finalAtomsToCreate.length,
+    },
   }
 
   for (let ci = 0; ci < atomChunks.length; ci++) {
@@ -209,7 +228,12 @@ export async function* executePublishPlan(
       phase: 'atoms',
       chunkIndex: ci,
       totalChunks: atomChunks.length,
-      progress: { currentChunk: ci, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+      progress: {
+        currentChunk: ci,
+        totalChunks: atomChunks.length,
+        itemsProcessed: atomsProcessed,
+        totalItems: finalAtomsToCreate.length,
+      },
     }
 
     // ── Per-chunk existence recheck (closes the recheck→write race) ──────────
@@ -228,7 +252,10 @@ export async function* executePublishPlan(
     const submitChunk: typeof chunk = []
     const skippedMappings: PublishRunResult['atomMappings'] = []
     for (const atom of chunk) {
-      const exists = chunkRecheck.get((atom.computedTermId as string).toLowerCase() as Hex) ?? false
+      const exists =
+        chunkRecheck.get(
+          (atom.computedTermId as string).toLowerCase() as Hex,
+        ) ?? false
       if (exists) {
         createdAtomTermIds.set(atom.atomId, atom.computedTermId)
         for (const needAtom of needToCreate) {
@@ -259,7 +286,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: atomChunks.length,
         txHash: '',
-        progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: atomChunks.length,
+          itemsProcessed: atomsProcessed,
+          totalItems: finalAtomsToCreate.length,
+        },
         chunkMappings: { atomMappings: skippedMappings },
       }
       if (ci < atomChunks.length - 1) {
@@ -269,11 +301,15 @@ export async function* executePublishPlan(
     }
 
     try {
-      const hexDataArray = submitChunk.map((a) => stringToAtomData(a.normalizedData))
+      const hexDataArray = submitChunk.map((a) =>
+        stringToAtomData(a.normalizedData),
+      )
       const assetsArray = submitChunk.map(() => atomAssetPerUnit)
       const totalValue = atomAssetPerUnit * BigInt(submitChunk.length)
 
-      console.log(`Creating atom chunk ${ci + 1}/${atomChunks.length}: ${submitChunk.length} to create, ${skippedMappings.length} already existed:`)
+      console.log(
+        `Creating atom chunk ${ci + 1}/${atomChunks.length}: ${submitChunk.length} to create, ${skippedMappings.length} already existed:`,
+      )
       submitChunk.forEach((atom, idx) => {
         console.log(`  [${idx}] "${atom.normalizedData}" (${atom.atomId})`)
       })
@@ -289,15 +325,16 @@ export async function* executePublishPlan(
       // Mismatch: tx mined but can't reliably map events to inputs — treat as failed
       if (events.length !== submitChunk.length) {
         const mismatchErr = `Event count mismatch: expected ${submitChunk.length}, got ${events.length}. Tx ${txHash} mined but items not trackable — rerun to resolve.`
-        const failedMappings: PublishRunResult['atomMappings'] = submitChunk.map((atom) => ({
-          atomId: atom.atomId,
-          atomType: atom.atomType,
-          normalizedData: atom.normalizedData,
-          termId: atom.computedTermId as string,
-          txHash: txHash as string,
-          status: 'failed' as const,
-          errorMessage: mismatchErr,
-        }))
+        const failedMappings: PublishRunResult['atomMappings'] =
+          submitChunk.map((atom) => ({
+            atomId: atom.atomId,
+            atomType: atom.atomType,
+            normalizedData: atom.normalizedData,
+            termId: atom.computedTermId as string,
+            txHash: txHash as string,
+            status: 'failed' as const,
+            errorMessage: mismatchErr,
+          }))
 
         atomsProcessed += chunk.length
 
@@ -308,17 +345,30 @@ export async function* executePublishPlan(
           totalChunks: atomChunks.length,
           error: mismatchErr,
           txHash: txHash as string,
-          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-          chunkMappings: { atomMappings: [...skippedMappings, ...failedMappings] },
+          progress: {
+            currentChunk: ci + 1,
+            totalChunks: atomChunks.length,
+            itemsProcessed: atomsProcessed,
+            totalItems: finalAtomsToCreate.length,
+          },
+          chunkMappings: {
+            atomMappings: [...skippedMappings, ...failedMappings],
+          },
         }
 
         atomPhaseAborted = true
-        yield { type: 'abort', phase: 'atoms', error: `Atom chunk ${ci + 1}/${atomChunks.length} event mismatch — aborting before triples phase` }
+        yield {
+          type: 'abort',
+          phase: 'atoms',
+          error: `Atom chunk ${ci + 1}/${atomChunks.length} event mismatch — aborting before triples phase`,
+        }
         break
       }
 
       // Events match — verify each termId against pre-computed value
-      const atomMappings: PublishRunResult['atomMappings'] = [...skippedMappings]
+      const atomMappings: PublishRunResult['atomMappings'] = [
+        ...skippedMappings,
+      ]
       for (let j = 0; j < submitChunk.length; j++) {
         const atom = submitChunk[j]
         const actualTermId = events[j].args.termId as Hex
@@ -339,9 +389,10 @@ export async function* executePublishPlan(
           termId: actualTermId as string,
           txHash: txHash as string,
           status: 'confirmed',
-          errorMessage: actualTermId !== atom.computedTermId
-            ? `TermId mismatch: expected ${atom.computedTermId}, got ${actualTermId}`
-            : undefined,
+          errorMessage:
+            actualTermId !== atom.computedTermId
+              ? `TermId mismatch: expected ${atom.computedTermId}, got ${actualTermId}`
+              : undefined,
         })
       }
 
@@ -353,7 +404,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: atomChunks.length,
         txHash: txHash as string,
-        progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: atomChunks.length,
+          itemsProcessed: atomsProcessed,
+          totalItems: finalAtomsToCreate.length,
+        },
         chunkMappings: { atomMappings },
       }
     } catch (err) {
@@ -366,7 +422,9 @@ export async function* executePublishPlan(
       // each one and confirm ONLY those genuinely on-chain; the remainder are
       // real failures and must not be silently marked confirmed.
       if (errorMsg.includes('MultiVault_AtomExists')) {
-        console.log('Detected MultiVault_AtomExists — rechecking each atom in the chunk individually...')
+        console.log(
+          'Detected MultiVault_AtomExists — rechecking each atom in the chunk individually...',
+        )
 
         const existsAfterRevert = await batchIsTermCreated(
           publicClient,
@@ -377,7 +435,10 @@ export async function* executePublishPlan(
         const confirmedMappings: PublishRunResult['atomMappings'] = []
         const stillMissing: typeof submitChunk = []
         for (const atom of submitChunk) {
-          const exists = existsAfterRevert.get((atom.computedTermId as string).toLowerCase() as Hex) ?? false
+          const exists =
+            existsAfterRevert.get(
+              (atom.computedTermId as string).toLowerCase() as Hex,
+            ) ?? false
           if (exists) {
             createdAtomTermIds.set(atom.atomId, atom.computedTermId)
             for (const needAtom of needToCreate) {
@@ -392,7 +453,8 @@ export async function* executePublishPlan(
               termId: atom.computedTermId as string,
               txHash: '',
               status: 'confirmed' as const,
-              errorMessage: 'Atom already exists on-chain (confirmed after AtomExists revert)',
+              errorMessage:
+                'Atom already exists on-chain (confirmed after AtomExists revert)',
             })
           } else {
             stillMissing.push(atom)
@@ -409,21 +471,30 @@ export async function* executePublishPlan(
             chunkIndex: ci,
             totalChunks: atomChunks.length,
             txHash: '',
-            progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-            chunkMappings: { atomMappings: [...skippedMappings, ...confirmedMappings] },
+            progress: {
+              currentChunk: ci + 1,
+              totalChunks: atomChunks.length,
+              itemsProcessed: atomsProcessed,
+              totalItems: finalAtomsToCreate.length,
+            },
+            chunkMappings: {
+              atomMappings: [...skippedMappings, ...confirmedMappings],
+            },
           }
         } else {
           // Some atoms are genuinely still missing: the atomic revert means they
           // were NOT created. Surface them as failed and abort so the run resumes.
-          const failedMappings: PublishRunResult['atomMappings'] = stillMissing.map((atom) => ({
-            atomId: atom.atomId,
-            atomType: atom.atomType,
-            normalizedData: atom.normalizedData,
-            termId: atom.computedTermId as string,
-            txHash: '',
-            status: 'failed' as const,
-            errorMessage: 'MultiVault_AtomExists reverted the chunk; this atom is still not on-chain and must be retried',
-          }))
+          const failedMappings: PublishRunResult['atomMappings'] =
+            stillMissing.map((atom) => ({
+              atomId: atom.atomId,
+              atomType: atom.atomType,
+              normalizedData: atom.normalizedData,
+              termId: atom.computedTermId as string,
+              txHash: '',
+              status: 'failed' as const,
+              errorMessage:
+                'MultiVault_AtomExists reverted the chunk; this atom is still not on-chain and must be retried',
+            }))
 
           yield {
             type: 'chunk_failed',
@@ -431,25 +502,41 @@ export async function* executePublishPlan(
             chunkIndex: ci,
             totalChunks: atomChunks.length,
             error: `MultiVault_AtomExists: ${confirmedMappings.length} already existed, ${stillMissing.length} still missing`,
-            progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-            chunkMappings: { atomMappings: [...skippedMappings, ...confirmedMappings, ...failedMappings] },
+            progress: {
+              currentChunk: ci + 1,
+              totalChunks: atomChunks.length,
+              itemsProcessed: atomsProcessed,
+              totalItems: finalAtomsToCreate.length,
+            },
+            chunkMappings: {
+              atomMappings: [
+                ...skippedMappings,
+                ...confirmedMappings,
+                ...failedMappings,
+              ],
+            },
           }
 
           atomPhaseAborted = true
-          yield { type: 'abort', phase: 'atoms', error: `Atom chunk ${ci + 1}/${atomChunks.length} partially reverted (AtomExists) — aborting before triples phase` }
+          yield {
+            type: 'abort',
+            phase: 'atoms',
+            error: `Atom chunk ${ci + 1}/${atomChunks.length} partially reverted (AtomExists) — aborting before triples phase`,
+          }
           break
         }
       } else {
         // Build failed mappings for all atoms in this chunk
-        const failedMappings: PublishRunResult['atomMappings'] = submitChunk.map((atom) => ({
-          atomId: atom.atomId,
-          atomType: atom.atomType,
-          normalizedData: atom.normalizedData,
-          termId: atom.computedTermId as string,
-          txHash: '',
-          status: 'failed' as const,
-          errorMessage: errorMsg,
-        }))
+        const failedMappings: PublishRunResult['atomMappings'] =
+          submitChunk.map((atom) => ({
+            atomId: atom.atomId,
+            atomType: atom.atomType,
+            normalizedData: atom.normalizedData,
+            termId: atom.computedTermId as string,
+            txHash: '',
+            status: 'failed' as const,
+            errorMessage: errorMsg,
+          }))
 
         atomsProcessed += chunk.length
 
@@ -459,13 +546,24 @@ export async function* executePublishPlan(
           chunkIndex: ci,
           totalChunks: atomChunks.length,
           error: errorMsg,
-          progress: { currentChunk: ci + 1, totalChunks: atomChunks.length, itemsProcessed: atomsProcessed, totalItems: finalAtomsToCreate.length },
-          chunkMappings: { atomMappings: [...skippedMappings, ...failedMappings] },
+          progress: {
+            currentChunk: ci + 1,
+            totalChunks: atomChunks.length,
+            itemsProcessed: atomsProcessed,
+            totalItems: finalAtomsToCreate.length,
+          },
+          chunkMappings: {
+            atomMappings: [...skippedMappings, ...failedMappings],
+          },
         }
 
         // ABORT: atom chunk failure stops before triples phase
         atomPhaseAborted = true
-        yield { type: 'abort', phase: 'atoms', error: `Atom chunk ${ci + 1}/${atomChunks.length} failed — aborting before triples phase` }
+        yield {
+          type: 'abort',
+          phase: 'atoms',
+          error: `Atom chunk ${ci + 1}/${atomChunks.length} failed — aborting before triples phase`,
+        }
         break
       }
     }
@@ -485,7 +583,9 @@ export async function* executePublishPlan(
   // ── Phase 2: Batch create triples ─────────────────────────────────────────
 
   const triplesToCreate = plan.triples.toCreate
-  console.log(`Starting triples phase with ${triplesToCreate.length} triples to create`)
+  console.log(
+    `Starting triples phase with ${triplesToCreate.length} triples to create`,
+  )
   console.log(`Available atom term IDs: ${createdAtomTermIds.size}`)
 
   const tripleChunks = chunkArray(triplesToCreate, TRIPLE_CHUNK_SIZE)
@@ -501,7 +601,12 @@ export async function* executePublishPlan(
     type: 'phase_start',
     phase: 'triples',
     totalChunks: tripleChunks.length,
-    progress: { currentChunk: 0, totalChunks: tripleChunks.length, itemsProcessed: 0, totalItems: triplesToCreate.length },
+    progress: {
+      currentChunk: 0,
+      totalChunks: tripleChunks.length,
+      itemsProcessed: 0,
+      totalItems: triplesToCreate.length,
+    },
   }
 
   for (let ci = 0; ci < tripleChunks.length; ci++) {
@@ -527,29 +632,38 @@ export async function* executePublishPlan(
       }
     }
 
-    console.log(`Triple chunk ${ci + 1}: ${validTriples.length} valid, ${skippedTriples.length} skipped`)
+    console.log(
+      `Triple chunk ${ci + 1}: ${validTriples.length} valid, ${skippedTriples.length} skipped`,
+    )
 
     yield {
       type: 'chunk_pending',
       phase: 'triples',
       chunkIndex: ci,
       totalChunks: tripleChunks.length,
-      progress: { currentChunk: ci, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+      progress: {
+        currentChunk: ci,
+        totalChunks: tripleChunks.length,
+        itemsProcessed: triplesProcessed,
+        totalItems: triplesToCreate.length,
+      },
     }
 
     // Start with mappings for skipped triples
-    const claimMappings: PublishRunResult['claimMappings'] = skippedTriples.map((t) => ({
-      tripleId: t.tripleId,
-      claimGroup: t.claimGroup,
-      originRowId: t.originRowId,
-      subjectTermId: t.subjectTermId as string,
-      predicateTermId: t.predicateTermId as string,
-      objectTermId: t.objectTermId as string,
-      tripleTermId: t.computedTripleTermId as string,
-      txHash: '',
-      status: 'failed' as const,
-      errorMessage: 'Missing atom term ID for subject, predicate, or object',
-    }))
+    const claimMappings: PublishRunResult['claimMappings'] = skippedTriples.map(
+      (t) => ({
+        tripleId: t.tripleId,
+        claimGroup: t.claimGroup,
+        originRowId: t.originRowId,
+        subjectTermId: t.subjectTermId as string,
+        predicateTermId: t.predicateTermId as string,
+        objectTermId: t.objectTermId as string,
+        tripleTermId: t.computedTripleTermId as string,
+        txHash: '',
+        status: 'failed' as const,
+        errorMessage: 'Missing atom term ID for subject, predicate, or object',
+      }),
+    )
 
     if (validTriples.length === 0) {
       triplesProcessed += chunk.length
@@ -559,7 +673,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: tripleChunks.length,
         error: 'All triples in chunk skipped (missing atom termIds)',
-        progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: tripleChunks.length,
+          itemsProcessed: triplesProcessed,
+          totalItems: triplesToCreate.length,
+        },
         chunkMappings: { claimMappings },
       }
       continue // Continue to next triple chunk
@@ -604,7 +723,11 @@ export async function* executePublishPlan(
     for (const et of effectiveTriples) {
       const key = et.effTripleTermId.toLowerCase()
       if (seenInBatch.has(key)) {
-        preConfirmed.push({ et, reason: 'Duplicate within batch (skipped — same triple termId already submitted)' })
+        preConfirmed.push({
+          et,
+          reason:
+            'Duplicate within batch (skipped — same triple termId already submitted)',
+        })
         continue
       }
       seenInBatch.add(key)
@@ -617,14 +740,22 @@ export async function* executePublishPlan(
       // assumeMissing: a read failure must not mark a triple as already existing
       // and skip its creation. Treat unknowns as "needs creation"; the
       // MultiVault_TripleExists handler below confirms anything that truly exists.
-      const recheckResults = await batchIsTermCreated(publicClient, recheckTermIds, {
-        failureMode: 'assumeMissing',
-      })
+      const recheckResults = await batchIsTermCreated(
+        publicClient,
+        recheckTermIds,
+        {
+          failureMode: 'assumeMissing',
+        },
+      )
 
       for (const et of dedupedTriples) {
-        const exists = recheckResults.get(et.effTripleTermId.toLowerCase() as Hex) ?? false
+        const exists =
+          recheckResults.get(et.effTripleTermId.toLowerCase() as Hex) ?? false
         if (exists) {
-          preConfirmed.push({ et, reason: 'Triple already exists on-chain (skipped)' })
+          preConfirmed.push({
+            et,
+            reason: 'Triple already exists on-chain (skipped)',
+          })
         } else {
           triplesToSubmit.push(et)
         }
@@ -651,20 +782,29 @@ export async function* executePublishPlan(
 
     if (triplesToSubmit.length === 0) {
       triplesProcessed += chunk.length
-      console.log(`Triple chunk ${ci + 1}: all ${effectiveTriples.length} triple(s) already exist or were deduped — skipping createTriples`)
+      console.log(
+        `Triple chunk ${ci + 1}: all ${effectiveTriples.length} triple(s) already exist or were deduped — skipping createTriples`,
+      )
       yield {
         type: 'chunk_success',
         phase: 'triples',
         chunkIndex: ci,
         totalChunks: tripleChunks.length,
         txHash: '',
-        progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: tripleChunks.length,
+          itemsProcessed: triplesProcessed,
+          totalItems: triplesToCreate.length,
+        },
         chunkMappings: { claimMappings },
       }
       continue
     }
 
-    console.log(`Triple chunk ${ci + 1}: ${preConfirmed.length} pre-confirmed (existing/dup), ${triplesToSubmit.length} new to submit`)
+    console.log(
+      `Triple chunk ${ci + 1}: ${preConfirmed.length} pre-confirmed (existing/dup), ${triplesToSubmit.length} new to submit`,
+    )
 
     try {
       const subjectIds = triplesToSubmit.map((et) => et.effSubjectId)
@@ -673,7 +813,9 @@ export async function* executePublishPlan(
       const assetsArray = triplesToSubmit.map(() => tripleAssetPerUnit)
       const totalValue = tripleAssetPerUnit * BigInt(triplesToSubmit.length)
 
-      console.log(`🚀 About to call createTriples for ${triplesToSubmit.length} triples`)
+      console.log(
+        `🚀 About to call createTriples for ${triplesToSubmit.length} triples`,
+      )
       console.log(`Triple cost: ${tripleCost}, Total value: ${totalValue}`)
 
       const txHash = await multiVaultCreateTriples(config, {
@@ -714,7 +856,12 @@ export async function* executePublishPlan(
           totalChunks: tripleChunks.length,
           error: mismatchErr,
           txHash: txHash as string,
-          progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+          progress: {
+            currentChunk: ci + 1,
+            totalChunks: tripleChunks.length,
+            itemsProcessed: triplesProcessed,
+            totalItems: triplesToCreate.length,
+          },
           chunkMappings: { claimMappings },
         }
         continue // Continue to next triple chunk
@@ -737,9 +884,10 @@ export async function* executePublishPlan(
           tripleTermId: actualTermId as string,
           txHash: txHash as string,
           status: 'confirmed',
-          errorMessage: actualTermId !== et.effTripleTermId
-            ? `TermId mismatch: expected ${et.effTripleTermId}, got ${actualTermId}`
-            : undefined,
+          errorMessage:
+            actualTermId !== et.effTripleTermId
+              ? `TermId mismatch: expected ${et.effTripleTermId}, got ${actualTermId}`
+              : undefined,
         })
       }
 
@@ -751,7 +899,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: tripleChunks.length,
         txHash: txHash as string,
-        progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: tripleChunks.length,
+          itemsProcessed: triplesProcessed,
+          totalItems: triplesToCreate.length,
+        },
         chunkMappings: { claimMappings },
       }
     } catch (err) {
@@ -763,7 +916,9 @@ export async function* executePublishPlan(
       // Recheck each individually and confirm ONLY those genuinely on-chain; the
       // rest are real failures. The triples phase does not abort, so we continue.
       if (errorMsg.includes('MultiVault_TripleExists')) {
-        console.log('Detected TripleExists revert. Rechecking each submitted triple individually…')
+        console.log(
+          'Detected TripleExists revert. Rechecking each submitted triple individually…',
+        )
         const existsAfterRevert = await batchIsTermCreated(
           publicClient,
           triplesToSubmit.map((et) => et.effTripleTermId),
@@ -772,7 +927,9 @@ export async function* executePublishPlan(
 
         let stillMissing = 0
         for (const et of triplesToSubmit) {
-          const exists = existsAfterRevert.get(et.effTripleTermId.toLowerCase() as Hex) ?? false
+          const exists =
+            existsAfterRevert.get(et.effTripleTermId.toLowerCase() as Hex) ??
+            false
           if (exists) {
             createdTripleTermIds.set(et.planItem.tripleId, et.effTripleTermId)
             confirmedTripleIds.add(et.planItem.tripleId)
@@ -786,7 +943,8 @@ export async function* executePublishPlan(
               tripleTermId: et.effTripleTermId as string,
               txHash: '',
               status: 'confirmed',
-              errorMessage: 'Triple already exists on-chain (confirmed after TripleExists revert)',
+              errorMessage:
+                'Triple already exists on-chain (confirmed after TripleExists revert)',
             })
           } else {
             stillMissing++
@@ -800,7 +958,8 @@ export async function* executePublishPlan(
               tripleTermId: et.effTripleTermId as string,
               txHash: '',
               status: 'failed',
-              errorMessage: 'TripleExists reverted the chunk; this triple is still not on-chain and must be retried',
+              errorMessage:
+                'TripleExists reverted the chunk; this triple is still not on-chain and must be retried',
             })
           }
         }
@@ -813,7 +972,12 @@ export async function* executePublishPlan(
             chunkIndex: ci,
             totalChunks: tripleChunks.length,
             error: `MultiVault_TripleExists: ${triplesToSubmit.length - stillMissing} already existed, ${stillMissing} still missing`,
-            progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+            progress: {
+              currentChunk: ci + 1,
+              totalChunks: tripleChunks.length,
+              itemsProcessed: triplesProcessed,
+              totalItems: triplesToCreate.length,
+            },
             chunkMappings: { claimMappings },
           }
         } else {
@@ -823,7 +987,12 @@ export async function* executePublishPlan(
             chunkIndex: ci,
             totalChunks: tripleChunks.length,
             txHash: '',
-            progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+            progress: {
+              currentChunk: ci + 1,
+              totalChunks: tripleChunks.length,
+              itemsProcessed: triplesProcessed,
+              totalItems: triplesToCreate.length,
+            },
             chunkMappings: { claimMappings },
           }
         }
@@ -853,7 +1022,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: tripleChunks.length,
         error: errorMsg,
-        progress: { currentChunk: ci + 1, totalChunks: tripleChunks.length, itemsProcessed: triplesProcessed, totalItems: triplesToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: tripleChunks.length,
+          itemsProcessed: triplesProcessed,
+          totalItems: triplesToCreate.length,
+        },
         chunkMappings: { claimMappings },
       }
       // Continue to next triple chunk (not aborting)
@@ -869,8 +1043,8 @@ export async function* executePublishPlan(
   // ── Phase 3: Batch create provenance triples ──────────────────────────────
 
   // Only create provenance for triples that were actually confirmed
-  const provToCreate = plan.provenance.toCreate.filter(
-    (p) => confirmedTripleIds.has(p.claimTripleId),
+  const provToCreate = plan.provenance.toCreate.filter((p) =>
+    confirmedTripleIds.has(p.claimTripleId),
   )
 
   const provenanceChunks = chunkArray(provToCreate, PROVENANCE_CHUNK_SIZE)
@@ -880,7 +1054,12 @@ export async function* executePublishPlan(
     type: 'phase_start',
     phase: 'provenance',
     totalChunks: provenanceChunks.length,
-    progress: { currentChunk: 0, totalChunks: provenanceChunks.length, itemsProcessed: 0, totalItems: provToCreate.length },
+    progress: {
+      currentChunk: 0,
+      totalChunks: provenanceChunks.length,
+      itemsProcessed: 0,
+      totalItems: provToCreate.length,
+    },
   }
 
   for (let ci = 0; ci < provenanceChunks.length; ci++) {
@@ -893,7 +1072,8 @@ export async function* executePublishPlan(
     for (const prov of chunk) {
       const claimTermId = createdTripleTermIds.get(prov.claimTripleId)
       const sourceTermId = createdAtomTermIds.get(prov.sourceAtomId)
-      const predTermId = createdAtomTermIds.get(prov.predicateAtomId) ?? prov.predicateTermId
+      const predTermId =
+        createdAtomTermIds.get(prov.predicateAtomId) ?? prov.predicateTermId
 
       if (claimTermId && sourceTermId && predTermId) {
         validProvs.push(prov)
@@ -907,19 +1087,25 @@ export async function* executePublishPlan(
       phase: 'provenance',
       chunkIndex: ci,
       totalChunks: provenanceChunks.length,
-      progress: { currentChunk: ci, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+      progress: {
+        currentChunk: ci,
+        totalChunks: provenanceChunks.length,
+        itemsProcessed: provenanceProcessed,
+        totalItems: provToCreate.length,
+      },
     }
 
-    const provenanceMappings: PublishRunResult['provenanceMappings'] = skippedProvs.map((p) => ({
-      tripleId: p.claimTripleId,
-      sourceAtomId: p.sourceAtomId,
-      relation: p.relation,
-      predicateTermId: p.predicateTermId as string,
-      provenanceTripleTermId: p.computedTripleTermId as string,
-      txHash: '',
-      status: 'failed' as const,
-      errorMessage: 'Missing term ID for claim triple, source, or predicate',
-    }))
+    const provenanceMappings: PublishRunResult['provenanceMappings'] =
+      skippedProvs.map((p) => ({
+        tripleId: p.claimTripleId,
+        sourceAtomId: p.sourceAtomId,
+        relation: p.relation,
+        predicateTermId: p.predicateTermId as string,
+        provenanceTripleTermId: p.computedTripleTermId as string,
+        txHash: '',
+        status: 'failed' as const,
+        errorMessage: 'Missing term ID for claim triple, source, or predicate',
+      }))
 
     if (validProvs.length === 0) {
       provenanceProcessed += chunk.length
@@ -929,7 +1115,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: provenanceChunks.length,
         error: 'All provenance in chunk skipped (missing termIds)',
-        progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: provenanceChunks.length,
+          itemsProcessed: provenanceProcessed,
+          totalItems: provToCreate.length,
+        },
         chunkMappings: { provenanceMappings },
       }
       continue
@@ -941,14 +1132,15 @@ export async function* executePublishPlan(
 
     type EffectiveProv = {
       planItem: ProvenancePlanItem
-      effSubjectId: Hex   // claim triple term_id
+      effSubjectId: Hex // claim triple term_id
       effPredicateId: Hex // based_on term_id
-      effObjectId: Hex    // source atom term_id
+      effObjectId: Hex // source atom term_id
       effTripleTermId: Hex
     }
     const effectiveProvs: EffectiveProv[] = validProvs.map((p) => {
       const claimTermId = createdTripleTermIds.get(p.claimTripleId)!
-      const pred = createdAtomTermIds.get(p.predicateAtomId) ?? p.predicateTermId
+      const pred =
+        createdAtomTermIds.get(p.predicateAtomId) ?? p.predicateTermId
       const sourceTermId = createdAtomTermIds.get(p.sourceAtomId)!
       const sub = p.relation === 'includes_claim' ? sourceTermId : claimTermId
       const obj = p.relation === 'includes_claim' ? claimTermId : sourceTermId
@@ -970,7 +1162,10 @@ export async function* executePublishPlan(
     for (const ep of effectiveProvs) {
       const key = ep.effTripleTermId.toLowerCase()
       if (seenProvInBatch.has(key)) {
-        preConfirmedProvs.push({ ep, reason: 'Duplicate within batch (skipped)' })
+        preConfirmedProvs.push({
+          ep,
+          reason: 'Duplicate within batch (skipped)',
+        })
         continue
       }
       seenProvInBatch.add(key)
@@ -982,14 +1177,22 @@ export async function* executePublishPlan(
       const recheckTermIds = dedupedProvs.map((ep) => ep.effTripleTermId)
       // assumeMissing: a read failure must not skip a needed provenance creation.
       // The MultiVault_TripleExists handler below confirms anything that exists.
-      const recheckResults = await batchIsTermCreated(publicClient, recheckTermIds, {
-        failureMode: 'assumeMissing',
-      })
+      const recheckResults = await batchIsTermCreated(
+        publicClient,
+        recheckTermIds,
+        {
+          failureMode: 'assumeMissing',
+        },
+      )
 
       for (const ep of dedupedProvs) {
-        const exists = recheckResults.get(ep.effTripleTermId.toLowerCase() as Hex) ?? false
+        const exists =
+          recheckResults.get(ep.effTripleTermId.toLowerCase() as Hex) ?? false
         if (exists) {
-          preConfirmedProvs.push({ ep, reason: 'Provenance triple already exists on-chain (skipped)' })
+          preConfirmedProvs.push({
+            ep,
+            reason: 'Provenance triple already exists on-chain (skipped)',
+          })
         } else {
           provsToSubmit.push(ep)
         }
@@ -1011,14 +1214,21 @@ export async function* executePublishPlan(
 
     if (provsToSubmit.length === 0) {
       provenanceProcessed += chunk.length
-      console.log(`Provenance chunk ${ci + 1}: all ${effectiveProvs.length} already exist or deduped — skipping createTriples`)
+      console.log(
+        `Provenance chunk ${ci + 1}: all ${effectiveProvs.length} already exist or deduped — skipping createTriples`,
+      )
       yield {
         type: 'chunk_success',
         phase: 'provenance',
         chunkIndex: ci,
         totalChunks: provenanceChunks.length,
         txHash: '',
-        progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: provenanceChunks.length,
+          itemsProcessed: provenanceProcessed,
+          totalItems: provToCreate.length,
+        },
         chunkMappings: { provenanceMappings },
       }
       continue
@@ -1066,7 +1276,12 @@ export async function* executePublishPlan(
           totalChunks: provenanceChunks.length,
           error: mismatchErr,
           txHash: txHash as string,
-          progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+          progress: {
+            currentChunk: ci + 1,
+            totalChunks: provenanceChunks.length,
+            itemsProcessed: provenanceProcessed,
+            totalItems: provToCreate.length,
+          },
           chunkMappings: { provenanceMappings },
         }
         continue // Continue to next provenance chunk
@@ -1085,9 +1300,10 @@ export async function* executePublishPlan(
           provenanceTripleTermId: actualTermId as string,
           txHash: txHash as string,
           status: 'confirmed',
-          errorMessage: actualTermId !== ep.effTripleTermId
-            ? `TermId mismatch: expected ${ep.effTripleTermId}, got ${actualTermId}`
-            : undefined,
+          errorMessage:
+            actualTermId !== ep.effTripleTermId
+              ? `TermId mismatch: expected ${ep.effTripleTermId}, got ${actualTermId}`
+              : undefined,
         })
       }
 
@@ -1099,7 +1315,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: provenanceChunks.length,
         txHash: txHash as string,
-        progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: provenanceChunks.length,
+          itemsProcessed: provenanceProcessed,
+          totalItems: provToCreate.length,
+        },
         chunkMappings: { provenanceMappings },
       }
     } catch (err) {
@@ -1109,7 +1330,9 @@ export async function* executePublishPlan(
       // already-existing one(s) caused it. Recheck each individually; confirm only
       // those genuinely on-chain, fail the rest. The provenance phase does not abort.
       if (errorMsg.includes('MultiVault_TripleExists')) {
-        console.log('Detected TripleExists revert in provenance. Rechecking each individually…')
+        console.log(
+          'Detected TripleExists revert in provenance. Rechecking each individually…',
+        )
         const existsAfterRevert = await batchIsTermCreated(
           publicClient,
           provsToSubmit.map((ep) => ep.effTripleTermId),
@@ -1118,7 +1341,9 @@ export async function* executePublishPlan(
 
         let stillMissing = 0
         for (const ep of provsToSubmit) {
-          const exists = existsAfterRevert.get(ep.effTripleTermId.toLowerCase() as Hex) ?? false
+          const exists =
+            existsAfterRevert.get(ep.effTripleTermId.toLowerCase() as Hex) ??
+            false
           if (!exists) stillMissing++
           provenanceMappings.push({
             tripleId: ep.planItem.claimTripleId,
@@ -1142,7 +1367,12 @@ export async function* executePublishPlan(
             chunkIndex: ci,
             totalChunks: provenanceChunks.length,
             error: `MultiVault_TripleExists: ${provsToSubmit.length - stillMissing} already existed, ${stillMissing} still missing`,
-            progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+            progress: {
+              currentChunk: ci + 1,
+              totalChunks: provenanceChunks.length,
+              itemsProcessed: provenanceProcessed,
+              totalItems: provToCreate.length,
+            },
             chunkMappings: { provenanceMappings },
           }
         } else {
@@ -1152,7 +1382,12 @@ export async function* executePublishPlan(
             chunkIndex: ci,
             totalChunks: provenanceChunks.length,
             txHash: '',
-            progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+            progress: {
+              currentChunk: ci + 1,
+              totalChunks: provenanceChunks.length,
+              itemsProcessed: provenanceProcessed,
+              totalItems: provToCreate.length,
+            },
             chunkMappings: { provenanceMappings },
           }
         }
@@ -1180,7 +1415,12 @@ export async function* executePublishPlan(
         chunkIndex: ci,
         totalChunks: provenanceChunks.length,
         error: errorMsg,
-        progress: { currentChunk: ci + 1, totalChunks: provenanceChunks.length, itemsProcessed: provenanceProcessed, totalItems: provToCreate.length },
+        progress: {
+          currentChunk: ci + 1,
+          totalChunks: provenanceChunks.length,
+          itemsProcessed: provenanceProcessed,
+          totalItems: provToCreate.length,
+        },
         chunkMappings: { provenanceMappings },
       }
       // Continue to next provenance chunk
