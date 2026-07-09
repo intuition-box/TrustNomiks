@@ -35,6 +35,7 @@ import {
   type AllocationWithId,
   type AutosaveStatus,
   SECTION_ORDER,
+  createSaveQueue,
   formatNumber,
   parseDecimal,
 } from './form-helpers'
@@ -112,9 +113,6 @@ export function useTokenFormState() {
   const tokenIdRef = useRef<string | null>(editTokenId)
   const autosaveTimerRef = useRef<number | null>(null)
   const autoDraftBusyRef = useRef(false)
-  // Serialize all persistence: the optimistic lock (initialUpdatedAt) must
-  // advance strictly between saves, so two saves never race each other.
-  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve())
 
   useEffect(() => {
     activeSectionRef.current = activeSection
@@ -129,11 +127,20 @@ export function useTokenFormState() {
     return () => window.clearInterval(i)
   }, [])
 
-  const enqueueSave = <T>(fn: () => Promise<T>): Promise<T> => {
-    const next = saveChainRef.current.then(fn, fn)
-    saveChainRef.current = next.catch(() => undefined)
-    return next
-  }
+  // Serialize all persistence: the optimistic lock (initialUpdatedAt) must
+  // advance strictly between saves, so two saves never race each other. A
+  // single stuck save (e.g. a Supabase await that never resolves) must not
+  // wedge every later save — autosave, "Continue", "Finish" — behind it
+  // forever, so the queue carries its own timeout; see createSaveQueue.
+  const enqueueSaveRef = useRef(
+    createSaveQueue({
+      onTimeout: () => {
+        setLoading(false)
+        toast.error('Save is taking too long and was cancelled. Please retry.')
+      },
+    }),
+  )
+  const enqueueSave = enqueueSaveRef.current
 
   // Step 1 Form
   const step1Form = useForm<TokenIdentityFormData>({
@@ -756,7 +763,6 @@ export function useTokenFormState() {
     tokenIdRef,
     autosaveTimerRef,
     autoDraftBusyRef,
-    saveChainRef,
     enqueueSave,
 
     step1Form,
