@@ -80,6 +80,10 @@ const PREDICATE_MAP: Record<string, string> = {
 
   // Provenance
   based_on: 'based_on',
+
+  // Supersession (J5): graph link synthesized directly by publish code
+  // (not sourced from a Title-Case field label), same pattern as based_on.
+  superseded_by: 'superseded_by',
 }
 
 /**
