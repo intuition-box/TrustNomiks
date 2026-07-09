@@ -16,6 +16,7 @@
     "intuition:verify-reads": "tsx scripts/verify-read-batcher-testnet.ts",
     "intuition:audit-predicates": "tsx scripts/audit-predicates.ts",
     "intuition:mint-missing-predicates": "tsx scripts/mint-missing-predicates.ts",
+    "intuition:mint-predicates-broadcast": "tsx --env-file=.env.local scripts/mint-predicates-broadcast.ts",
     "prepare": "husky",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
