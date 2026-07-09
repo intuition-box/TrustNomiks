@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { format } from 'date-fns'
 import {
   ArrowLeft,
   Edit,
@@ -46,7 +45,6 @@ import {
   formatSegmentTypeLabel,
   formatRiskFlagTypeLabel,
   getRiskFlagTypeDescription,
-  normalizeRiskSeverity,
   normalizeVestingFrequency,
 } from '@/types/form'
 import { toast } from 'sonner'
@@ -61,87 +59,9 @@ import { GraphLoader } from '@/components/patterns/graph-loader'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
-
-interface TokenData {
-  id: string
-  name: string
-  ticker: string
-  chain: string | null
-  contract_address: string | null
-  coingecko_id: string | null
-  coingecko_image: string | null
-  tge_date: string | null
-  category: string | null
-  sector: string | null
-  status: string
-  completeness: number
-  cluster_scores: { identity: number; supply: number; allocation: number; vesting: number } | null
-  notes: string | null
-  created_at: string
-  supply_metrics: {
-    max_supply: string | null
-    initial_supply: string | null
-    tge_supply: string | null
-    circulating_supply: string | null
-    circulating_date: string | null
-    source_url: string | null
-  } | null
-  allocation_segments: Array<{
-    id: string
-    segment_type: string
-    label: string
-    percentage: number
-    token_amount: string | null
-    wallet_address: string | null
-  }>
-  vesting_schedules: Array<{
-    allocation_id: string
-    cliff_months: number
-    duration_months: number
-    frequency: string
-    tge_percentage: number
-    cliff_unlock_percentage: number
-    allocation: {
-      label: string
-    }
-  }>
-  emission_models: {
-    type: string
-    annual_inflation_rate: number | null
-    has_burn: boolean
-    burn_details: string | null
-    has_buyback: boolean
-    buyback_details: string | null
-    notes: string | null
-  } | null
-  data_sources: Array<{
-    id: string
-    source_type: string
-    document_name: string
-    url: string
-    version: string | null
-    verified_at: string | null
-  }>
-  risk_flags: Array<{
-    id: string
-    flag_type: string
-    severity: string
-    is_flagged: boolean
-    justification: string | null
-  }>
-  claim_sources: Array<{
-    claim_type: string
-    claim_id: string | null
-    data_source_id: string
-    // Supabase returns joined rows as an array even for many-to-one FK joins
-    data_source: Array<{
-      document_name: string
-      source_type: string
-      url: string
-    }>
-  }>
-}
+import type { TokenData } from '@/components/token-detail/types'
+import { formatNumber, formatDate, STATUS_RANK, segmentColor, riskSeverity, getMaxSupplyNum } from '@/components/token-detail/detail-helpers'
+import { getSourceClaims, getClaimLabel, ClaimSourceBadges } from '@/components/token-detail/claim-sources'
 
 export default function TokenDetailPage() {
   const [token, setToken] = useState<TokenData | null>(null)
@@ -254,19 +174,6 @@ export default function TokenDetailPage() {
     }
   }
 
-  const formatNumber = (value: string | number | null) => {
-    if (!value) return 'Not set'
-    const num = value.toString().replace(/,/g, '')
-    return num.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  }
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Not set'
-    return format(new Date(dateString), 'PPP')
-  }
-
-  const STATUS_RANK: Record<string, number> = { draft: 0, in_review: 1, validated: 2 }
-
   const handleStatusSelect = (newStatus: string) => {
     if (!token) return
     const currentRank = STATUS_RANK[token.status] ?? 0
@@ -375,67 +282,6 @@ export default function TokenDetailPage() {
     }
   }
 
-  // Returns the sources attributed to a specific claim
-  const getClaimSources = (claimType: string, claimId: string | null) =>
-    (token?.claim_sources ?? []).filter(
-      cs => cs.claim_type === claimType && cs.claim_id === claimId
-    )
-
-  // Returns all claims attributed to a specific source (by source id)
-  const getSourceClaims = (sourceId: string) =>
-    (token?.claim_sources ?? []).filter(cs => cs.data_source_id === sourceId)
-
-  // Returns a human-readable label for a claim
-  const getClaimLabel = (claimType: string, claimId: string | null): string => {
-    switch (claimType) {
-      case 'token_identity': return 'Token Identity'
-      case 'supply_metrics':  return 'Supply Metrics'
-      case 'emission_model':  return 'Emission Model'
-      case 'allocation_segment': {
-        const alloc = token?.allocation_segments.find(a => a.id === claimId)
-        return alloc ? alloc.label : 'Allocation'
-      }
-      case 'vesting_schedule': {
-        const alloc = token?.allocation_segments.find(a => a.id === claimId)
-        return alloc ? `Vesting · ${alloc.label}` : 'Vesting'
-      }
-      default: return claimType
-    }
-  }
-
-  // Small inline badge listing attributed sources for a claim
-  const ClaimSourceBadges = ({ claimType, claimId }: { claimType: string; claimId?: string | null }) => {
-    const sources = getClaimSources(claimType, claimId ?? null)
-    if (sources.length === 0) return null
-    return (
-      <div className="flex flex-wrap gap-1 mt-1">
-        {sources.map((cs, i) => {
-          // Supabase returns the joined row as a single-element array
-          const ds = Array.isArray(cs.data_source) ? cs.data_source[0] : cs.data_source
-          if (!ds) return null
-          return (
-            <a
-              key={i}
-              href={ds.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={ds.document_name}
-              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary hover:bg-primary/10 transition-colors"
-            >
-              {ds.document_name}
-              <ExternalLink className="h-2.5 w-2.5" />
-            </a>
-          )
-        })}
-      </div>
-    )
-  }
-
-  // Chart space: the stacked bar shares the donut's segment-type palette, so
-  // the same segment reads as the same color in every chart (DESIGN-RULES §2).
-  const segmentColor = (segment: { segment_type: string }, index: number) =>
-    getSegmentChartColor(segment.segment_type, index)
-
   // ── Local knowledge-graph: center token + real sub-entities ────────────────
   const graphData: LiveGraphData | null = useMemo(() => {
     if (!token) return null
@@ -484,7 +330,7 @@ export default function TokenDetailPage() {
   // ── Vesting unlock timeline (re-housed chart) ──────────────────────────────
   const vestingResult = useMemo(() => {
     if (!token) return null
-    const maxSupply = Number((token.supply_metrics?.max_supply ?? '').toString().replace(/,/g, '')) || 0
+    const maxSupply = getMaxSupplyNum(token)
     if (maxSupply <= 0 || token.vesting_schedules.length === 0) return null
 
     const allocationsWithVesting: AllocationWithVesting[] = token.allocation_segments.map((alloc) => {
@@ -545,12 +391,7 @@ export default function TokenDetailPage() {
     )
   }
 
-  const maxSupplyNum =
-    Number((token.supply_metrics?.max_supply ?? '').toString().replace(/,/g, '')) || 0
-  const riskSeverity = (s: string): 'low' | 'med' | 'high' => {
-    const sev = normalizeRiskSeverity(s)
-    return sev === 'medium' ? 'med' : sev
-  }
+  const maxSupplyNum = getMaxSupplyNum(token)
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
@@ -741,7 +582,7 @@ export default function TokenDetailPage() {
                 <p className="mt-1 text-sm text-muted-foreground">{token.notes}</p>
               </div>
             )}
-            <ClaimSourceBadges claimType="token_identity" />
+            <ClaimSourceBadges token={token} claimType="token_identity" />
           </SectionCard>
 
           {/* Supply, core */}
@@ -783,7 +624,7 @@ export default function TokenDetailPage() {
                     )}
                   </div>
                 </div>
-                <ClaimSourceBadges claimType="supply_metrics" />
+                <ClaimSourceBadges token={token} claimType="supply_metrics" />
               </>
             ) : (
               <EmptyState
@@ -913,7 +754,7 @@ export default function TokenDetailPage() {
                           <p className="text-xs capitalize text-muted-foreground">
                             {formatSegmentTypeLabel(segment.segment_type)}
                           </p>
-                          <ClaimSourceBadges claimType="allocation_segment" claimId={segment.id} />
+                          <ClaimSourceBadges token={token} claimType="allocation_segment" claimId={segment.id} />
                         </div>
                       </div>
                       <div className="text-right">
@@ -982,7 +823,7 @@ export default function TokenDetailPage() {
                           <NodeGlyph type="vesting" size={16} className="mt-0.5" />
                           <div className="flex-1">
                             <p className="font-medium">{schedule.allocation.label}</p>
-                            <ClaimSourceBadges claimType="vesting_schedule" claimId={schedule.allocation_id} />
+                            <ClaimSourceBadges token={token} claimType="vesting_schedule" claimId={schedule.allocation_id} />
                             {schedule.frequency === 'immediate' ? (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 100% unlocked immediately at TGE
@@ -1072,7 +913,7 @@ export default function TokenDetailPage() {
                       </div>
                     )}
 
-                    <ClaimSourceBadges claimType="emission_model" />
+                    <ClaimSourceBadges token={token} claimType="emission_model" />
                   </div>
                 ) : (
                   <EmptyState
@@ -1098,7 +939,7 @@ export default function TokenDetailPage() {
                 {token.data_sources.length > 0 ? (
                   <div className="space-y-3">
                     {token.data_sources.map((source, index) => {
-                      const claims = getSourceClaims(source.id)
+                      const claims = getSourceClaims(token, source.id)
                       return (
                         <div key={index} className="space-y-2 rounded-lg bg-surface-2 p-3">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1134,7 +975,7 @@ export default function TokenDetailPage() {
                                       key={i}
                                       className="rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary"
                                     >
-                                      {getClaimLabel(cs.claim_type, cs.claim_id)}
+                                      {getClaimLabel(token, cs.claim_type, cs.claim_id)}
                                     </span>
                                   ))}
                                 </div>
