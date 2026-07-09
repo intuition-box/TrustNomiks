@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (.env.example is the tracked template)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -40,9 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# claude instructions (local only)
+# agent instructions (CLAUDE.md + AGENTS.md are tracked; below stays local)
 CLAUDE.local.md
-claude.md
 .claude/
 skills-lock.json
 
