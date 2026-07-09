@@ -22,15 +22,15 @@ import { createClient } from '@/lib/supabase/client'
 const TARGET = 300
 
 export default function Landing() {
-  // The counter states a fact, so it counts the real registry. If anonymous
-  // reads are not allowed, it stays a goal statement instead of a fake 300.
+  // The counter states a fact, so it counts the real registry: validated tokens
+  // via the public_token_count RPC (SECURITY DEFINER), readable anonymously so
+  // the number is real even before sign-in. Stays a goal statement if it fails.
   const [total, setTotal] = useState<number | null>(null)
   useEffect(() => {
     createClient()
-      .from('tokens')
-      .select('id', { count: 'exact', head: true })
-      .then(({ count: c, error }) => {
-        if (!error && typeof c === 'number') setTotal(c)
+      .rpc('public_token_count')
+      .then(({ data, error }) => {
+        if (!error && typeof data === 'number') setTotal(data)
       })
   }, [])
   const count = useCountUp(total ?? 0, 1600)
