@@ -1,0 +1,6 @@
+# False positives in git history: the well-known Anvil/Hardhat devnet test key
+# (account #1, publicly documented in the Foundry docs), used to stub unit tests
+# in two 2026-05-16 commits. Not a real secret. Both files have since dropped it
+# (attestation.test.ts was deleted entirely); the current tree contains no key.
+64732875699ced7a44f0c1de97d56feef3ee1d84:src/lib/intuition/attestation.test.ts:generic-api-key:11
+c9ba3a10674dc8943e44a1cc970a816ef989a0b7:src/lib/intuition/graphql-client.test.ts:generic-api-key:16
