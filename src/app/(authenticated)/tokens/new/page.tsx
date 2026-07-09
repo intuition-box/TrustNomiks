@@ -42,9 +42,6 @@ import {
   RISK_SEVERITY_OPTIONS,
   getRiskFlagTypeDescription,
   normalizeRiskSeverity,
-  BLOCKCHAIN_OPTIONS,
-  CATEGORY_OPTIONS,
-  isSectorCompatibleWithCategory,
   SEGMENT_TYPE_OPTIONS,
   VESTING_FREQUENCY_OPTIONS,
   formatSegmentTypeLabel,
@@ -54,7 +51,6 @@ import {
   SOURCE_TYPE_OPTIONS,
 } from '@/types/form'
 import { cn } from '@/lib/utils'
-import { CoinGeckoSearch } from '@/components/coingecko-search'
 import {
   SECTION_LABELS,
   formatNumber,
@@ -67,6 +63,7 @@ import { COMPLETION_STEP } from '@/components/token-form/use-token-form-state'
 import { CompletionScreen } from '@/components/token-form/CompletionScreen'
 import { RemovalConfirmDialog } from '@/components/token-form/RemovalConfirmDialog'
 import { SectionHeader, NotReadySection } from '@/components/token-form/section-chrome'
+import { Step1Identity } from '@/components/token-form/steps/Step1Identity'
 
 export default function NewTokenPage() {
   return (
@@ -87,7 +84,6 @@ function NewTokenPageInner() {
     loading,
     loadingTokenData,
     completedSteps,
-    identityGuideTarget,
     segmentGuideRowIndex,
     setPendingRemoval,
     flashPts,
@@ -95,7 +91,6 @@ function NewTokenPageInner() {
     showFlash,
     activeSection,
     autosave,
-    step1Form,
     step2Form,
     step3Form,
     step4Form,
@@ -105,8 +100,6 @@ function NewTokenPageInner() {
     fields,
     sourceFields,
     riskFields,
-    selectedCategoryOption,
-    sectorOptions,
     totalPercentage,
     delta,
     isComplete,
@@ -128,17 +121,12 @@ function NewTokenPageInner() {
     liveEmissionScore,
     liveSourcesScore,
     liveTotalScore,
-    onSubmitStep1,
     onSubmitStep2,
     onSubmitStep3,
     onSubmitStep4,
     onSubmitStep5,
     onSubmitStep6,
     onSubmitStep7,
-    openIdentityGuide,
-    closeIdentityGuide,
-    applyCategoryFromGuide,
-    applySectorFromGuide,
     addSegment,
     openSegmentGuide,
     closeSegmentGuide,
@@ -153,7 +141,6 @@ function NewTokenPageInner() {
     nextSectionKey,
     handleContinue,
     handleFinish,
-    autofillFromCoinGecko,
     normalizeAllocations,
   } = useTokenForm()
 
@@ -318,399 +305,7 @@ function NewTokenPageInner() {
         <div className="min-w-0 flex-1 space-y-5">
 
           {/* ── Section 1: Identity ───────────────────────────────────────────── */}
-          <div
-            id="section-identity"
-            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'identity' && 'hidden')}
-            style={{ borderLeft: '3px solid hsl(var(--data-token))' }}
-          >
-            <SectionHeader accentVar="--data-token" label="Identity" desc="· Token identification" liveScore={liveIdentityScore} maxScore={20} saved={completedSteps.includes(1)} />
-            <div className="px-6 py-6">
-            <Form {...step1Form}>
-              <form onSubmit={step1Form.handleSubmit((data) => onSubmitStep1(data))} className="space-y-6">
-                {/* Project Name */}
-                <FormField
-                  control={step1Form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Uniswap" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        The official name of the token project
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Ticker */}
-                <FormField
-                  control={step1Form.control}
-                  name="ticker"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Ticker Symbol *</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g. UNI"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        The token&apos;s ticker symbol (automatically converted to uppercase)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  {/* Blockchain */}
-                  <FormField
-                    control={step1Form.control}
-                    name="chain"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Blockchain</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select blockchain" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {BLOCKCHAIN_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-4">
-                    {/* Category */}
-                    <FormField
-                      control={step1Form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <FormLabel className="mb-0">Category</FormLabel>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => openIdentityGuide('category')}
-                            >
-                              <CircleHelp className="mr-1 h-3.5 w-3.5" />
-                              Guide
-                            </Button>
-                          </div>
-                          <Select
-                            value={field.value}
-                            onValueChange={(value) => {
-                              field.onChange(value)
-                              const currentSector = step1Form.getValues('sector')
-                              if (currentSector && !isSectorCompatibleWithCategory(value, currentSector)) {
-                                step1Form.setValue('sector', undefined, {
-                                  shouldDirty: true,
-                                  shouldValidate: true,
-                                  shouldTouch: true,
-                                })
-                              }
-                            }}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {CATEGORY_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Sector */}
-                    <FormField
-                      control={step1Form.control}
-                      name="sector"
-                      render={({ field }) => (
-                        <FormItem>
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <FormLabel className="mb-0">Sector</FormLabel>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => openIdentityGuide('sector')}
-                            >
-                              <CircleHelp className="mr-1 h-3.5 w-3.5" />
-                              Guide
-                            </Button>
-                          </div>
-                          <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            disabled={!selectedCategoryOption}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select sector" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {sectorOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {!selectedCategoryOption && (
-                            <FormDescription className="text-xs">
-                              Select a category first.
-                            </FormDescription>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <Sheet
-                  open={identityGuideTarget !== null}
-                  onOpenChange={(open) => {
-                    if (!open) closeIdentityGuide()
-                  }}
-                >
-                  <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-                    <SheetHeader>
-                      <SheetTitle>
-                        {identityGuideTarget === 'sector' ? 'Sector Guide' : 'Category Guide'}
-                      </SheetTitle>
-                      <SheetDescription>
-                        {identityGuideTarget === 'sector'
-                          ? 'Choose a sector linked to the right parent category.'
-                          : 'Choose the category that best describes this project.'}
-                      </SheetDescription>
-                    </SheetHeader>
-
-                    {identityGuideTarget === 'category' && (
-                      <div className="mt-6 space-y-3">
-                        {CATEGORY_OPTIONS.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted"
-                            onClick={() => applyCategoryFromGuide(option.value)}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="font-semibold">{option.label}</p>
-                              <Badge variant="outline" className="font-mono text-[11px]">
-                                {option.value}
-                              </Badge>
-                            </div>
-                            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                              {option.description}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {identityGuideTarget === 'sector' && (
-                      <div className="mt-6 space-y-4">
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Parent Category
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {CATEGORY_OPTIONS.map((option) => (
-                              <Button
-                                key={option.value}
-                                type="button"
-                                size="sm"
-                                variant={selectedCategoryOption?.value === option.value ? 'default' : 'outline'}
-                                onClick={() => applyCategoryFromGuide(option.value, false)}
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {!selectedCategoryOption ? (
-                          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                            Select a parent category to see the available sectors.
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {sectorOptions.map((option) => (
-                              <button
-                                key={option.value}
-                                type="button"
-                                className="w-full rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted"
-                                onClick={() => applySectorFromGuide(option.value)}
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="font-semibold">{option.label}</p>
-                                  <Badge variant="outline" className="font-mono text-[11px]">
-                                    {option.value}
-                                  </Badge>
-                                </div>
-                                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                  {option.description}
-                                </p>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </SheetContent>
-                </Sheet>
-
-                {/* Contract Address */}
-                <FormField
-                  control={step1Form.control}
-                  name="contract_address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contract Address</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="0x..."
-                          {...field}
-                          className="font-mono text-sm"
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        The token&apos;s smart contract address (optional)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* CoinGecko Link */}
-                <FormField
-                  control={step1Form.control}
-                  name="coingecko_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CoinGecko Link</FormLabel>
-                      <FormControl>
-                        <CoinGeckoSearch
-                          value={field.value || null}
-                          onSelect={(coin) => {
-                            field.onChange(coin?.id ?? '')
-                            step1Form.setValue('coingecko_image', coin?.thumb ?? '')
-                            if (coin) void autofillFromCoinGecko(coin.id)
-                          }}
-                          chain={step1Form.watch('chain')}
-                          contractAddress={step1Form.watch('contract_address')}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Link this token to CoinGecko for real-time price data (optional)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* TGE Date */}
-                <FormField
-                  control={step1Form.control}
-                  name="tge_date"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>TGE Date (Token Generation Event)</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), 'PPP')
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/10 dark:shadow-black/50 backdrop-blur"
-                          align="start"
-                          sideOffset={10}
-                          collisionPadding={16}
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? new Date(field.value) : undefined}
-                            onSelect={(date) => field.onChange(date?.toISOString())}
-                            captionLayout="dropdown"
-                            fromYear={2000}
-                            toYear={2030}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        The date when tokens were first generated (optional)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Notes */}
-                <FormField
-                  control={step1Form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Any additional notes about this token..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-              </form>
-            </Form>
-            </div>
-          </div>
+          <Step1Identity />
 
           {/* ── Section 2: Supply ─────────────────────────────────────────────── */}
           <div
