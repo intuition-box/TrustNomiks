@@ -24,6 +24,8 @@ export interface TokenData {
   } | null
   notes: string | null
   created_at: string
+  updated_at: string
+  created_by: string
   supply_metrics: {
     max_supply: string | null
     initial_supply: string | null
