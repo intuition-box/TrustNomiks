@@ -207,6 +207,14 @@ const PREDICATES: PredicateSpec[] = [
     label: 'based on',
     description: 'Relates a claim to its provenance data source.',
   },
+
+  // Supersession (J5): links a superseded claim triple to its replacement.
+  {
+    internalKey: 'superseded_by',
+    label: 'superseded by',
+    description:
+      'Links a superseded claim triple to the claim that replaces it.',
+  },
 ]
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
