@@ -1,8 +1,7 @@
 'use client'
 
 import { type FormEvent, useState } from 'react'
-import Link from 'next/link'
-import { Pencil, Wallet } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -16,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { HashText } from '@/components/composite/hash-text'
+import { RoleGate } from '@/components/composite/role-gate'
 import { useWalletLink } from '@/features/wallet-linking/use-wallet-link'
 import { useOpenChallenge } from '@/features/claims/use-open-challenge'
 import { encodeFieldValue } from '@/features/claims/challenge-value'
@@ -119,23 +119,30 @@ export function UpdateForm({
         />
       </div>
 
-      {links.length === 0 ? (
-        <WalletRequiredNotice />
-      ) : (
-        <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface-2 p-3">
+      <RoleGate
+        title="Link a wallet to propose an update"
+        reason="Proposing an update ties the challenge to a wallet you have proven ownership of. Link one to continue."
+      >
+        {primaryLink ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface-2 p-3">
+            <p className="text-xs text-muted-foreground">
+              Will sign with{' '}
+              <HashText
+                value={primaryLink.wallet_address}
+                className="text-foreground"
+              />
+            </p>
+            <Button type="submit" variant="brand" disabled={!canSubmit}>
+              <Pencil className="h-4 w-4" aria-hidden />
+              {isPending ? 'Submitting…' : 'Propose update'}
+            </Button>
+          </div>
+        ) : (
           <p className="text-xs text-muted-foreground">
-            Will sign with{' '}
-            <HashText
-              value={primaryLink!.wallet_address}
-              className="text-foreground"
-            />
+            Loading your linked wallet…
           </p>
-          <Button type="submit" variant="brand" disabled={!canSubmit}>
-            <Pencil className="h-4 w-4" aria-hidden />
-            {isPending ? 'Submitting…' : 'Propose update'}
-          </Button>
-        </div>
-      )}
+        )}
+      </RoleGate>
     </form>
   )
 }
@@ -223,21 +230,4 @@ function renderValueInput(
         />
       )
   }
-}
-
-function WalletRequiredNotice() {
-  return (
-    <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed bg-surface-2 p-3">
-      <div className="flex items-center gap-2">
-        <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden />
-        <p className="text-sm font-medium">Link a wallet to continue</p>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Link a wallet on your profile to open a challenge.
-      </p>
-      <Button asChild variant="outline" size="sm">
-        <Link href="/profile">Go to profile</Link>
-      </Button>
-    </div>
-  )
 }
