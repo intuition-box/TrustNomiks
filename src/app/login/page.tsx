@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,9 +38,46 @@ function getSiteUrl(): string {
 }
 
 type AsyncStatus = 'idle' | 'sending' | 'sent'
+type Intent = 'view' | 'contribute' | null
+
+const INTENT_COPY: Record<
+  Exclude<Intent, null>,
+  { heading: string; subtext: string }
+> = {
+  view: {
+    heading: 'Explore the graph',
+    subtext: 'Create a free account to browse and compare tokenomics.',
+  },
+  contribute: {
+    heading: 'Contribute a token',
+    subtext: 'Create an account to structure and publish tokenomics data.',
+  },
+}
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<AuthMode>('login')
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
+  const searchParams = useSearchParams()
+  const intentParam = searchParams.get('intent')
+  const intent: Intent =
+    intentParam === 'view' || intentParam === 'contribute' ? intentParam : null
+  const authError = searchParams.get('authError')
+
+  const [mode, setMode] = useState<AuthMode>(() =>
+    intent ? 'signup' : 'login',
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -59,6 +96,9 @@ export default function LoginPage() {
     useState<AsyncStatus>('idle')
   const router = useRouter()
   const supabase = createClient()
+
+  const destination =
+    intent === 'contribute' ? '/profile?linkWallet=1' : '/dashboard'
 
   const passwordLongEnough = password.length >= 8
   const passwordsMatch = password === confirmPassword
@@ -119,7 +159,7 @@ export default function LoginPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
+        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(destination)}`,
       },
     })
     if (signUpError) throw signUpError
@@ -143,7 +183,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    router.push(destination)
     router.refresh()
   }
 
@@ -156,7 +196,7 @@ export default function LoginPage() {
         type: 'signup',
         email: pendingConfirmationEmail,
         options: {
-          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/dashboard`,
+          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(destination)}`,
         },
       })
       if (resendErr) throw resendErr
@@ -229,6 +269,12 @@ export default function LoginPage() {
     switchMode('login')
   }
 
+  const signupHeading = intent ? INTENT_COPY[intent].heading : 'Join the graph'
+  const signupSubtext = intent
+    ? INTENT_COPY[intent].subtext
+    : 'Create an account to start structuring tokenomics data.'
+  const showAuthError = mode === 'login' && Boolean(authError)
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Auth panel */}
@@ -299,14 +345,23 @@ export default function LoginPage() {
             <>
               <div className="space-y-1.5">
                 <h1 className="text-2xl font-semibold tracking-tight">
-                  {mode === 'login' ? 'Welcome back' : 'Join the graph'}
+                  {mode === 'login' ? 'Welcome back' : signupHeading}
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {mode === 'login'
                     ? 'Log in to keep structuring and exploring tokenomics.'
-                    : 'Create an account to start structuring tokenomics data.'}
+                    : signupSubtext}
                 </p>
               </div>
+
+              {showAuthError && (
+                <div
+                  role="alert"
+                  className="rounded-md border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  That link expired or was already used. Please sign in again.
+                </div>
+              )}
 
               {/* Mode switch */}
               <div
