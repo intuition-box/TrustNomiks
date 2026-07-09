@@ -6,7 +6,7 @@
  */
 
 import { parseAbi } from 'viem'
-import type { Hex, PublicClient } from 'viem'
+import type { Address, Hex, PublicClient } from 'viem'
 import { MULTIVAULT_ADDRESS } from './config'
 
 // ── ABI (centralized) ────────────────────────────────────────────────────────
@@ -18,6 +18,9 @@ export const intuitionReadAbi = parseAbi([
   'function getGeneralConfig() view returns ((address admin, address protocolMultisig, uint256 feeDenominator, address trustBonding, uint256 minDeposit, uint256 minShare, uint256 atomDataMaxLength, uint256 feeThreshold))',
   'function previewAtomCreate(bytes32 termId, uint256 assets) view returns (uint256 shares, uint256 assetsAfterFixedFees, uint256 assetsAfterFees)',
   'function previewTripleCreate(bytes32 termId, uint256 assets) view returns (uint256 shares, uint256 assetsAfterFixedFees, uint256 assetsAfterFees)',
+  'function getVault(bytes32 termId, uint256 curveId) view returns (uint256 totalAssets, uint256 totalShares)',
+  'function getShares(address account, bytes32 termId, uint256 curveId) view returns (uint256)',
+  'function convertToAssets(bytes32 termId, uint256 curveId, uint256 shares) view returns (uint256)',
 ])
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -128,6 +131,204 @@ export async function batchIsTermCreated(
       )
       for (const termId of chunk) {
         applyTermFailure(result, termId, failureMode, error)
+      }
+    }
+  }
+
+  return result
+}
+
+// ── batchGetVault / batchGetShares ───────────────────────────────────────────
+
+/**
+ * Per-item failure handling for the numeric vault reads below. Unlike
+ * `FailureMode` (boolean-oriented, for `isTermCreated`), there is no
+ * meaningful "assumeExists" for a balance read, so this is a distinct,
+ * smaller union:
+ *  - 'throw': throw immediately (mirrors batchIsTermCreated's default).
+ *  - 'assumeZero': treat the read as if the vault/position is empty — the
+ *    numeric analog of batchIsTermCreated's 'assumeMissing'.
+ *  - 'omit': leave the term ID out of the returned Map entirely, so callers
+ *    can distinguish "confirmed zero" from "read failed."
+ */
+type NumericFailureMode = 'throw' | 'assumeZero' | 'omit'
+
+const ZERO_VAULT = { totalAssets: BigInt(0), totalShares: BigInt(0) }
+
+function applyVaultFailure(
+  result: Map<Hex, { totalAssets: bigint; totalShares: bigint }>,
+  termId: Hex,
+  failureMode: NumericFailureMode,
+  error: unknown,
+): void {
+  switch (failureMode) {
+    case 'assumeZero':
+      result.set(termId, ZERO_VAULT)
+      return
+    case 'omit':
+      return
+    case 'throw':
+      throw new Error(
+        `getVault multicall failed for termId ${termId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+  }
+}
+
+/**
+ * Batch-read vault totals (totalAssets, totalShares) for a single curve
+ * across many term IDs via a single multicall.
+ *
+ * Deduplicates term IDs and chunks large lists, mirroring batchIsTermCreated.
+ * Default failureMode is 'throw'; see NumericFailureMode for alternatives.
+ */
+export async function batchGetVault(
+  publicClient: MulticallCapableClient,
+  termIds: Hex[],
+  curveId: bigint,
+  options?: {
+    chunkSize?: number
+    failureMode?: NumericFailureMode
+  },
+): Promise<Map<Hex, { totalAssets: bigint; totalShares: bigint }>> {
+  const chunkSize = options?.chunkSize ?? DEFAULT_CHUNK_SIZE
+  const failureMode = options?.failureMode ?? 'throw'
+
+  const unique = Array.from(
+    new Set(termIds.map((id) => id.toLowerCase() as Hex)),
+  )
+
+  if (unique.length === 0) {
+    return new Map()
+  }
+
+  const result = new Map<Hex, { totalAssets: bigint; totalShares: bigint }>()
+
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize)
+
+    try {
+      const multicallResult = await publicClient.multicall({
+        allowFailure: true,
+        contracts: chunk.map((termId) => ({
+          address: MULTIVAULT_ADDRESS,
+          abi: intuitionReadAbi,
+          functionName: 'getVault',
+          args: [termId, curveId],
+        })),
+      })
+
+      for (let j = 0; j < chunk.length; j++) {
+        const callResult = multicallResult[j]
+        const termId = chunk[j]
+
+        if (callResult.status === 'success') {
+          const [totalAssets, totalShares] = callResult.result as unknown as [
+            bigint,
+            bigint,
+          ]
+          result.set(termId, { totalAssets, totalShares })
+        } else {
+          applyVaultFailure(result, termId, failureMode, callResult.error)
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `getVault multicall chunk failed for ${chunk.length} term(s); applying ${failureMode}`,
+        error instanceof Error ? error.message : error,
+      )
+      for (const termId of chunk) {
+        applyVaultFailure(result, termId, failureMode, error)
+      }
+    }
+  }
+
+  return result
+}
+
+function applySharesFailure(
+  result: Map<Hex, bigint>,
+  termId: Hex,
+  failureMode: NumericFailureMode,
+  error: unknown,
+): void {
+  switch (failureMode) {
+    case 'assumeZero':
+      result.set(termId, BigInt(0))
+      return
+    case 'omit':
+      return
+    case 'throw':
+      throw new Error(
+        `getShares multicall failed for termId ${termId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+  }
+}
+
+/**
+ * Batch-read one account's shares for a single curve across many term IDs
+ * via a single multicall.
+ *
+ * Deduplicates term IDs and chunks large lists, mirroring batchIsTermCreated.
+ * Default failureMode is 'throw'; see NumericFailureMode for alternatives.
+ */
+export async function batchGetShares(
+  publicClient: MulticallCapableClient,
+  account: Address,
+  termIds: Hex[],
+  curveId: bigint,
+  options?: {
+    chunkSize?: number
+    failureMode?: NumericFailureMode
+  },
+): Promise<Map<Hex, bigint>> {
+  const chunkSize = options?.chunkSize ?? DEFAULT_CHUNK_SIZE
+  const failureMode = options?.failureMode ?? 'throw'
+
+  const unique = Array.from(
+    new Set(termIds.map((id) => id.toLowerCase() as Hex)),
+  )
+
+  if (unique.length === 0) {
+    return new Map()
+  }
+
+  const result = new Map<Hex, bigint>()
+
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize)
+
+    try {
+      const multicallResult = await publicClient.multicall({
+        allowFailure: true,
+        contracts: chunk.map((termId) => ({
+          address: MULTIVAULT_ADDRESS,
+          abi: intuitionReadAbi,
+          functionName: 'getShares',
+          args: [account, termId, curveId],
+        })),
+      })
+
+      for (let j = 0; j < chunk.length; j++) {
+        const callResult = multicallResult[j]
+        const termId = chunk[j]
+
+        if (callResult.status === 'success') {
+          result.set(termId, callResult.result as unknown as bigint)
+        } else {
+          applySharesFailure(result, termId, failureMode, callResult.error)
+        }
+      }
+    } catch (error) {
+      console.warn(
+        `getShares multicall chunk failed for ${chunk.length} term(s); applying ${failureMode}`,
+        error instanceof Error ? error.message : error,
+      )
+      for (const termId of chunk) {
+        applySharesFailure(result, termId, failureMode, error)
       }
     }
   }
