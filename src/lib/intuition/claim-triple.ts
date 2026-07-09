@@ -38,6 +38,11 @@
  *     allocation id into the vesting row id before matching. If no live
  *     vesting row exists for that allocation anymore, resolution fails
  *     (returns null) rather than guessing.
+ *
+ * `resolveChallengeTripleFull` (J5, on-chain UPDATE flow) runs the exact same
+ * chain via the private `resolvePickedMapping` helper and additionally
+ * returns the picked row's subject/predicate/object term ids, so the caller
+ * can compose the replacement triple that supersedes the old one.
  */
 
 import { calculateCounterTripleId } from '@0xintuition/sdk'
@@ -58,10 +63,33 @@ export interface ResolvedTriple {
   counterTermId: Hex
 }
 
+/**
+ * Full resolution for the on-chain UPDATE flow: everything
+ * `resolveChallengeTriple` returns, plus the subject/predicate/old-object
+ * term ids needed to build the replacement triple (same subject, same
+ * predicate, new object) alongside the dispute against the old one.
+ */
+export interface ResolvedTripleFull {
+  tripleTermId: Hex // the old claim triple
+  counterTermId: Hex
+  subjectTermId: Hex // reuse for the new triple (same subject)
+  predicateTermId: Hex // reuse for the new triple (same predicate)
+  oldObjectTermId: Hex // the value atom being replaced
+}
+
 export interface ClaimMappingRow {
   triple_term_id: string | null
   origin_row_id: string | null
   created_at: string
+  // NOT NULL in intuition_claim_mappings (see
+  // 20260327_intuition_publish_tracking.sql), but optional here: the
+  // pickMappingRow unit tests build minimal ClaimMappingRow fixtures that
+  // predate these fields and never read them, so they stay optional on this
+  // shared interface rather than forcing every fixture to carry dummy
+  // on-chain ids that are irrelevant to the logic under test.
+  subject_term_id?: string
+  predicate_term_id?: string
+  object_term_id?: string
 }
 
 /**
@@ -113,9 +141,22 @@ export function pickMappingRow(
   return rows.find((row) => row.origin_row_id === claimId) ?? null
 }
 
-// ── resolveChallengeTriple ───────────────────────────────────────────────────
+// ── resolvePickedMapping (shared internals) ─────────────────────────────────
 
-export async function resolveChallengeTriple(
+interface PickedMapping {
+  row: ClaimMappingRow
+  counterTermId: Hex
+}
+
+/**
+ * Shared body behind both `resolveChallengeTriple` and
+ * `resolveChallengeTripleFull`: resolves the challenge args down to the one
+ * confirmed `intuition_claim_mappings` row that corresponds to it, plus the
+ * counter-triple id derived from it. Neither exported function does any
+ * resolution of its own beyond shaping this into its own return type — this
+ * guarantees zero behavior drift between the two.
+ */
+async function resolvePickedMapping(
   supabase: MinimalSupabaseClient,
   args: {
     tokenId: string
@@ -123,7 +164,7 @@ export async function resolveChallengeTriple(
     claimId: string | null
     fieldKey: string
   },
-): Promise<ResolvedTriple | null> {
+): Promise<PickedMapping | null> {
   const { tokenId, claimType, claimId, fieldKey } = args
 
   // 1. Field -> predicate internal key. getFieldPredicate already gates on
@@ -153,7 +194,9 @@ export async function resolveChallengeTriple(
   // first (pickMappingRow relies on this order for the 1:1 case).
   const { data: rows, error: rowsError } = await supabase
     .from('intuition_claim_mappings')
-    .select('triple_term_id, origin_row_id, created_at')
+    .select(
+      'triple_term_id, origin_row_id, created_at, subject_term_id, predicate_term_id, object_term_id',
+    )
     .in('run_id', runIds)
     .eq('claim_group', claimType)
     .eq('predicate_term_id', predicateTermId)
@@ -195,8 +238,60 @@ export async function resolveChallengeTriple(
     return null
   }
 
-  const tripleTermId = picked.triple_term_id as Hex
-  const counterTermId = calculateCounterTripleId(tripleTermId)
+  // 6. tripleTermId -> counterTermId via the SDK's pure, client-side
+  // `calculateCounterTripleId` (no RPC call).
+  const counterTermId = calculateCounterTripleId(picked.triple_term_id as Hex)
 
-  return { tripleTermId, counterTermId }
+  return { row: picked, counterTermId }
+}
+
+// ── resolveChallengeTriple ───────────────────────────────────────────────────
+
+export async function resolveChallengeTriple(
+  supabase: MinimalSupabaseClient,
+  args: {
+    tokenId: string
+    claimType: string
+    claimId: string | null
+    fieldKey: string
+  },
+): Promise<ResolvedTriple | null> {
+  const resolved = await resolvePickedMapping(supabase, args)
+  if (!resolved) return null
+
+  return {
+    tripleTermId: resolved.row.triple_term_id as Hex,
+    counterTermId: resolved.counterTermId,
+  }
+}
+
+// ── resolveChallengeTripleFull ───────────────────────────────────────────────
+
+/**
+ * Richer resolver for the on-chain UPDATE flow: in addition to the old claim
+ * triple + its counter-triple, also returns the subject/predicate/old-object
+ * term ids so the caller can compose the replacement triple (same subject,
+ * same predicate, new object atom) that supersedes the old one.
+ */
+export async function resolveChallengeTripleFull(
+  supabase: MinimalSupabaseClient,
+  args: {
+    tokenId: string
+    claimType: string
+    claimId: string | null
+    fieldKey: string
+  },
+): Promise<ResolvedTripleFull | null> {
+  const resolved = await resolvePickedMapping(supabase, args)
+  if (!resolved) return null
+
+  const { row, counterTermId } = resolved
+
+  return {
+    tripleTermId: row.triple_term_id as Hex,
+    counterTermId,
+    subjectTermId: row.subject_term_id as Hex,
+    predicateTermId: row.predicate_term_id as Hex,
+    oldObjectTermId: row.object_term_id as Hex,
+  }
 }
