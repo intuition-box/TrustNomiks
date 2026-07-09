@@ -48,3 +48,7 @@ skills-lock.json
 
 # local task tracker
 /tasks/
+
+# playwright
+/test-results/
+/playwright-report/

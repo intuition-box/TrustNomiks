@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "intuition:pin-predicates": "tsx scripts/pin-canonical-predicates.ts",
     "intuition:verify-registry": "tsx scripts/verify-canonical-registry.ts",
     "intuition:republish-status": "tsx scripts/republish-status.ts",
@@ -58,6 +59,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
