@@ -16,6 +16,7 @@ import { CheckCircle2, Coins, Hexagon, Loader2, Percent } from 'lucide-react'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 import { AccountActivityCard } from '@/components/intuition/account-activity-card'
+import { WalletLinksCard } from '@/features/wallet-linking/wallet-links-card'
 
 type ProfileToken = {
   id: string
@@ -532,6 +533,9 @@ export default function ProfilePage() {
 
       {/* On-chain activity (has its own wallet boundary) */}
       <AccountActivityCard limit={10} createdLimit={5} />
+
+      {/* Linked wallets (milestone J1d) */}
+      <WalletLinksCard />
     </div>
   )
 }
