@@ -183,7 +183,7 @@ export function ResolveBoxProvenance({
           </p>
           <Button asChild size="sm" variant="brand">
             <Link
-              href={`/tokens/new?id=${nextAction.token_id}&section=${section}`}
+              href={`/tokens/new?id=${nextAction.token_id}&section=${section}&challengeId=${current.id}`}
             >
               Correct in studio
             </Link>

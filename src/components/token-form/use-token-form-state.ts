@@ -583,10 +583,13 @@ export function useTokenFormState() {
     setCompletedSteps(completed)
   }
 
-  // Load token data on mount if editing
+  // Load token data on mount if editing. Chain the challenge pre-fill (if
+  // any) strictly after loadTokenData settles -- see prefillFromChallengeRef.
   useEffect(() => {
     if (isEditMode && editTokenId) {
-      loadTokenData(editTokenId)
+      loadTokenData(editTokenId).then(() => {
+        void prefillFromChallengeRef.current()
+      })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -646,6 +649,17 @@ export function useTokenFormState() {
   /** Persist the active section if it is dirty and valid. Powers autosave.
    * Assigned in use-token-save-handlers.ts (needs saveSectionRef to be wired). */
   const autosaveActiveRef = useRef<() => Promise<void>>(async () => {})
+
+  /**
+   * Pre-fills the just-loaded form from an accepted challenge's
+   * proposed_value (the "Correct in studio" CTA's `?challengeId=`, see
+   * resolve-box-provenance.tsx). Assigned in use-token-save-handlers.ts,
+   * since it needs queueAutosave (only in scope there). Invoked below, after
+   * loadTokenData(editTokenId) resolves -- loadTokenData's reset() calls
+   * replace each form's whole value object, so pre-filling before it
+   * finishes would be silently clobbered.
+   */
+  const prefillFromChallengeRef = useRef<() => Promise<void>>(async () => {})
 
   // Live token identity values for the page header
   const liveTokenName = step1Form.watch('name')
@@ -801,6 +815,7 @@ export function useTokenFormState() {
     saveSectionRef,
     allocationsRef,
     autosaveActiveRef,
+    prefillFromChallengeRef,
 
     liveTokenName,
     liveTokenTicker,
