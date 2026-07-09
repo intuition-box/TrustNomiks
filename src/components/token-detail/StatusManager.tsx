@@ -6,6 +6,7 @@ import { Edit, Trash2, Download, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useRole } from '@/hooks/use-role'
+import { humanizeWriteError } from '@/lib/utils/supabase-error'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -81,7 +82,7 @@ export function StatusManager({
       toast.success('Status updated successfully')
     } catch (error: unknown) {
       console.error('Error updating status:', error)
-      toast.error('Failed to update status')
+      toast.error(humanizeWriteError(error, 'Failed to update status'))
     }
   }
 
@@ -98,7 +99,7 @@ export function StatusManager({
       router.push('/dashboard')
     } catch (error: unknown) {
       console.error('Error deleting token:', error)
-      toast.error('Failed to delete token')
+      toast.error(humanizeWriteError(error, 'Failed to delete token'))
     }
   }
 
