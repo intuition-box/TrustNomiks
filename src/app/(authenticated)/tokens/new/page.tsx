@@ -37,7 +37,6 @@ import {
   normalizeRiskSeverity,
   formatCategoryLabel,
   formatSectorLabel,
-  EMISSION_TYPE_OPTIONS,
   SOURCE_TYPE_OPTIONS,
 } from '@/types/form'
 import { cn } from '@/lib/utils'
@@ -51,6 +50,7 @@ import { Step1Identity } from '@/components/token-form/steps/Step1Identity'
 import { Step2Supply } from '@/components/token-form/steps/Step2Supply'
 import { Step3Allocation } from '@/components/token-form/steps/Step3Allocation'
 import { Step4Vesting } from '@/components/token-form/steps/Step4Vesting'
+import { Step5Emission } from '@/components/token-form/steps/Step5Emission'
 
 export default function NewTokenPage() {
   return (
@@ -76,7 +76,6 @@ function NewTokenPageInner() {
     showFlash,
     activeSection,
     autosave,
-    step5Form,
     step6Form,
     step7Form,
     sourceFields,
@@ -98,11 +97,8 @@ function NewTokenPageInner() {
     liveEmissionScore,
     liveSourcesScore,
     liveTotalScore,
-    onSubmitStep5,
     onSubmitStep6,
     onSubmitStep7,
-    preventScrollChange,
-    selectInputValue,
     addSource,
     addRisk,
     goSection,
@@ -285,183 +281,7 @@ function NewTokenPageInner() {
           <Step4Vesting />
 
           {/* ── Section 5: Emission ───────────────────────────────────────────── */}
-          <div
-            id="section-emission"
-            className={cn('overflow-hidden rounded-xl border bg-surface-1', activeSection !== 'emission' && 'hidden')}
-            style={{ borderLeft: '3px solid hsl(var(--data-emission))' }}
-          >
-            <SectionHeader accentVar="--data-emission" label="Emission" desc="· Inflation & economic mechanisms" liveScore={liveEmissionScore} maxScore={10} saved={completedSteps.includes(5)} />
-            {!tokenId ? <NotReadySection message="Give the token a name and ticker first. The draft creates itself as you type." action={{ label: 'Go to Identity', section: 'identity' }} /> : (
-            <div className="px-6 py-6">
-            <Form {...step5Form}>
-              <form onSubmit={step5Form.handleSubmit((data) => onSubmitStep5(data))} className="space-y-6">
-                {/* Emission Type */}
-                <FormField
-                  control={step5Form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Emission Type *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select emission type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {EMISSION_TYPE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        How the token supply changes over time
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Annual Inflation Rate */}
-                <FormField
-                  control={step5Form.control}
-                  name="annual_inflation_rate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Annual Inflation Rate (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="e.g. 2.5"
-                          onWheel={preventScrollChange}
-                          onDoubleClick={selectInputValue}
-                          {...field}
-                          disabled={step5Form.watch('type') === 'fixed_cap'}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Fixed inflation rate per year (disabled for fixed cap tokens)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Burn Mechanism */}
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <FormField
-                    control={step5Form.control}
-                    name="has_burn"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Burn Mechanism</FormLabel>
-                          <FormDescription>
-                            Does this token have a burn mechanism?
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  {step5Form.watch('has_burn') && (
-                    <FormField
-                      control={step5Form.control}
-                      name="burn_details"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Burn Details</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe the burn mechanism (e.g., % of fees burned, manual burns, etc.)"
-                              className="min-h-[80px]"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-
-                {/* Buyback Mechanism */}
-                <div className="space-y-4 p-4 border rounded-lg">
-                  <FormField
-                    control={step5Form.control}
-                    name="has_buyback"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Buyback Program</FormLabel>
-                          <FormDescription>
-                            Does this token have a buyback program?
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  {step5Form.watch('has_buyback') && (
-                    <FormField
-                      control={step5Form.control}
-                      name="buyback_details"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Buyback Details</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe the buyback program (e.g., % of revenue, frequency, mechanism)"
-                              className="min-h-[80px]"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-
-                {/* Notes */}
-                <FormField
-                  control={step5Form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Additional Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Any additional emission details or economic mechanisms..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-              </form>
-            </Form>
-            </div>
-            )}
-          </div>
+          <Step5Emission />
 
           {/* ── Section 6: Sources ────────────────────────────────────────────── */}
           <div
