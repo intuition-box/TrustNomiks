@@ -9,12 +9,14 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { listFields } from '@/lib/claims/field-registry'
+import { getFieldDef, listFields } from '@/lib/claims/field-registry'
 import { FieldPicker } from '@/features/claims/field-picker'
 import { ResolveBoxSentence } from '@/features/claims/resolve-box-sentence'
 import { UpdateForm } from '@/features/claims/update-form'
 import { DisputeForm } from '@/features/claims/dispute-form'
+import { ResolveBoxStake } from '@/features/claims/resolve-box-stake'
 import { ResolveBoxProvenance } from '@/features/claims/resolve-box-provenance'
+import { useTokenChallenges } from '@/features/claims/use-token-challenges'
 import type { ChallengeAnchor } from '@/features/claims/challenge-target'
 
 interface ResolveBoxProps {
@@ -25,10 +27,9 @@ interface ResolveBoxProps {
 }
 
 /**
- * The Resolve Box drawer (milestone J2a): band (1) the claim sentence, band
- * (2) update/dispute forms, band (4) provenance + resolution. There is no
- * on-chain stake/consensus band yet (J2b); opening a challenge only records
- * it in the database.
+ * The Resolve Box drawer: band (1) the claim sentence, band (2)
+ * update/dispute forms, band (3) on-chain stake/consensus (only rendered for
+ * an open dispute), band (4) provenance + resolution.
  */
 export function ResolveBox({
   open,
@@ -41,6 +42,10 @@ export function ResolveBox({
     () => anchor.fieldKey ?? fields[0]?.key ?? '',
   )
   const [mode, setMode] = useState<'update' | 'dispute'>('update')
+  const { openFor } = useTokenChallenges(token.id)
+  const openDispute = fieldKey
+    ? openFor(anchor.claimType, anchor.claimId, fieldKey)
+    : undefined
 
   // A different anchor/field opened: reset local selection state.
   useEffect(() => {
@@ -111,12 +116,16 @@ export function ResolveBox({
                     onSuccess={handleSuccess}
                   />
                 )}
-
-                <p className="text-xs text-muted-foreground">
-                  On-chain staking for this challenge arrives in a future
-                  update.
-                </p>
               </div>
+
+              {openDispute && openDispute.challenge_type === 'dispute' && (
+                <ResolveBoxStake
+                  challenge={openDispute}
+                  fieldLabel={
+                    getFieldDef(anchor.claimType, fieldKey)?.label ?? fieldKey
+                  }
+                />
+              )}
 
               <ResolveBoxProvenance
                 tokenId={token.id}
