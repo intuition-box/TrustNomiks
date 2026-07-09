@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import {
+  assertWalletVerified,
+  WalletNotVerifiedError,
+} from '@/lib/intuition/wallet-verification'
 import type {
   PublishRunRequest,
   PublishRunActionRequest,
@@ -88,6 +92,16 @@ async function handleInit(
   }
   if (token.created_by !== userId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // The wallet address is client-supplied: require it to be a verified link.
+  try {
+    await assertWalletVerified(supabase, userId, walletAddress)
+  } catch (err) {
+    if (err instanceof WalletNotVerifiedError) {
+      return NextResponse.json({ error: err.message }, { status: 403 })
+    }
+    throw err
   }
 
   const { data: run, error: runErr } = await supabase
@@ -359,6 +373,16 @@ async function handleLegacyPersist(
   }
   if (token.created_by !== userId) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // The wallet address is client-supplied: require it to be a verified link.
+  try {
+    await assertWalletVerified(supabase, userId, walletAddress)
+  } catch (err) {
+    if (err instanceof WalletNotVerifiedError) {
+      return NextResponse.json({ error: err.message }, { status: 403 })
+    }
+    throw err
   }
 
   // 1. Create the publish run record
