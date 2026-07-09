@@ -21,6 +21,12 @@ _Read by Claude Code (`CLAUDE.md`) and Codex (`AGENTS.md`, a symlink to this fil
 - `supabase/migrations/` — versioned schema, source of truth, apply in chronological order
 - `docs/redesign/` — design-system proposal + governance (README + 00..08)
 
+## Session journal (all agents)
+
+- `tasks/journal.md` (git-ignored, newest first) is the cross-session log. Read the top entries before starting work — Claude Code injects them at session start via hook; other agents (Codex…) must read the file.
+- After completing any significant unit of work (anything worth a commit: feature, fix, refactor, audit), append an entry at the TOP before ending the session. ≤15 lines: date, agent/model, what was done, state (pushed/applied?), what's next, gotchas.
+- `tasks/todo.md` = active plan · `tasks/lessons.md` = rules learned from user corrections.
+
 ## UI & design system (BINDING)
 
 All UI work must follow `docs/redesign/DESIGN-RULES.md` (the "Data Observatory" design language). Read it before touching any screen or component. Non-negotiables in brief: dark-first (`:root`=light, `.dark`=dark, `defaultTheme="dark"`, never invert); all colors come from CSS tokens in `src/app/globals.css` (no hardcoded hex, no `bg-[#...]`); same color = same concept via the `--data-*` taxonomy (graph space), kept separate from allocation-segment colors (`getChartColor`); the only JS↔CSS color bridge is `src/lib/design/tokens.ts`; Geist + Geist Mono with `.tabular` on every number; surfaces via `bg-surface-*`; the indigo→violet brand gradient used sparingly; one global `:focus-visible` ring; color always paired with a glyph/icon (AA, non-color cue); motion honors `prefers-reduced-motion`; never use the em-dash character in copy (empty values render as "Not set"); copy presents TrustNomiks, with Intuition credited only as the underlying rail. Reuse existing components in `src/components/{ui,composite,patterns,brand}`; add missing primitives via `npx shadcn@latest add <name>`, never hand-roll Radix. Reference screens: landing `src/app/page.tsx`, dashboard, token detail. Aliases: `@/components`, `@/lib`, `@/components/ui`, `@/hooks`.
