@@ -3,27 +3,33 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
+  ArrowRight,
   Ban,
   CheckCircle2,
   Circle,
   Clock,
   Coins,
+  GitBranch,
   History,
   Link2,
   ThumbsDown,
   TriangleAlert,
+  UploadCloud,
   Users,
   type LucideIcon,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { WalletGate } from '@/components/composite/wallet-gate'
+import { HashText } from '@/components/composite/hash-text'
 import {
   useTokenChallenges,
   useChallengeEvents,
 } from '@/features/claims/use-token-challenges'
 import { useResolveChallenge } from '@/features/claims/use-resolve-challenge'
 import { useViewerRole } from '@/features/claims/use-viewer-role'
+import { usePublishSupersession } from '@/features/claims/use-publish-supersession'
 import type { ChallengeAnchor } from '@/features/claims/challenge-target'
 import type {
   Challenge,
@@ -111,6 +117,7 @@ export function ResolveBoxProvenance({
   const { isLoading, forField } = useTokenChallenges(tokenId)
   const { isOwner, isModerator, userId } = useViewerRole(token)
   const { resolve, withdraw, isPending } = useResolveChallenge(tokenId)
+  const { publish, isPublishing } = usePublishSupersession(tokenId)
 
   const relevant = useMemo(
     () => forField(anchor.claimType, anchor.claimId, fieldKey),
@@ -146,6 +153,8 @@ export function ResolveBoxProvenance({
   const isChallenger =
     current.created_by === userId && current.status === 'open'
   const section = STUDIO_SECTION_BY_CLAIM_TYPE[anchor.claimType] ?? 'identity'
+  const isAcceptedUpdate =
+    current.status === 'accepted' && current.challenge_type === 'update'
 
   const submitDecision = async () => {
     if (!decision) return
@@ -160,6 +169,10 @@ export function ResolveBoxProvenance({
 
   const handleWithdraw = async () => {
     await withdraw(current.id)
+  }
+
+  const handlePublishSupersession = async () => {
+    await publish(current)
   }
 
   return (
@@ -188,6 +201,42 @@ export function ResolveBoxProvenance({
               Correct in studio
             </Link>
           </Button>
+        </div>
+      )}
+
+      {isAcceptedUpdate && !current.new_claim_term_id && (
+        <div className="space-y-2 rounded-lg border bg-surface-2 p-3">
+          <p className="text-xs text-muted-foreground">
+            Publish this correction on-chain: it mints the corrected value as a
+            new claim linked to the old one.
+          </p>
+          <WalletGate reason="Connect your wallet to publish this correction on-chain.">
+            <Button
+              size="sm"
+              variant="brand"
+              onClick={handlePublishSupersession}
+              disabled={isPublishing}
+            >
+              <UploadCloud className="h-4 w-4" aria-hidden />
+              {isPublishing ? 'Publishing…' : 'Publish update on-chain'}
+            </Button>
+          </WalletGate>
+        </div>
+      )}
+
+      {isAcceptedUpdate && current.new_claim_term_id && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-success/30 bg-success/10 p-3 text-xs text-success">
+          <GitBranch className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="font-medium">Superseded on-chain:</span>
+          {current.supersedes_triple_term_id && (
+            <span className="flex items-center gap-1">
+              old <HashText value={current.supersedes_triple_term_id} />
+            </span>
+          )}
+          <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="flex items-center gap-1">
+            new <HashText value={current.new_claim_term_id} />
+          </span>
         </div>
       )}
 
