@@ -20,14 +20,15 @@ test('/auth/reset-password with no recovery session shows the invalid-link state
   await expect(page.getByRole('link', { name: 'Back to login' })).toBeVisible()
 })
 
-test('/auth/callback is reachable without auth (not redirected to /login by the proxy)', async ({
+test('/auth/confirm is reachable without auth (not redirected to /login by the proxy)', async ({
   page,
 }) => {
-  // With no `code` query param, the route handler itself redirects to
-  // `/login?authError=expired` (src/app/auth/callback/route.ts) - a
-  // deliberate app-level decision, distinct from the proxy's deny-by-default
-  // redirect to a bare `/login` (src/proxy.ts). The `authError` param is the
-  // signal that the proxy let the request through to /auth/callback at all.
-  await page.goto('/auth/callback')
+  // With no `token_hash`/`type` or `code` query params, the route handler
+  // itself redirects to `/login?authError=expired`
+  // (src/app/auth/confirm/route.ts) - a deliberate app-level decision,
+  // distinct from the proxy's deny-by-default redirect to a bare `/login`
+  // (src/proxy.ts). The `authError` param is the signal that the proxy let
+  // the request through to /auth/confirm at all.
+  await page.goto('/auth/confirm')
   await expect(page).toHaveURL(/\/login\?authError=expired$/)
 })
