@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { computeScores } from '@/lib/utils/completeness'
 import { type StudioSectionKey } from '@/features/studio/studio-spine'
 import type { CoinGeckoProfile } from '@/types/coingecko'
@@ -12,6 +12,7 @@ import {
   normalizeVestingFrequency,
   normalizeRiskSeverity,
   getSectorOption,
+  type ClaimType,
   type TokenIdentityFormData,
   type SupplyMetricsFormData,
   type AllocationsFormData,
@@ -20,6 +21,9 @@ import {
   type DataSourcesFormData,
   type RiskFlagsFormData,
 } from '@/types/form'
+import type { ChallengeType } from '@/types/challenges'
+import { getFieldDef } from '@/lib/claims/field-registry'
+import { decodeFieldValue } from '@/features/claims/challenge-value'
 import { toast } from 'sonner'
 import {
   type SaveOpts,
@@ -44,6 +48,7 @@ import { COMPLETION_STEP, type TokenFormState } from './use-token-form-state'
 export function useTokenSaveHandlers(state: TokenFormState) {
   const {
     router,
+    searchParams,
     isEditMode,
     supabase,
     tokenId,
@@ -85,6 +90,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     saveSectionRef,
     allocationsRef,
     autosaveActiveRef,
+    prefillFromChallengeRef,
   } = state
 
   const handleRpcError = (error: {
@@ -1043,6 +1049,138 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         window.clearTimeout(autosaveTimerRef.current)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Guards prefillFromChallenge against firing twice for the same
+  // challengeId (e.g. React StrictMode's double-invoked mount effect).
+  const prefilledChallengeIdRef = useRef<string | null>(null)
+
+  // A form's setValue path type is a compile-time union derived from that
+  // form's own schema; a challenge's field_key is a runtime string
+  // (validated against field-registry.ts, not statically knowable per
+  // form), so it can't be expressed as that union. Same escape hatch as the
+  // union-typed watch loop above.
+  const setChallengedValue = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see comment above
+    form: any,
+    path: string,
+    value: string | boolean,
+  ) => {
+    form.setValue(path, value, { shouldDirty: true })
+  }
+
+  /**
+   * "Correct in studio" pre-fill (plan §9.2.5): resolve-box-provenance.tsx's
+   * CTA appends `?challengeId=` for the just-accepted challenge. Read it
+   * here, fetch the challenge, and seed the challenged field with its
+   * proposed_value so the owner/moderator reviews + saves instead of
+   * re-typing it. Only 'update' challenges carry a proposed_value -- a
+   * dispute has none, so there is nothing to pre-fill.
+   *
+   * Must run AFTER loadTokenData's reset() calls (use-token-form-state.ts's
+   * mount effect awaits loadTokenData(editTokenId) before calling this via
+   * prefillFromChallengeRef), since reset() replaces the whole form value
+   * object and would silently clobber a setValue that ran first.
+   */
+  const prefillFromChallenge = async () => {
+    const challengeId = searchParams.get('challengeId')
+    if (!challengeId) return
+    if (prefilledChallengeIdRef.current === challengeId) return
+    prefilledChallengeIdRef.current = challengeId
+
+    const { data, error } = await supabase
+      .from('challenges')
+      .select('claim_type, claim_id, field_key, proposed_value, challenge_type')
+      .eq('id', challengeId)
+      .maybeSingle()
+
+    if (error || !data) {
+      console.debug('Studio pre-fill: challenge not found', challengeId, error)
+      return
+    }
+    const challenge = data as {
+      claim_type: ClaimType
+      claim_id: string | null
+      field_key: string
+      proposed_value: unknown
+      challenge_type: ChallengeType
+    }
+
+    // A dispute has no proposed_value -- nothing to pre-fill.
+    if (
+      challenge.challenge_type !== 'update' ||
+      challenge.proposed_value === null
+    ) {
+      return
+    }
+
+    const fieldDef = getFieldDef(challenge.claim_type, challenge.field_key)
+    if (!fieldDef) {
+      console.debug(
+        'Studio pre-fill: field not in registry',
+        challenge.claim_type,
+        challenge.field_key,
+      )
+      return
+    }
+    const decoded = decodeFieldValue(fieldDef.kind, challenge.proposed_value)
+
+    switch (challenge.claim_type) {
+      case 'token_identity':
+        setChallengedValue(step1Form, challenge.field_key, decoded)
+        break
+      case 'supply_metrics':
+        setChallengedValue(step2Form, challenge.field_key, decoded)
+        break
+      case 'emission_model':
+        setChallengedValue(step5Form, challenge.field_key, decoded)
+        break
+      case 'allocation_segment': {
+        // A positional array -- find the row by id (not index: save can
+        // reorder/insert rows), then target that index's field.
+        const segments = step3Form.getValues('segments')
+        const index = segments.findIndex((s) => s.id === challenge.claim_id)
+        if (index < 0) {
+          console.debug(
+            'Studio pre-fill: allocation row not found',
+            challenge.claim_id,
+          )
+          return
+        }
+        setChallengedValue(
+          step3Form,
+          `segments.${index}.${challenge.field_key}`,
+          decoded,
+        )
+        break
+      }
+      case 'vesting_schedule': {
+        // Unlike segments, step4Form's `schedules` is a
+        // Record<allocationId, VestingSchedule> (see vestingSchedulesSchema
+        // in @/types/form) -- claim_id (the allocation's id, per
+        // completeness.ts) IS the key, so no positional search is needed.
+        const schedules = step4Form.getValues('schedules')
+        if (!challenge.claim_id || !(challenge.claim_id in schedules)) {
+          console.debug(
+            'Studio pre-fill: vesting row not found',
+            challenge.claim_id,
+          )
+          return
+        }
+        setChallengedValue(
+          step4Form,
+          `schedules.${challenge.claim_id}.${challenge.field_key}`,
+          decoded,
+        )
+        break
+      }
+      default:
+        return
+    }
+
+    queueAutosave()
+  }
+
+  prefillFromChallengeRef.current = prefillFromChallenge
 
   // Auto-draft: the padlock killer. As soon as a valid name + ticker exist,
   // the draft creates itself silently and every section opens.

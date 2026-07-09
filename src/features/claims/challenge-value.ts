@@ -52,3 +52,23 @@ export function encodeFieldValue(kind: FieldKind, raw: unknown): Json {
     }
   }
 }
+
+/**
+ * Inverse of encodeFieldValue: turns a challenge's `proposed_value` (jsonb,
+ * shaped like to_jsonb(<column>) -- see encodeFieldValue above) back into the
+ * value a form input expects. Used by the studio's "pre-fill from an
+ * accepted challenge" flow (use-token-save-handlers.ts's
+ * prefillFromChallenge) to seed a field from proposed_value instead of
+ * making the moderator/owner re-type it.
+ *
+ * Every form input in this codebase stores its value as a string, except
+ * has_burn/has_buyback (booleans) -- so 'boolean' is the only kind that
+ * doesn't round-trip through String().
+ */
+export function decodeFieldValue(
+  kind: FieldKind,
+  value: unknown,
+): string | boolean {
+  if (kind === 'boolean') return Boolean(value)
+  return value === null || value === undefined ? '' : String(value)
+}
