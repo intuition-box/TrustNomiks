@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Edit, Trash2, Download } from 'lucide-react'
+import { Edit, Trash2, Download, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { useRole } from '@/hooks/use-role'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -34,17 +35,28 @@ import type { TokenData } from './types'
 interface StatusManagerProps {
   token: TokenData
   setToken: (token: TokenData) => void
+  /** the current user created this token (see tokens/[id]/page.tsx) */
+  isOwner: boolean
 }
 
 /**
  * The token detail page's action row: status change (with downgrade
  * confirmation), edit routing, triples export, and delete. See
  * docs/refactor-plan-token-routes-20260620.md — Part B step 3.
+ *
+ * A viewer sees nothing here (the read-only StatusPill in the header already
+ * covers them). A contributor who did not create this token sees a note
+ * instead of the controls, since only the creator may edit or delete it.
  */
-export function StatusManager({ token, setToken }: StatusManagerProps) {
+export function StatusManager({
+  token,
+  setToken,
+  isOwner,
+}: StatusManagerProps) {
   const [pendingStatus, setPendingStatus] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
+  const { isContributor } = useRole()
 
   const handleStatusSelect = (newStatus: string) => {
     const currentRank = STATUS_RANK[token.status] ?? 0
@@ -147,6 +159,20 @@ export function StatusManager({ token, setToken }: StatusManagerProps) {
       console.error('Export failed:', error)
       toast.error('Failed to export triples')
     }
+  }
+
+  // Viewer: the read-only StatusPill in the header already covers them, so
+  // this action row renders nothing.
+  if (!isContributor) return null
+
+  // Contributor but not the creator: read-only, with the reason surfaced.
+  if (!isOwner) {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Lock className="h-3.5 w-3.5" aria-hidden />
+        Only the creator can edit this token.
+      </p>
+    )
   }
 
   return (

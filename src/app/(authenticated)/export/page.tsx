@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/composite/page-header'
 import { EmptyState } from '@/components/composite/empty-state'
 import { ErrorState } from '@/components/composite/error-state'
 import { WalletGate } from '@/components/composite/wallet-gate'
+import { RoleGate } from '@/components/composite/role-gate'
 import { DataBadge } from '@/components/composite/data-badge'
 import { ClusterMeter } from '@/components/patterns/cluster-meter'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
@@ -527,45 +528,50 @@ export default function ExportPage() {
                 <span className="text-faint-foreground">3b ·</span> Publish
                 on-chain
               </h2>
-              <WalletGate
-                title="Connect to publish"
+              <RoleGate
+                title="Link a wallet to publish"
                 reason="Publishing writes atoms and triples on-chain from your wallet, one token at a time, from its publish panel."
               >
-                {selectedTokens.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Select tokens above, then open each one&apos;s publish
-                    panel.
-                  </p>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {selectedTokens.slice(0, 6).map((token) => (
-                      <li key={token.id}>
-                        <Link
-                          href={`/tokens/${token.id}`}
-                          className="group flex items-center justify-between gap-2 rounded-md border bg-surface-2/60 px-3 py-2 text-sm transition-colors hover:bg-surface-2"
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <NodeGlyph type="token" size={11} aria-hidden />
-                            <span className="truncate">{token.name}</span>
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {token.ticker}
+                <WalletGate
+                  title="Connect to publish"
+                  reason="Publishing writes atoms and triples on-chain from your wallet, one token at a time, from its publish panel."
+                >
+                  {selectedTokens.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Select tokens above, then open each one&apos;s publish
+                      panel.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {selectedTokens.slice(0, 6).map((token) => (
+                        <li key={token.id}>
+                          <Link
+                            href={`/tokens/${token.id}`}
+                            className="group flex items-center justify-between gap-2 rounded-md border bg-surface-2/60 px-3 py-2 text-sm transition-colors hover:bg-surface-2"
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <NodeGlyph type="token" size={11} aria-hidden />
+                              <span className="truncate">{token.name}</span>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {token.ticker}
+                              </span>
                             </span>
-                          </span>
-                          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                            Open publish panel
-                            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                    {selectedTokens.length > 6 && (
-                      <li className="tabular text-xs text-faint-foreground">
-                        +{selectedTokens.length - 6} more selected
-                      </li>
-                    )}
-                  </ul>
-                )}
-              </WalletGate>
+                            <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                              Open publish panel
+                              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                      {selectedTokens.length > 6 && (
+                        <li className="tabular text-xs text-faint-foreground">
+                          +{selectedTokens.length - 6} more selected
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </WalletGate>
+              </RoleGate>
             </div>
           </section>
 

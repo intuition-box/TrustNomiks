@@ -13,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { RoleGate } from '@/components/composite/role-gate'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { PublishSummary } from './publish-summary'
@@ -528,215 +529,231 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
     <div className="space-y-4">
       <PublishedClaimsView tokenId={tokenId} />
 
-      <section className="glass space-y-4 rounded-xl border p-5">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <NodeGlyph type="graph_root" size={16} aria-hidden />
-            Publish to Intuition
-            <Badge variant="outline" className="text-xs">
-              testnet
-            </Badge>
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Put this token&apos;s claims on-chain. The graph lights up as each
-            batch confirms.
-          </p>
-        </div>
-        <div className="space-y-4">
-          {/* Connection warnings */}
-          {!isConnected && (
-            <Notice tone="warning" icon={AlertCircle}>
-              Connect your wallet (top bar) to publish on-chain. Preparing the
-              plan works without it.
-            </Notice>
-          )}
+      <RoleGate
+        title="Link a wallet to publish"
+        reason="Publishing writes atoms and triples on-chain from your wallet. Link a wallet you have proven ownership of to continue."
+      >
+        <section className="glass space-y-4 rounded-xl border p-5">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <NodeGlyph type="graph_root" size={16} aria-hidden />
+              Publish to Intuition
+              <Badge variant="outline" className="text-xs">
+                testnet
+              </Badge>
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Put this token&apos;s claims on-chain. The graph lights up as each
+              batch confirms.
+            </p>
+          </div>
+          <div className="space-y-4">
+            {/* Connection warnings */}
+            {!isConnected && (
+              <Notice tone="warning" icon={AlertCircle}>
+                Connect your wallet (top bar) to publish on-chain. Preparing the
+                plan works without it.
+              </Notice>
+            )}
 
-          {isWrongChain && (
-            <Notice tone="warning" icon={AlertCircle}>
-              Switch to Intuition Testnet (chain {INTUITION_CHAIN_ID}) to
-              publish.
-            </Notice>
-          )}
+            {isWrongChain && (
+              <Notice tone="warning" icon={AlertCircle}>
+                Switch to Intuition Testnet (chain {INTUITION_CHAIN_ID}) to
+                publish.
+              </Notice>
+            )}
 
-          {!isEligible && tokenStatus === 'in_review' && (
-            <Notice tone="info" icon={AlertCircle}>
-              This token is in review. Preview the plan now; publishing opens
-              once it is validated.
-            </Notice>
-          )}
+            {!isEligible && tokenStatus === 'in_review' && (
+              <Notice tone="info" icon={AlertCircle}>
+                This token is in review. Preview the plan now; publishing opens
+                once it is validated.
+              </Notice>
+            )}
 
-          {/* Error display */}
-          {error && (
-            <Notice tone="destructive" icon={AlertCircle}>
-              {error}
-            </Notice>
-          )}
+            {/* Error display */}
+            {error && (
+              <Notice tone="destructive" icon={AlertCircle}>
+                {error}
+              </Notice>
+            )}
 
-          {/* Plan display */}
-          {plan && state !== 'idle' && <PublishSummary plan={plan} />}
+            {/* Plan display */}
+            {plan && state !== 'idle' && <PublishSummary plan={plan} />}
 
-          {/* Batch progress display */}
-          {state === 'publishing' && progress && (
-            <div
-              className="space-y-3 rounded-lg border bg-surface-2/60 p-4"
-              aria-live="polite"
-            >
-              {/* Phase indicator */}
-              <div className="flex items-center gap-1.5">
-                {(['atoms', 'triples', 'provenance'] as const).map((phase) => {
-                  const isDone =
-                    ['atoms', 'triples', 'provenance'].indexOf(phase) <
-                    ['atoms', 'triples', 'provenance'].indexOf(progress.phase)
-                  return (
-                    <Badge
-                      key={phase}
-                      variant={progress.phase === phase ? 'default' : 'outline'}
-                      className={cn(isDone && 'border-success/40 text-success')}
-                    >
-                      {isDone && (
-                        <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden />
-                      )}
-                      {PHASE_LABELS[phase]}
-                    </Badge>
-                  )
-                })}
-              </div>
-
-              {/* Chunk progress */}
-              <div className="flex items-center gap-2 text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                <span className="font-medium">
-                  {PHASE_LABELS[progress.phase]}
-                </span>
-                <span className="tabular text-muted-foreground">
-                  chunk{' '}
-                  {progress.currentChunk +
-                    (progress.chunkStatus === 'processing' ? 1 : 0)}
-                  /{progress.totalChunks}
-                  {progress.chunkStatus === 'processing' &&
-                    ', waiting for your wallet signature…'}
-                </span>
-              </div>
-
-              {/* Phase progress bar */}
-              <div className="space-y-1">
-                <div className="tabular flex justify-between text-xs text-muted-foreground">
-                  <span>
-                    {progress.itemsProcessed}/{progress.totalItems} items
-                  </span>
-                  <span>{totalProgress}% overall</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full transition-all duration-300"
-                    style={{
-                      width: `${totalProgress}%`,
-                      background: 'var(--gradient-brand)',
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Live counters */}
-              <div className="tabular flex gap-4 text-xs text-muted-foreground">
-                {counters.atomsCreated > 0 && (
-                  <span>{counters.atomsCreated} atoms created</span>
-                )}
-                {counters.triplesCreated > 0 && (
-                  <span>{counters.triplesCreated} triples created</span>
-                )}
-                {counters.provenanceCreated > 0 && (
-                  <span>{counters.provenanceCreated} provenance created</span>
-                )}
-                {counters.atomsFailed +
-                  counters.triplesFailed +
-                  counters.provenanceFailed >
-                  0 && (
-                  <span className="text-destructive">
-                    {counters.atomsFailed +
-                      counters.triplesFailed +
-                      counters.provenanceFailed}{' '}
-                    failed
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Completion */}
-          {state === 'complete' && !aborted && (
-            <Notice tone="success" icon={CheckCircle2}>
-              <span className="tabular">
-                Publication complete: {counters.atomsCreated} atoms,{' '}
-                {counters.triplesCreated} triples, {counters.provenanceCreated}{' '}
-                provenance.
-              </span>
-            </Notice>
-          )}
-
-          {state === 'complete' && aborted && (
-            <Notice tone="warning" icon={XCircle}>
-              <span className="tabular">
-                Publication stopped after an atom failure.{' '}
-                {counters.atomsCreated} atoms made it on-chain; run again to
-                continue.
-              </span>
-            </Notice>
-          )}
-
-          <Separator />
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            {/* Prepare / Refresh plan */}
-            <Button
-              variant="outline"
-              onClick={fetchPlan}
-              disabled={state === 'loading_plan' || state === 'publishing'}
-            >
-              {state === 'loading_plan' ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing…
-                </>
-              ) : plan ? (
-                <>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Refresh plan
-                </>
-              ) : (
-                'Prepare publish'
-              )}
-            </Button>
-
-            {/* Publish */}
-            {plan && (
-              <Button
-                variant="brand"
-                onClick={executePublish}
-                disabled={
-                  !isConnected ||
-                  !isEligible ||
-                  isWrongChain ||
-                  state === 'publishing' ||
-                  (plan.summary.atomsToCreate === 0 &&
-                    plan.summary.triplesToCreate === 0 &&
-                    plan.summary.provenanceToCreate === 0)
-                }
+            {/* Batch progress display */}
+            {state === 'publishing' && progress && (
+              <div
+                className="space-y-3 rounded-lg border bg-surface-2/60 p-4"
+                aria-live="polite"
               >
-                {state === 'publishing' ? (
+                {/* Phase indicator */}
+                <div className="flex items-center gap-1.5">
+                  {(['atoms', 'triples', 'provenance'] as const).map(
+                    (phase) => {
+                      const isDone =
+                        ['atoms', 'triples', 'provenance'].indexOf(phase) <
+                        ['atoms', 'triples', 'provenance'].indexOf(
+                          progress.phase,
+                        )
+                      return (
+                        <Badge
+                          key={phase}
+                          variant={
+                            progress.phase === phase ? 'default' : 'outline'
+                          }
+                          className={cn(
+                            isDone && 'border-success/40 text-success',
+                          )}
+                        >
+                          {isDone && (
+                            <CheckCircle2
+                              className="mr-1 h-3 w-3"
+                              aria-hidden
+                            />
+                          )}
+                          {PHASE_LABELS[phase]}
+                        </Badge>
+                      )
+                    },
+                  )}
+                </div>
+
+                {/* Chunk progress */}
+                <div className="flex items-center gap-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <span className="font-medium">
+                    {PHASE_LABELS[progress.phase]}
+                  </span>
+                  <span className="tabular text-muted-foreground">
+                    chunk{' '}
+                    {progress.currentChunk +
+                      (progress.chunkStatus === 'processing' ? 1 : 0)}
+                    /{progress.totalChunks}
+                    {progress.chunkStatus === 'processing' &&
+                      ', waiting for your wallet signature…'}
+                  </span>
+                </div>
+
+                {/* Phase progress bar */}
+                <div className="space-y-1">
+                  <div className="tabular flex justify-between text-xs text-muted-foreground">
+                    <span>
+                      {progress.itemsProcessed}/{progress.totalItems} items
+                    </span>
+                    <span>{totalProgress}% overall</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${totalProgress}%`,
+                        background: 'var(--gradient-brand)',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Live counters */}
+                <div className="tabular flex gap-4 text-xs text-muted-foreground">
+                  {counters.atomsCreated > 0 && (
+                    <span>{counters.atomsCreated} atoms created</span>
+                  )}
+                  {counters.triplesCreated > 0 && (
+                    <span>{counters.triplesCreated} triples created</span>
+                  )}
+                  {counters.provenanceCreated > 0 && (
+                    <span>{counters.provenanceCreated} provenance created</span>
+                  )}
+                  {counters.atomsFailed +
+                    counters.triplesFailed +
+                    counters.provenanceFailed >
+                    0 && (
+                    <span className="text-destructive">
+                      {counters.atomsFailed +
+                        counters.triplesFailed +
+                        counters.provenanceFailed}{' '}
+                      failed
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Completion */}
+            {state === 'complete' && !aborted && (
+              <Notice tone="success" icon={CheckCircle2}>
+                <span className="tabular">
+                  Publication complete: {counters.atomsCreated} atoms,{' '}
+                  {counters.triplesCreated} triples,{' '}
+                  {counters.provenanceCreated} provenance.
+                </span>
+              </Notice>
+            )}
+
+            {state === 'complete' && aborted && (
+              <Notice tone="warning" icon={XCircle}>
+                <span className="tabular">
+                  Publication stopped after an atom failure.{' '}
+                  {counters.atomsCreated} atoms made it on-chain; run again to
+                  continue.
+                </span>
+              </Notice>
+            )}
+
+            <Separator />
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              {/* Prepare / Refresh plan */}
+              <Button
+                variant="outline"
+                onClick={fetchPlan}
+                disabled={state === 'loading_plan' || state === 'publishing'}
+              >
+                {state === 'loading_plan' ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Publishing…
+                    Analyzing…
+                  </>
+                ) : plan ? (
+                  <>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Refresh plan
                   </>
                 ) : (
-                  'Publish on-chain'
+                  'Prepare publish'
                 )}
               </Button>
-            )}
+
+              {/* Publish */}
+              {plan && (
+                <Button
+                  variant="brand"
+                  onClick={executePublish}
+                  disabled={
+                    !isConnected ||
+                    !isEligible ||
+                    isWrongChain ||
+                    state === 'publishing' ||
+                    (plan.summary.atomsToCreate === 0 &&
+                      plan.summary.triplesToCreate === 0 &&
+                      plan.summary.provenanceToCreate === 0)
+                  }
+                >
+                  {state === 'publishing' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing…
+                    </>
+                  ) : (
+                    'Publish on-chain'
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </RoleGate>
     </div>
   )
 }

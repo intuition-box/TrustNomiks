@@ -16,6 +16,7 @@ import {
 import { StudioGraphPane } from '@/features/studio/studio-graph-pane'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { RoleGate } from '@/components/composite/role-gate'
 import { formatCategoryLabel, formatSectorLabel } from '@/types/form'
 import { SECTION_LABELS } from '@/components/token-form/form-helpers'
 import {
@@ -35,9 +36,15 @@ import { Step7RiskFlags } from '@/components/token-form/steps/Step7RiskFlags'
 
 export default function NewTokenPage() {
   return (
-    <TokenFormProvider>
-      <NewTokenPageInner />
-    </TokenFormProvider>
+    <RoleGate
+      className="mx-auto mt-16 max-w-xl"
+      title="Link a wallet to structure a token"
+      reason="Structuring a token creates a draft right away and autosaves as you go. Link a wallet you have proven ownership of to start."
+    >
+      <TokenFormProvider>
+        <NewTokenPageInner />
+      </TokenFormProvider>
+    </RoleGate>
   )
 }
 

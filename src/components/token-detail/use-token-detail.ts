@@ -24,6 +24,7 @@ import { getMaxSupplyNum } from './detail-helpers'
 export function useTokenDetail(rawId: string | string[] | undefined) {
   const [token, setToken] = useState<TokenData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,6 +32,13 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
       fetchTokenData(rawId as string)
     }
   }, [rawId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const fetchTokenData = async (tokenId: string) => {
     try {
@@ -246,6 +254,7 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
     token,
     setToken,
     loading,
+    currentUserId,
     graphData,
     vestingResult,
     vestingSegmentInfos,

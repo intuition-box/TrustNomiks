@@ -14,6 +14,7 @@ export default function TokenDetailPage() {
     token,
     setToken,
     loading,
+    currentUserId,
     graphData,
     vestingResult,
     vestingSegmentInfos,
@@ -45,10 +46,13 @@ export default function TokenDetailPage() {
     )
   }
 
+  const isOwner = Boolean(currentUserId && token.created_by === currentUserId)
+
   return (
     <DetailView
       token={token}
       setToken={setToken}
+      isOwner={isOwner}
       graphData={graphData}
       vestingResult={vestingResult}
       vestingSegmentInfos={vestingSegmentInfos}

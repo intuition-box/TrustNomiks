@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 import { AccountActivityCard } from '@/components/intuition/account-activity-card'
 import { WalletLinksCard } from '@/features/wallet-linking/wallet-links-card'
+import { useRole } from '@/hooks/use-role'
 
 type ProfileToken = {
   id: string
@@ -110,6 +112,7 @@ export default function ProfilePage() {
   const [profileDirty, setProfileDirty] = useState(false)
 
   const supabase = createClient()
+  const { isViewer } = useRole()
 
   const fetchData = async () => {
     setLoading(true)
@@ -428,20 +431,33 @@ export default function ProfilePage() {
             </p>
           </div>
           {userTokens.length === 0 ? (
-            <EmptyState
-              className="m-4 flex-1 border-0"
-              title="No tokens yet"
-              description="Structure your first token and it appears here, orbiting your node."
-              actions={
-                <Button
-                  variant="brand"
-                  size="sm"
-                  onClick={() => (window.location.href = '/tokens/new')}
-                >
-                  Add your first token
-                </Button>
-              }
-            />
+            isViewer ? (
+              <EmptyState
+                className="m-4 flex-1 border-0"
+                title="Your constellation is waiting"
+                description="Link a wallet to start contributing tokens. Each one you structure orbits your node here."
+                actions={
+                  <Button variant="brand" size="sm" asChild>
+                    <Link href="/profile?linkWallet=1">Link a wallet</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                className="m-4 flex-1 border-0"
+                title="No tokens yet"
+                description="Structure your first token and it appears here, orbiting your node."
+                actions={
+                  <Button
+                    variant="brand"
+                    size="sm"
+                    onClick={() => (window.location.href = '/tokens/new')}
+                  >
+                    Add your first token
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="min-h-[300px] flex-1">
               <LiveGraph mode="local" data={constellation} />

@@ -51,6 +51,7 @@ import type { TokenData } from './types'
 import { StakeChip } from '@/features/claims/stake-chip'
 import type { ChallengeAnchor } from '@/features/claims/challenge-target'
 import type { ChallengeableClaimType } from '@/lib/claims/field-registry'
+import { useRole } from '@/hooks/use-role'
 
 /** Per-field challenge chip (1:1 claim types: identity, supply, emission). */
 function FieldChip({
@@ -105,10 +106,50 @@ function RowChip({
 interface DetailViewProps {
   token: TokenData
   setToken: (token: TokenData) => void
+  /** the current user created this token (see tokens/[id]/page.tsx) */
+  isOwner: boolean
   graphData: LiveGraphData | null
   vestingResult: VestingTimelineResult | null
   vestingSegmentInfos: Array<{ label: string; segment_type: string }>
   maxSupplyNum: number
+}
+
+/**
+ * A section with no data yet: contributors who own the token get the
+ * "Contribute it" prompt, everyone else just reads "Not set" (docs/redesign
+ * copy rule: empty values never read as an error or a void).
+ */
+function MissingSection({
+  canContribute,
+  title,
+  description,
+  onboardingHint,
+  onContribute,
+}: {
+  canContribute: boolean
+  title: string
+  description: string
+  onboardingHint: string
+  onContribute: () => void
+}) {
+  if (!canContribute) {
+    return (
+      <p className="py-6 text-center text-sm text-faint-foreground">Not set</p>
+    )
+  }
+  return (
+    <EmptyState
+      title={title}
+      description={description}
+      onboardingHint={onboardingHint}
+      actions={
+        <Button variant="outline" onClick={onContribute}>
+          <Plus className="mr-2 h-4 w-4" />
+          Contribute it
+        </Button>
+      }
+    />
+  )
 }
 
 /**
@@ -120,6 +161,7 @@ interface DetailViewProps {
 export function DetailView({
   token,
   setToken,
+  isOwner,
   graphData,
   vestingResult,
   vestingSegmentInfos,
@@ -130,6 +172,8 @@ export function DetailView({
   >(null)
   const [enrichOpen, setEnrichOpen] = useState(false)
   const router = useRouter()
+  const { isContributor } = useRole()
+  const canContribute = isContributor && isOwner
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 pb-16">
@@ -208,7 +252,7 @@ export function DetailView({
           </div>
 
           {/* Actions */}
-          <StatusManager token={token} setToken={setToken} />
+          <StatusManager token={token} setToken={setToken} isOwner={isOwner} />
         </div>
       </header>
 
@@ -449,20 +493,13 @@ export function DetailView({
                 <ClaimSourceBadges token={token} claimType="supply_metrics" />
               </>
             ) : (
-              <EmptyState
+              <MissingSection
+                canContribute={canContribute}
                 title="No supply data yet"
                 description="Max supply, initial supply and circulation are missing for this token."
                 onboardingHint="Contribute it in the studio, Supply section."
-                actions={
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      router.push(`/tokens/new?id=${token.id}&section=supply`)
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Contribute it
-                  </Button>
+                onContribute={() =>
+                  router.push(`/tokens/new?id=${token.id}&section=supply`)
                 }
               />
             )}
@@ -639,22 +676,13 @@ export function DetailView({
                 </div>
               </div>
             ) : (
-              <EmptyState
+              <MissingSection
+                canContribute={canContribute}
                 title="No allocation data yet"
                 description="The distribution breakdown across segments has not been recorded."
                 onboardingHint="Contribute it in the studio, Allocation section."
-                actions={
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      router.push(
-                        `/tokens/new?id=${token.id}&section=allocation`,
-                      )
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Contribute it
-                  </Button>
+                onContribute={() =>
+                  router.push(`/tokens/new?id=${token.id}&section=allocation`)
                 }
               />
             )}
@@ -753,22 +781,13 @@ export function DetailView({
                     </div>
                   </div>
                 ) : (
-                  <EmptyState
+                  <MissingSection
+                    canContribute={canContribute}
                     title="No vesting schedules yet"
                     description="Unlock schedules per allocation segment have not been recorded."
                     onboardingHint="Contribute it in the studio, Vesting section."
-                    actions={
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          router.push(
-                            `/tokens/new?id=${token.id}&section=vesting`,
-                          )
-                        }
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Contribute it
-                      </Button>
+                    onContribute={() =>
+                      router.push(`/tokens/new?id=${token.id}&section=vesting`)
                     }
                   />
                 )}
@@ -865,22 +884,13 @@ export function DetailView({
                     />
                   </div>
                 ) : (
-                  <EmptyState
+                  <MissingSection
+                    canContribute={canContribute}
                     title="No emission model yet"
                     description="Inflation, burn and buyback mechanics have not been recorded."
                     onboardingHint="Contribute it in the studio, Emission section."
-                    actions={
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          router.push(
-                            `/tokens/new?id=${token.id}&section=emission`,
-                          )
-                        }
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Contribute it
-                      </Button>
+                    onContribute={() =>
+                      router.push(`/tokens/new?id=${token.id}&section=emission`)
                     }
                   />
                 )}
@@ -962,22 +972,13 @@ export function DetailView({
                     })}
                   </div>
                 ) : (
-                  <EmptyState
+                  <MissingSection
+                    canContribute={canContribute}
                     title="No sources yet"
                     description="No reference documents have been attached to this token."
                     onboardingHint="Contribute it in the studio, Sources section."
-                    actions={
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          router.push(
-                            `/tokens/new?id=${token.id}&section=sources`,
-                          )
-                        }
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Contribute it
-                      </Button>
+                    onContribute={() =>
+                      router.push(`/tokens/new?id=${token.id}&section=sources`)
                     }
                   />
                 )}
@@ -1031,20 +1032,13 @@ export function DetailView({
                     })}
                   </div>
                 ) : (
-                  <EmptyState
+                  <MissingSection
+                    canContribute={canContribute}
                     title="No risk flags recorded"
                     description="No risk signals have been identified for this token."
                     onboardingHint="Add a flag in the studio to surface a risk."
-                    actions={
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          router.push(`/tokens/new?id=${token.id}&section=risk`)
-                        }
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Contribute it
-                      </Button>
+                    onContribute={() =>
+                      router.push(`/tokens/new?id=${token.id}&section=risk`)
                     }
                   />
                 )}
