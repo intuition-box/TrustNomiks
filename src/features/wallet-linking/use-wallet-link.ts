@@ -51,6 +51,36 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 }
 
 /**
+ * Maps a wallet-link error to user-facing copy. The active-wallet unique
+ * index (`wallet_links_one_active_per_wallet`) is enforced two ways that
+ * both reach the client here: the nonce/verify API routes forward a Postgres
+ * `RAISE EXCEPTION` message verbatim as `error.message` (re-raised as
+ * `"CONFLICT: wallet already linked to an account"` in
+ * `confirm_wallet_link_tx` / `request_wallet_link_nonce_tx`, see
+ * supabase/migrations/20260709_add_wallet_linking.sql), and a direct
+ * `supabase.rpc` call can surface the raw Postgrest unique-violation error
+ * (`code: '23505'`). Both map to the same friendly copy; everything else
+ * falls back to a generic message. Pure, exported for unit testing.
+ */
+export function humanizeWalletLinkError(err: unknown): string {
+  const code =
+    err && typeof err === 'object' && 'code' in err
+      ? (err as { code?: unknown }).code
+      : undefined
+  const message = extractErrorMessage(err, '')
+
+  const isActiveWalletConflict =
+    code === '23505' ||
+    (/CONFLICT/i.test(message) && /already linked/i.test(message))
+
+  if (isActiveWalletConflict) {
+    return 'This wallet is already linked to a different TrustNomiks account.'
+  }
+
+  return extractErrorMessage(err, 'Failed to link wallet')
+}
+
+/**
  * Linking/unlinking wallets for the current user (milestone J1d).
  * Read side: TanStack Query over `wallet_links`. Write side: the nonce +
  * sign + verify handshake for linking (`/api/wallet-links/*`), and direct
@@ -115,7 +145,7 @@ export function useWalletLink() {
       await invalidate()
       toast.success('Wallet linked')
     } catch (err) {
-      toast.error(extractErrorMessage(err, 'Failed to link wallet'))
+      toast.error(humanizeWalletLinkError(err))
     } finally {
       setIsLinking(false)
     }
