@@ -26,7 +26,7 @@ export async function proxy(request: NextRequest) {
           })
         },
       },
-    }
+    },
   )
 
   // Refresh session if expired - this will automatically

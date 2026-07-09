@@ -20,79 +20,77 @@
  */
 
 import { createHash } from 'node:crypto'
-import type { CanonicalAtom, CanonicalTriple } from '@/lib/knowledge-graph/graph-types'
+import type {
+  CanonicalAtom,
+  CanonicalTriple,
+} from '@/lib/knowledge-graph/graph-types'
 import { getCanonicalPredicate } from './canonical-registry'
 
 // ── Predicate ontology (kg_triples_v1 predicate → on-chain snake_case) ──────
 
 const PREDICATE_MAP: Record<string, string> = {
   // Structural relationships
-  'has Allocation Segment':   'has_allocation_segment',
-  'has Vesting Schedule':     'has_vesting_schedule',
-  'has Emission Model':       'has_emission_model',
-  'has Data Source':          'has_data_source',
-  'has Risk Flag':            'has_risk_flag',
-  'has Category':             'has_category',
-  'has Sector':               'has_sector',
-  'has Chain':                'has_chain',
+  'has Allocation Segment': 'has_allocation_segment',
+  'has Vesting Schedule': 'has_vesting_schedule',
+  'has Emission Model': 'has_emission_model',
+  'has Data Source': 'has_data_source',
+  'has Risk Flag': 'has_risk_flag',
+  'has Category': 'has_category',
+  'has Sector': 'has_sector',
+  'has Chain': 'has_chain',
 
   // Token identity literals
-  'has Name':                 'has_name',
-  'has Ticker':               'has_ticker',
-  'has Contract Address':     'has_contract_address',
-  'has TGE Date':             'has_tge_date',
-  'has Status':               'has_status',
-  'has Completeness':         'has_completeness',
+  'has Name': 'has_name',
+  'has Ticker': 'has_ticker',
+  'has Contract Address': 'has_contract_address',
+  'has TGE Date': 'has_tge_date',
+  'has Status': 'has_status',
+  'has Completeness': 'has_completeness',
 
   // Supply literals
-  'has Max Supply':           'has_max_supply',
-  'has Initial Supply':       'has_initial_supply',
-  'has TGE Supply':           'has_tge_supply',
-  'has Circulating Supply':   'has_circulating_supply',
+  'has Max Supply': 'has_max_supply',
+  'has Initial Supply': 'has_initial_supply',
+  'has TGE Supply': 'has_tge_supply',
+  'has Circulating Supply': 'has_circulating_supply',
 
   // Allocation literals
-  'has Percentage':           'has_percentage',
-  'has Token Amount':         'has_token_amount',
-  'has Wallet Address':       'has_wallet_address',
+  'has Percentage': 'has_percentage',
+  'has Token Amount': 'has_token_amount',
+  'has Wallet Address': 'has_wallet_address',
 
   // Vesting literals
-  'has Cliff Months':         'has_cliff_months',
-  'has Duration Months':      'has_duration_months',
-  'has Frequency':            'has_frequency',
-  'has TGE Percentage':       'has_tge_percentage',
+  'has Cliff Months': 'has_cliff_months',
+  'has Duration Months': 'has_duration_months',
+  'has Frequency': 'has_frequency',
+  'has TGE Percentage': 'has_tge_percentage',
   'has Cliff Unlock Percentage': 'has_cliff_unlock_percentage',
 
   // Emission literals
   'has Annual Inflation Rate': 'has_annual_inflation_rate',
 
   // Source literals
-  'has URL':                  'has_url',
-  'has Version':              'has_version',
-  'has Verified At':          'has_verified_at',
+  'has URL': 'has_url',
+  'has Version': 'has_version',
+  'has Verified At': 'has_verified_at',
 
   // Risk flag literals (excluded in V1 but mapped for completeness)
-  'has Severity':             'has_severity',
-  'is Flagged':               'is_flagged',
-  'has Justification':        'has_justification',
+  'has Severity': 'has_severity',
+  'is Flagged': 'is_flagged',
+  'has Justification': 'has_justification',
 
   // Provenance
-  'based_on':                 'based_on',
+  based_on: 'based_on',
 }
 
 /**
  * Predicates that carry workflow/internal data — excluded from V1 on-chain publishing.
  */
-const EXCLUDED_PREDICATES = new Set([
-  'has_status',
-  'has_completeness',
-])
+const EXCLUDED_PREDICATES = new Set(['has_status', 'has_completeness'])
 
 /**
  * Atom types excluded from V1 on-chain publishing.
  */
-const EXCLUDED_ATOM_TYPES = new Set([
-  'risk_flag',
-])
+const EXCLUDED_ATOM_TYPES = new Set(['risk_flag'])
 
 // ── Predicate normalization ─────────────────────────────────────────────────
 
@@ -186,7 +184,10 @@ export function predicateNormalizedData(normalizedPredicate: string): string {
  */
 export function literalToAtomId(_tripleId: string, literal: string): string {
   const normalized = normalizeLiteral(literal)
-  const digest = createHash('sha256').update(normalized).digest('hex').slice(0, 16)
+  const digest = createHash('sha256')
+    .update(normalized)
+    .digest('hex')
+    .slice(0, 16)
   return `atom:literal:${digest}`
 }
 

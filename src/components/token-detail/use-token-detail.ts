@@ -7,7 +7,10 @@ import {
   computeVestingTimeline,
   type AllocationWithVesting,
 } from '@/lib/utils/vesting-timeline'
-import { formatRiskFlagTypeLabel, normalizeVestingFrequency } from '@/types/form'
+import {
+  formatRiskFlagTypeLabel,
+  normalizeVestingFrequency,
+} from '@/types/form'
 import type { LiveGraphData } from '@/components/brand/live-graph'
 import type { TokenData } from './types'
 import { getMaxSupplyNum } from './detail-helpers'
@@ -57,10 +60,11 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
         .order('percentage', { ascending: false })
 
       // Fetch vesting schedules with allocation labels
-      const allocationIds = allocData?.map(a => a.id) || []
+      const allocationIds = allocData?.map((a) => a.id) || []
       const { data: vestingData } = await supabase
         .from('vesting_schedules')
-        .select(`
+        .select(
+          `
           id,
           allocation_id,
           cliff_months,
@@ -70,7 +74,8 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
           cliff_unlock_percentage,
           notes,
           allocation:allocation_segments!vesting_schedules_allocation_id_fkey(label)
-        `)
+        `,
+        )
         .in('allocation_id', allocationIds)
 
       // Fetch emission model
@@ -95,12 +100,14 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
       // Fetch claim_sources (source → claim attribution)
       const { data: claimSourcesData } = await supabase
         .from('claim_sources')
-        .select(`
+        .select(
+          `
           claim_type,
           claim_id,
           data_source_id,
           data_source:data_sources!claim_sources_data_source_id_fkey(document_name, source_type, url)
-        `)
+        `,
+        )
         .eq('token_id', tokenId)
 
       setToken({
@@ -128,7 +135,12 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
   const graphData: LiveGraphData | null = useMemo(() => {
     if (!token) return null
     const nodes: LiveGraphData['nodes'] = [
-      { id: 'token', type: 'token', label: token.ticker || token.name, size: 7 },
+      {
+        id: 'token',
+        type: 'token',
+        label: token.ticker || token.name,
+        size: 7,
+      },
     ]
     const links: LiveGraphData['links'] = []
 
@@ -152,17 +164,32 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
       })
     })
     if (token.emission_models) {
-      nodes.push({ id: 'emission', type: 'emission', label: 'Emission', size: 4 })
+      nodes.push({
+        id: 'emission',
+        type: 'emission',
+        label: 'Emission',
+        size: 4,
+      })
       links.push({ source: 'token', target: 'emission' })
     }
     token.data_sources.forEach((src) => {
       const id = `source-${src.id}`
-      nodes.push({ id, type: 'data_source', label: src.document_name, size: 3.5 })
+      nodes.push({
+        id,
+        type: 'data_source',
+        label: src.document_name,
+        size: 3.5,
+      })
       links.push({ source: 'token', target: id })
     })
     token.risk_flags.forEach((flag) => {
       const id = `risk-${flag.id}`
-      nodes.push({ id, type: 'risk_flag', label: formatRiskFlagTypeLabel(flag.flag_type), size: 3.5 })
+      nodes.push({
+        id,
+        type: 'risk_flag',
+        label: formatRiskFlagTypeLabel(flag.flag_type),
+        size: 3.5,
+      })
       links.push({ source: 'token', target: id })
     })
 
@@ -175,26 +202,29 @@ export function useTokenDetail(rawId: string | string[] | undefined) {
     const maxSupply = getMaxSupplyNum(token)
     if (maxSupply <= 0 || token.vesting_schedules.length === 0) return null
 
-    const allocationsWithVesting: AllocationWithVesting[] = token.allocation_segments.map((alloc) => {
-      const vesting = token.vesting_schedules.find((v) => v.allocation_id === alloc.id)
-      return {
-        label: alloc.label,
-        segment_type: alloc.segment_type,
-        percentage: alloc.percentage,
-        token_amount:
-          Number((alloc.token_amount ?? '').toString().replace(/,/g, '')) ||
-          (alloc.percentage / 100) * maxSupply,
-        vesting: vesting
-          ? {
-              cliff_months: vesting.cliff_months,
-              duration_months: vesting.duration_months,
-              frequency: vesting.frequency,
-              tge_percentage: vesting.tge_percentage,
-              cliff_unlock_percentage: vesting.cliff_unlock_percentage,
-            }
-          : null,
-      }
-    })
+    const allocationsWithVesting: AllocationWithVesting[] =
+      token.allocation_segments.map((alloc) => {
+        const vesting = token.vesting_schedules.find(
+          (v) => v.allocation_id === alloc.id,
+        )
+        return {
+          label: alloc.label,
+          segment_type: alloc.segment_type,
+          percentage: alloc.percentage,
+          token_amount:
+            Number((alloc.token_amount ?? '').toString().replace(/,/g, '')) ||
+            (alloc.percentage / 100) * maxSupply,
+          vesting: vesting
+            ? {
+                cliff_months: vesting.cliff_months,
+                duration_months: vesting.duration_months,
+                frequency: vesting.frequency,
+                tge_percentage: vesting.tge_percentage,
+                cliff_unlock_percentage: vesting.cliff_unlock_percentage,
+              }
+            : null,
+        }
+      })
 
     return computeVestingTimeline({
       allocations: allocationsWithVesting,

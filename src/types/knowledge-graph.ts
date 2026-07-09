@@ -5,9 +5,9 @@ import type { GraphNode, GraphEdge } from '@/lib/knowledge-graph/graph-types'
 export interface KnowledgeGraphParams {
   scope: 'global' | 'token'
   tokenIds?: string[]
-  includeSources?: boolean   // default true
-  includeTaxonomy?: boolean  // default true — category, sector, chain
-  includeLiterals?: boolean  // default false
+  includeSources?: boolean // default true
+  includeTaxonomy?: boolean // default true — category, sector, chain
+  includeLiterals?: boolean // default false
 }
 
 // ── API response ─────────────────────────────────────────────────────────────

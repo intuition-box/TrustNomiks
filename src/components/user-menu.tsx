@@ -30,7 +30,7 @@ export function UserMenu({ user }: UserMenuProps) {
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
-    () => false
+    () => false,
   )
 
   const handleLogout = async () => {

@@ -1,7 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { GitBranch, Loader2 } from 'lucide-react'
 import { useKnowledgeGraph } from '@/hooks/use-knowledge-graph'
 import { GraphCanvas } from './graph-canvas'
@@ -110,7 +116,8 @@ export function DashboardKnowledgeGraphCard() {
             </CardTitle>
             {data && (
               <CardDescription className="text-xs">
-                {data.meta.totalTokens} tokens · {data.meta.totalNodes} nodes · {data.meta.totalEdges} edges
+                {data.meta.totalTokens} tokens · {data.meta.totalNodes} nodes ·{' '}
+                {data.meta.totalEdges} edges
               </CardDescription>
             )}
           </div>
@@ -118,14 +125,20 @@ export function DashboardKnowledgeGraphCard() {
 
         <CardContent className="pt-4 pb-0 px-4">
           {loading && (
-            <div className="flex items-center justify-center gap-2 text-muted-foreground" style={{ height: graphHeight }}>
+            <div
+              className="flex items-center justify-center gap-2 text-muted-foreground"
+              style={{ height: graphHeight }}
+            >
               <Loader2 className="h-5 w-5 animate-spin" />
               <span className="text-sm">Loading knowledge graph…</span>
             </div>
           )}
 
           {error && !loading && (
-            <div className="flex items-center justify-center text-sm text-destructive" style={{ height: graphHeight }}>
+            <div
+              className="flex items-center justify-center text-sm text-destructive"
+              style={{ height: graphHeight }}
+            >
               Failed to load graph: {error.message}
             </div>
           )}
@@ -144,7 +157,11 @@ export function DashboardKnowledgeGraphCard() {
                 edgeCount={data.meta.totalEdges}
               />
 
-              <div ref={containerRef} className="relative w-full" style={{ height: graphHeight }}>
+              <div
+                ref={containerRef}
+                className="relative w-full"
+                style={{ height: graphHeight }}
+              >
                 {containerWidth > 0 && (
                   <GraphCanvas
                     data={data}
@@ -168,7 +185,10 @@ export function DashboardKnowledgeGraphCard() {
               style={{ height: graphHeight }}
             >
               <GitBranch className="h-10 w-10 opacity-30" />
-              <p className="text-sm">No graph data yet. Add and validate tokens to populate the knowledge graph.</p>
+              <p className="text-sm">
+                No graph data yet. Add and validate tokens to populate the
+                knowledge graph.
+              </p>
             </div>
           )}
         </CardContent>

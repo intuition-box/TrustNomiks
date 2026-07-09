@@ -21,13 +21,27 @@ interface DataBadgeProps {
  * Category chip whose color IS its concept (graph-taxonomy color), paired with the
  * family glyph so meaning survives grayscale. Use for chain / category / sector / token tags.
  */
-export function DataBadge({ type, label, emphasis = 'soft', withGlyph = true, className }: DataBadgeProps) {
+export function DataBadge({
+  type,
+  label,
+  emphasis = 'soft',
+  withGlyph = true,
+  className,
+}: DataBadgeProps) {
   const v = `hsl(var(${DATA_CSS_VAR[type]}))`
   const style: React.CSSProperties =
     emphasis === 'solid'
-      ? { backgroundColor: v, color: 'hsl(var(--background))', borderColor: 'transparent' }
+      ? {
+          backgroundColor: v,
+          color: 'hsl(var(--background))',
+          borderColor: 'transparent',
+        }
       : emphasis === 'outline'
-        ? { color: v, borderColor: `color-mix(in oklab, ${v} 45%, transparent)`, backgroundColor: 'transparent' }
+        ? {
+            color: v,
+            borderColor: `color-mix(in oklab, ${v} 45%, transparent)`,
+            backgroundColor: 'transparent',
+          }
         : {
             color: v,
             backgroundColor: `color-mix(in oklab, ${v} 14%, transparent)`,
@@ -52,13 +66,26 @@ export function DataBadge({ type, label, emphasis = 'soft', withGlyph = true, cl
 
 export type TokenStatus = 'draft' | 'in_review' | 'validated'
 
-const STATUS_META: Record<TokenStatus, { label: string; varName: string; Icon: typeof CheckCircle2 }> = {
+const STATUS_META: Record<
+  TokenStatus,
+  { label: string; varName: string; Icon: typeof CheckCircle2 }
+> = {
   draft: { label: 'Draft', varName: '--status-draft', Icon: CircleDashed },
   in_review: { label: 'In review', varName: '--status-review', Icon: Clock },
-  validated: { label: 'Validated', varName: '--status-validated', Icon: CheckCircle2 },
+  validated: {
+    label: 'Validated',
+    varName: '--status-validated',
+    Icon: CheckCircle2,
+  },
 }
 
-export function StatusPill({ status, className }: { status: TokenStatus; className?: string }) {
+export function StatusPill({
+  status,
+  className,
+}: {
+  status: TokenStatus
+  className?: string
+}) {
   const meta = STATUS_META[status]
   const v = `hsl(var(${meta.varName}))`
   return (
@@ -89,7 +116,13 @@ const RISK_META: Record<RiskSeverity, { label: string; varName: string }> = {
   high: { label: 'High', varName: '--risk-high' },
 }
 
-export function RiskPill({ severity, className }: { severity: RiskSeverity; className?: string }) {
+export function RiskPill({
+  severity,
+  className,
+}: {
+  severity: RiskSeverity
+  className?: string
+}) {
   const meta = RISK_META[severity]
   const v = `hsl(var(${meta.varName}))`
   return (

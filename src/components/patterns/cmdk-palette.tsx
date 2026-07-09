@@ -93,7 +93,10 @@ export function CmdkPalette({ open, onOpenChange }: CmdkPaletteProps) {
         <CommandGroup heading="Go to">
           {NAV_ZONES.flatMap((zone) => zone.items).map((item) => (
             <CommandItem key={item.href} onSelect={() => go(item.href)}>
-              <item.icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <item.icon
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden
+              />
               <span>{item.label}</span>
             </CommandItem>
           ))}
@@ -114,7 +117,9 @@ export function CmdkPalette({ open, onOpenChange }: CmdkPaletteProps) {
                 >
                   <NodeGlyph type="token" size={12} aria-hidden />
                   <span className="min-w-0 truncate">{token.name}</span>
-                  <span className="font-mono text-xs text-muted-foreground">{token.ticker}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {token.ticker}
+                  </span>
                   <StatusPill status={token.status} className="ml-auto" />
                 </CommandItem>
               ))}

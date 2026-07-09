@@ -22,7 +22,10 @@ export const intuitionReadAbi = parseAbi([
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export type MulticallCapableClient = Pick<PublicClient, 'multicall' | 'readContract'>
+export type MulticallCapableClient = Pick<
+  PublicClient,
+  'multicall' | 'readContract'
+>
 
 type FailureMode = 'throw' | 'assumeExists' | 'assumeMissing'
 
@@ -84,7 +87,9 @@ export async function batchIsTermCreated(
   const failureMode = options?.failureMode ?? 'throw'
 
   // Deduplicate before RPC
-  const unique = Array.from(new Set(termIds.map((id) => id.toLowerCase() as Hex)))
+  const unique = Array.from(
+    new Set(termIds.map((id) => id.toLowerCase() as Hex)),
+  )
 
   if (unique.length === 0) {
     return new Map()

@@ -2,7 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Compass, PenLine, ShieldCheck, Layers, Scale, Bot, Plug, Code2, Boxes } from 'lucide-react'
+import {
+  ArrowRight,
+  Compass,
+  PenLine,
+  ShieldCheck,
+  Layers,
+  Scale,
+  Bot,
+  Plug,
+  Code2,
+  Boxes,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LiveGraph } from '@/components/brand/live-graph'
@@ -27,7 +38,10 @@ export default function Landing() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
       {/* ambient brand wash */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-brand-soft opacity-40" aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0 bg-gradient-brand-soft opacity-40"
+        aria-hidden
+      />
       <div
         className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
         style={{ background: 'var(--gradient-brand)' }}
@@ -38,7 +52,9 @@ export default function Landing() {
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
           <HubMark />
-          <span className="text-sm font-semibold tracking-tight">TrustNomiks</span>
+          <span className="text-sm font-semibold tracking-tight">
+            TrustNomiks
+          </span>
         </div>
         <nav className="flex items-center gap-2">
           <Link href="/login">
@@ -57,7 +73,9 @@ export default function Landing() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-data-token opacity-75" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-data-token" />
             </span>
-            <span className="font-medium text-gradient-brand">The verifiable data layer for AI agents</span>
+            <span className="font-medium text-gradient-brand">
+              The verifiable data layer for AI agents
+            </span>
           </span>
 
           <h1 className="text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.25rem]">
@@ -67,10 +85,14 @@ export default function Landing() {
           </h1>
 
           <p className="max-w-lg text-pretty text-base leading-relaxed text-muted-foreground">
-            TrustNomiks turns fragmented whitepapers, DAO proposals and on-chain records into{' '}
-            <span className="text-foreground">clean, verifiable, machine-readable claims</span>, then serves them to{' '}
-            <span className="text-foreground">AI agents over MCP and API</span>. The tokenomics data layer your agents
-            can actually trust.
+            TrustNomiks turns fragmented whitepapers, DAO proposals and on-chain
+            records into{' '}
+            <span className="text-foreground">
+              clean, verifiable, machine-readable claims
+            </span>
+            , then serves them to{' '}
+            <span className="text-foreground">AI agents over MCP and API</span>.
+            The tokenomics data layer your agents can actually trust.
           </p>
 
           {/* agent-ready capabilities — omnipresent */}
@@ -84,7 +106,11 @@ export default function Landing() {
           {/* role select = two doors */}
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link href="/login" className="flex-1">
-              <Button variant="brand" size="xl" className="w-full justify-between gap-3">
+              <Button
+                variant="brand"
+                size="xl"
+                className="w-full justify-between gap-3"
+              >
                 <span className="flex items-center gap-2">
                   <Compass className="h-5 w-5" /> Explore the graph
                 </span>
@@ -92,7 +118,11 @@ export default function Landing() {
               </Button>
             </Link>
             <Link href="/login" className="flex-1">
-              <Button variant="outline" size="xl" className="w-full justify-between gap-3">
+              <Button
+                variant="outline"
+                size="xl"
+                className="w-full justify-between gap-3"
+              >
                 <span className="flex items-center gap-2">
                   <PenLine className="h-5 w-5" /> Contribute a token
                 </span>
@@ -106,11 +136,18 @@ export default function Landing() {
             <div className="flex items-baseline justify-between text-sm">
               <span className="text-muted-foreground">The collective goal</span>
               {total === null ? (
-                <span className="tabular font-mono text-muted-foreground">{TARGET} tokens structured</span>
+                <span className="tabular font-mono text-muted-foreground">
+                  {TARGET} tokens structured
+                </span>
               ) : (
                 <span className="tabular font-mono text-foreground">
-                  <span className="text-gradient-brand font-semibold">{count}</span>
-                  <span className="text-muted-foreground"> / {TARGET} tokens structured</span>
+                  <span className="text-gradient-brand font-semibold">
+                    {count}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {' '}
+                    / {TARGET} tokens structured
+                  </span>
                 </span>
               )}
             </div>
@@ -133,7 +170,10 @@ export default function Landing() {
         <div className="relative h-[340px] w-full sm:h-[420px] lg:h-[520px]">
           <div
             className="pointer-events-none absolute inset-0 rounded-full opacity-60 blur-2xl"
-            style={{ background: 'radial-gradient(closest-side, hsl(var(--primary) / 0.22), transparent)' }}
+            style={{
+              background:
+                'radial-gradient(closest-side, hsl(var(--primary) / 0.22), transparent)',
+            }}
             aria-hidden
           />
           <LiveGraph mode="hero" count={13} />
@@ -182,7 +222,13 @@ export default function Landing() {
 
 /* ── bits ─────────────────────────────────────────────────────────────────── */
 
-function CapabilityPill({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+function CapabilityPill({
+  icon: Icon,
+  label,
+}: {
+  icon: LucideIcon
+  label: string
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border bg-surface-1/70 px-2.5 py-1 text-xs text-muted-foreground backdrop-blur">
       <Icon className="h-3.5 w-3.5 text-data-chain" />
@@ -195,7 +241,14 @@ function HubMark() {
   return (
     <span className="flex h-7 w-7 items-center justify-center">
       <svg width={24} height={24} viewBox="0 0 24 24" aria-hidden>
-        <circle cx={12} cy={12} r={7} fill="none" stroke="hsl(var(--data-hub))" strokeWidth={2.4} />
+        <circle
+          cx={12}
+          cy={12}
+          r={7}
+          fill="none"
+          stroke="hsl(var(--data-hub))"
+          strokeWidth={2.4}
+        />
         <circle cx={12} cy={12} r={2.4} fill="hsl(var(--data-hub))" />
       </svg>
     </span>
@@ -218,12 +271,17 @@ function ValueCard({
     <div className="rounded-xl border bg-surface-1 p-6">
       <span
         className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg"
-        style={{ backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`, color }}
+        style={{
+          backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`,
+          color,
+        }}
       >
         <Icon className="h-5 w-5" />
       </span>
       <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+        {body}
+      </p>
     </div>
   )
 }

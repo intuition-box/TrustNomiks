@@ -42,7 +42,9 @@ async function fetchIpfsJson(cid: string): Promise<unknown> {
   return res.json()
 }
 
-async function fetchOnChainAtom(termId: string): Promise<{ data: string; type: string; label: string } | null> {
+async function fetchOnChainAtom(
+  termId: string,
+): Promise<{ data: string; type: string; label: string } | null> {
   const query = `query Q($id: String!) {
     atoms(where: { term_id: { _eq: $id } }) { term_id data type label }
   }`
@@ -51,7 +53,9 @@ async function fetchOnChainAtom(termId: string): Promise<{ data: string; type: s
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables: { id: termId } }),
   })
-  const json = (await res.json()) as { data?: { atoms?: Array<{ data: string; type: string; label: string }> } }
+  const json = (await res.json()) as {
+    data?: { atoms?: Array<{ data: string; type: string; label: string }> }
+  }
   const atoms = json.data?.atoms ?? []
   return atoms[0] ?? null
 }
@@ -81,12 +85,22 @@ function checkLocal(entry: CanonicalPredicateEntry, fails: Failure[]): void {
   }
 }
 
-async function checkIpfs(entry: CanonicalPredicateEntry, fails: Failure[]): Promise<void> {
+async function checkIpfs(
+  entry: CanonicalPredicateEntry,
+  fails: Failure[],
+): Promise<void> {
   if (entry.source !== 'pinned' || !entry.cid) return
   try {
-    const json = (await fetchIpfsJson(entry.cid)) as { name?: string; '@type'?: string }
+    const json = (await fetchIpfsJson(entry.cid)) as {
+      name?: string
+      '@type'?: string
+    }
     if (json['@type'] !== 'Thing') {
-      fails.push({ key: entry.internalKey, layer: 'ipfs', reason: `pinned doc @type is "${json['@type']}", expected "Thing"` })
+      fails.push({
+        key: entry.internalKey,
+        layer: 'ipfs',
+        reason: `pinned doc @type is "${json['@type']}", expected "Thing"`,
+      })
     }
     if (json.name !== entry.canonicalLabel) {
       fails.push({
@@ -96,11 +110,18 @@ async function checkIpfs(entry: CanonicalPredicateEntry, fails: Failure[]): Prom
       })
     }
   } catch (err) {
-    fails.push({ key: entry.internalKey, layer: 'ipfs', reason: (err as Error).message })
+    fails.push({
+      key: entry.internalKey,
+      layer: 'ipfs',
+      reason: (err as Error).message,
+    })
   }
 }
 
-async function checkOnChain(entry: CanonicalPredicateEntry, fails: Failure[]): Promise<void> {
+async function checkOnChain(
+  entry: CanonicalPredicateEntry,
+  fails: Failure[],
+): Promise<void> {
   try {
     const atom = await fetchOnChainAtom(entry.termId)
     if (!atom) return // not yet created — fine
@@ -119,7 +140,11 @@ async function checkOnChain(entry: CanonicalPredicateEntry, fails: Failure[]): P
       })
     }
   } catch (err) {
-    fails.push({ key: entry.internalKey, layer: 'onchain', reason: (err as Error).message })
+    fails.push({
+      key: entry.internalKey,
+      layer: 'onchain',
+      reason: (err as Error).message,
+    })
   }
 }
 

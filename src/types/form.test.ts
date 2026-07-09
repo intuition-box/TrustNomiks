@@ -17,12 +17,12 @@ import {
 /** Shorthand to find an issue on a specific path in a failed safeParse result. */
 function findIssue(
   error: { issues: Array<{ path: PropertyKey[]; message: string }> },
-  path: PropertyKey[]
+  path: PropertyKey[],
 ) {
   return error.issues.find(
     (issue) =>
       issue.path.length === path.length &&
-      issue.path.every((segment, i) => segment === path[i])
+      issue.path.every((segment, i) => segment === path[i]),
   )
 }
 
@@ -129,7 +129,11 @@ describe('supplyMetricsSchema', () => {
 // ===========================================================================
 
 describe('allocationsSchema', () => {
-  const makeSegment = (percentage: string, label = 'Segment', segmentType = 'treasury') => ({
+  const makeSegment = (
+    percentage: string,
+    label = 'Segment',
+    segmentType = 'treasury',
+  ) => ({
     segment_type: segmentType,
     label,
     percentage,
@@ -137,10 +141,7 @@ describe('allocationsSchema', () => {
 
   it('accepts segments that sum to exactly 100%', () => {
     const result = allocationsSchema.safeParse({
-      segments: [
-        makeSegment('60', 'Team'),
-        makeSegment('40', 'Treasury'),
-      ],
+      segments: [makeSegment('60', 'Team'), makeSegment('40', 'Treasury')],
     })
     expect(result.success).toBe(true)
   })
@@ -150,20 +151,14 @@ describe('allocationsSchema', () => {
   // not a save blocker.
   it('accepts segments summing below 100% (soft gate)', () => {
     const result = allocationsSchema.safeParse({
-      segments: [
-        makeSegment('59', 'Team'),
-        makeSegment('40', 'Treasury'),
-      ],
+      segments: [makeSegment('59', 'Team'), makeSegment('40', 'Treasury')],
     })
     expect(result.success).toBe(true)
   })
 
   it('accepts segments summing above 100% (soft gate)', () => {
     const result = allocationsSchema.safeParse({
-      segments: [
-        makeSegment('61', 'Team'),
-        makeSegment('40', 'Treasury'),
-      ],
+      segments: [makeSegment('61', 'Team'), makeSegment('40', 'Treasury')],
     })
     expect(result.success).toBe(true)
   })
@@ -211,7 +206,11 @@ describe('vestingSchedulesSchema', () => {
     })
     expect(result.success).toBe(false)
     if (!result.success) {
-      const issue = findIssue(result.error, ['schedules', 'alloc1', 'cliff_months'])
+      const issue = findIssue(result.error, [
+        'schedules',
+        'alloc1',
+        'cliff_months',
+      ])
       expect(issue).toBeDefined()
       expect(issue!.message).toMatch(/cliff/i)
     }
@@ -240,7 +239,11 @@ describe('vestingSchedulesSchema', () => {
     })
     expect(result.success).toBe(false)
     if (!result.success) {
-      const issue = findIssue(result.error, ['schedules', 'alloc1', 'tge_percentage'])
+      const issue = findIssue(result.error, [
+        'schedules',
+        'alloc1',
+        'tge_percentage',
+      ])
       expect(issue).toBeDefined()
       expect(issue!.message).toMatch(/100%/)
     }
@@ -391,7 +394,9 @@ describe('normalizeCategory', () => {
   it('returns a valid category as-is', () => {
     expect(normalizeCategory('financial')).toBe('financial')
     expect(normalizeCategory('infrastructure')).toBe('infrastructure')
-    expect(normalizeCategory('open-digital-economy')).toBe('open-digital-economy')
+    expect(normalizeCategory('open-digital-economy')).toBe(
+      'open-digital-economy',
+    )
     expect(normalizeCategory('payment')).toBe('payment')
     expect(normalizeCategory('two-sided-market')).toBe('two-sided-market')
   })

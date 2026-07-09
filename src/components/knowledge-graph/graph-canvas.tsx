@@ -10,7 +10,9 @@ import type { GraphNode, NodeType } from '@/lib/knowledge-graph/graph-types'
 import { NODE_CONFIG } from '@/lib/knowledge-graph/node-config'
 import { HUB_NODE_ID } from '@/lib/knowledge-graph/build-graph'
 
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false })
+const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
+  ssr: false,
+})
 
 // ── Force-graph compatible types ─────────────────────────────────────────────
 
@@ -84,13 +86,26 @@ export function GraphCanvas({
     const tc = tokenNodes.length
     const orbitRadius = Math.max(300, 200 + tc * 50)
     const angleById = new Map<string, number>()
-    tokenNodes.forEach((n, i) => angleById.set(n.id, (i / Math.max(1, tc)) * 2 * Math.PI - Math.PI / 2))
+    tokenNodes.forEach((n, i) =>
+      angleById.set(n.id, (i / Math.max(1, tc)) * 2 * Math.PI - Math.PI / 2),
+    )
     const tokenIds = new Set(tokenNodes.map((n) => n.id))
     const childAngle = new Map<string, number>()
     for (const e of data.edges) {
-      const src = typeof e.source === 'string' ? e.source : (e.source as { id: string }).id
-      const tgt = typeof e.target === 'string' ? e.target : (e.target as { id: string }).id
-      if (tokenIds.has(src) && !tokenIds.has(tgt) && tgt !== pinnedNodeId && angleById.has(src)) {
+      const src =
+        typeof e.source === 'string'
+          ? e.source
+          : (e.source as { id: string }).id
+      const tgt =
+        typeof e.target === 'string'
+          ? e.target
+          : (e.target as { id: string }).id
+      if (
+        tokenIds.has(src) &&
+        !tokenIds.has(tgt) &&
+        tgt !== pinnedNodeId &&
+        angleById.has(src)
+      ) {
         childAngle.set(tgt, angleById.get(src)!)
       }
     }
@@ -125,7 +140,7 @@ export function GraphCanvas({
 
   // ── Token count for dynamic scaling ───────────────────────────────────
   const tokenCount = useMemo(
-    () => data.nodes.filter(n => n.type === 'token').length,
+    () => data.nodes.filter((n) => n.type === 'token').length,
     [data],
   )
 
@@ -137,7 +152,7 @@ export function GraphCanvas({
 
   const applyForces = useCallback(() => {
     const key = `${tokenCount}:${data.nodes.length}`
-    if (key === forcesDataKey.current) return  // already applied for this data
+    if (key === forcesDataKey.current) return // already applied for this data
     const fg = graphRef.current
     if (!fg || tokenCount === 0) return
 
@@ -163,19 +178,28 @@ export function GraphCanvas({
     fg.d3Force('center', null)
 
     // Collision: prevent nodes from overlapping
-    fg.d3Force('collision', forceCollide((node: FGNode) => {
-      const baseSize = NODE_CONFIG[node.type]?.size ?? 6
-      if (node.type === 'token') return baseSize + 20 + tokenCount
-      if (node.type === 'triple') return baseSize + 1
-      return baseSize + 6
-    }).strength(0.8).iterations(3))
+    fg.d3Force(
+      'collision',
+      forceCollide((node: FGNode) => {
+        const baseSize = NODE_CONFIG[node.type]?.size ?? 6
+        if (node.type === 'token') return baseSize + 20 + tokenCount
+        if (node.type === 'triple') return baseSize + 1
+        return baseSize + 6
+      })
+        .strength(0.8)
+        .iterations(3),
+    )
 
     // Radial orbit: tokens orbit the hub at a dynamic radius
     const orbitRadius = Math.max(300, 200 + tokenCount * 50)
-    fg.d3Force('tokenOrbit', forceRadial(
-      (node: FGNode) => node.type === 'token' ? orbitRadius : 0,
-      0, 0,
-    ).strength((node: FGNode) => node.type === 'token' ? 0.12 : 0))
+    fg.d3Force(
+      'tokenOrbit',
+      forceRadial(
+        (node: FGNode) => (node.type === 'token' ? orbitRadius : 0),
+        0,
+        0,
+      ).strength((node: FGNode) => (node.type === 'token' ? 0.12 : 0)),
+    )
 
     forcesDataKey.current = key
     fg.d3ReheatSimulation()
@@ -188,7 +212,11 @@ export function GraphCanvas({
   const handleEngineTick = useCallback(() => {
     applyForces()
     tickCounter.current += 1
-    if (tickCounter.current <= 80 && tickCounter.current % 5 === 0 && !userInteracted.current) {
+    if (
+      tickCounter.current <= 80 &&
+      tickCounter.current % 5 === 0 &&
+      !userInteracted.current
+    ) {
       graphRef.current?.zoomToFit?.(0, 40)
     }
   }, [applyForces])
@@ -271,10 +299,14 @@ export function GraphCanvas({
 
   const isVisible = useCallback(
     (node: FGNode) => {
-      if (activeFilters.length > 0 && !activeFilters.includes(node.type)) return false
+      if (activeFilters.length > 0 && !activeFilters.includes(node.type))
+        return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
-        return node.label.toLowerCase().includes(q) || node.id.toLowerCase().includes(q)
+        return (
+          node.label.toLowerCase().includes(q) ||
+          node.id.toLowerCase().includes(q)
+        )
       }
       return true
     },
@@ -297,7 +329,8 @@ export function GraphCanvas({
 
       // Resolve effective color: external override takes precedence over NODE_CONFIG
       const graphNode = graphNodesById.get(node.id)
-      const overrideColor = nodeColor && graphNode ? nodeColor(graphNode) : undefined
+      const overrideColor =
+        nodeColor && graphNode ? nodeColor(graphNode) : undefined
       const effectiveColor = overrideColor ?? config.color
 
       ctx.globalAlpha = visible ? 1 : 0.08
@@ -331,10 +364,11 @@ export function GraphCanvas({
         ctx.stroke()
       }
 
-      const showLabel = isHub
-        || isPinned
-        || (node.type === 'token' && globalScale > 0.8)
-        || (node.type !== 'triple' && globalScale > 1.5)
+      const showLabel =
+        isHub ||
+        isPinned ||
+        (node.type === 'token' && globalScale > 0.8) ||
+        (node.type !== 'triple' && globalScale > 1.5)
       if (showLabel && visible) {
         const fontSize = isHub
           ? Math.max(14 / globalScale, 5)
@@ -372,7 +406,11 @@ export function GraphCanvas({
         graphData={graphData}
         nodeId="id"
         nodeCanvasObject={nodeCanvasObject}
-        nodePointerAreaPaint={(rawNode: object, color: string, ctx: CanvasRenderingContext2D) => {
+        nodePointerAreaPaint={(
+          rawNode: object,
+          color: string,
+          ctx: CanvasRenderingContext2D,
+        ) => {
           const node = rawNode as FGNode
           const size = NODE_CONFIG[node.type]?.size ?? 6
           ctx.beginPath()

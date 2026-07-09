@@ -5,7 +5,13 @@ import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, AlertCircle, CheckCircle2, RotateCcw, XCircle } from 'lucide-react'
+import {
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  RotateCcw,
+  XCircle,
+} from 'lucide-react'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -14,14 +20,20 @@ import { PublishedClaimsView } from './published-claims-view'
 import { executePublishPlan } from '@/lib/intuition/publish-executor'
 import { INTUITION_CHAIN_ID } from '@/lib/intuition/config'
 import type { PublishPlanSerialized } from '@/types/intuition'
-import type { PublishPlan, PublishEvent, PublishRunResult, RunStatus } from '@/lib/intuition/types'
+import type {
+  PublishPlan,
+  PublishEvent,
+  PublishRunResult,
+  RunStatus,
+} from '@/lib/intuition/types'
 
 interface PublishPanelProps {
   tokenId: string
   tokenStatus: string
 }
 
-type PanelState = 'idle' | 'loading_plan' | 'plan_ready' | 'publishing' | 'complete' | 'error'
+type PanelState =
+  'idle' | 'loading_plan' | 'plan_ready' | 'publishing' | 'complete' | 'error'
 
 interface BatchProgress {
   phase: 'atoms' | 'triples' | 'provenance'
@@ -56,7 +68,10 @@ const PHASE_LABELS: Record<string, string> = {
 }
 
 /** Semantic notice styles: same tone = same tokens, both themes for free. */
-const NOTICE_CLASS: Record<'warning' | 'info' | 'destructive' | 'success', string> = {
+const NOTICE_CLASS: Record<
+  'warning' | 'info' | 'destructive' | 'success',
+  string
+> = {
   warning: 'border-warning/30 bg-warning/10 text-warning',
   info: 'border-info/30 bg-info/10 text-info',
   destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
@@ -73,7 +88,12 @@ function Notice({
   children: React.ReactNode
 }) {
   return (
-    <div className={cn('flex items-center gap-2 rounded-lg border p-3 text-sm', NOTICE_CLASS[tone])}>
+    <div
+      className={cn(
+        'flex items-center gap-2 rounded-lg border p-3 text-sm',
+        NOTICE_CLASS[tone],
+      )}
+    >
       <Icon className="h-4 w-4 shrink-0" aria-hidden />
       <span>{children}</span>
     </div>
@@ -90,15 +110,21 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<BatchProgress | null>(null)
   const [counters, setCounters] = useState<Counters>({
-    atomsCreated: 0, atomsFailed: 0, atomsSkipped: 0,
-    triplesCreated: 0, triplesFailed: 0, triplesSkipped: 0,
-    provenanceCreated: 0, provenanceFailed: 0,
+    atomsCreated: 0,
+    atomsFailed: 0,
+    atomsSkipped: 0,
+    triplesCreated: 0,
+    triplesFailed: 0,
+    triplesSkipped: 0,
+    provenanceCreated: 0,
+    provenanceFailed: 0,
   })
   const [aborted, setAborted] = useState(false)
   const runIdRef = useRef<string | null>(null)
 
   const isEligible = tokenStatus === 'validated'
-  const isDryRunEligible = tokenStatus === 'in_review' || tokenStatus === 'validated'
+  const isDryRunEligible =
+    tokenStatus === 'in_review' || tokenStatus === 'validated'
   const isWrongChain = isConnected && chainId !== INTUITION_CHAIN_ID
 
   // ── Fetch publish plan (dry-run) ────────────────────────────────────────
@@ -109,8 +135,12 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
     setPlan(null)
 
     try {
-      const walletParam = address ? `&wallet=${encodeURIComponent(address)}` : ''
-      const res = await fetch(`/api/intuition/publish-plan?tokenId=${tokenId}${walletParam}`)
+      const walletParam = address
+        ? `&wallet=${encodeURIComponent(address)}`
+        : ''
+      const res = await fetch(
+        `/api/intuition/publish-plan?tokenId=${tokenId}${walletParam}`,
+      )
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || 'Failed to fetch publish plan')
@@ -126,45 +156,60 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
   // ── Persist chunk to Supabase ─────────────────────────────────────────
 
-  const persistChunk = useCallback(async (
-    event: PublishEvent,
-    currentChainId: number,
-    currentCounters: {
-      atomsCreated: number; atomsSkipped: number; atomsFailed: number;
-      triplesCreated: number; triplesSkipped: number; triplesFailed: number;
-    },
-  ) => {
-    if (!runIdRef.current) return true
-    if (!event.chunkMappings) return true
+  const persistChunk = useCallback(
+    async (
+      event: PublishEvent,
+      currentChainId: number,
+      currentCounters: {
+        atomsCreated: number
+        atomsSkipped: number
+        atomsFailed: number
+        triplesCreated: number
+        triplesSkipped: number
+        triplesFailed: number
+      },
+    ) => {
+      if (!runIdRef.current) return true
+      if (!event.chunkMappings) return true
 
-    try {
-      const res = await fetch('/api/intuition/publish-runs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'chunk',
-          runId: runIdRef.current,
-          chainId: currentChainId,
-          atomMappings: event.chunkMappings.atomMappings,
-          claimMappings: event.chunkMappings.claimMappings,
-          provenanceMappings: event.chunkMappings.provenanceMappings,
-          txHash: event.txHash,
-          counters: currentCounters,
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        console.error('Chunk persistence failed:', res.status, body.error ?? '')
-        toast.warning(`Chunk tracking failed (HTTP ${res.status}). On-chain data is safe; tracking may be incomplete.`)
+      try {
+        const res = await fetch('/api/intuition/publish-runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'chunk',
+            runId: runIdRef.current,
+            chainId: currentChainId,
+            atomMappings: event.chunkMappings.atomMappings,
+            claimMappings: event.chunkMappings.claimMappings,
+            provenanceMappings: event.chunkMappings.provenanceMappings,
+            txHash: event.txHash,
+            counters: currentCounters,
+          }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          console.error(
+            'Chunk persistence failed:',
+            res.status,
+            body.error ?? '',
+          )
+          toast.warning(
+            `Chunk tracking failed (HTTP ${res.status}). On-chain data is safe; tracking may be incomplete.`,
+          )
+          return false
+        }
+        return true
+      } catch (err) {
+        console.error('Failed to persist chunk:', err)
+        toast.warning(
+          'Chunk tracking failed (network error). On-chain data is safe; tracking may be incomplete.',
+        )
         return false
       }
-      return true
-    } catch (err) {
-      console.error('Failed to persist chunk:', err)
-      toast.warning('Chunk tracking failed (network error). On-chain data is safe; tracking may be incomplete.')
-      return false
-    }
-  }, [])
+    },
+    [],
+  )
 
   // ── Execute publish ─────────────────────────────────────────────────────
 
@@ -178,7 +223,10 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       }
       console.warn('[publish] aborted, missing prerequisites:', missing)
       toast.error(
-        `Cannot publish yet. Missing: ${Object.entries(missing).filter(([, v]) => v).map(([k]) => k).join(', ')}`,
+        `Cannot publish yet. Missing: ${Object.entries(missing)
+          .filter(([, v]) => v)
+          .map(([k]) => k)
+          .join(', ')}`,
       )
       return
     }
@@ -188,9 +236,14 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
     setAborted(false)
     setProgress(null)
     setCounters({
-      atomsCreated: 0, atomsFailed: 0, atomsSkipped: plan.atoms.existing.length,
-      triplesCreated: 0, triplesFailed: 0, triplesSkipped: plan.triples.existing.length,
-      provenanceCreated: 0, provenanceFailed: 0,
+      atomsCreated: 0,
+      atomsFailed: 0,
+      atomsSkipped: plan.atoms.existing.length,
+      triplesCreated: 0,
+      triplesFailed: 0,
+      triplesSkipped: plan.triples.existing.length,
+      provenanceCreated: 0,
+      provenanceFailed: 0,
     })
 
     // Reconstruct PublishPlan with bigint costs
@@ -209,9 +262,12 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
     const txHashes: string[] = []
     const errors: Array<{ id: string; error: string }> = []
-    let atomsCreated = 0, atomsFailed = 0
-    let triplesCreated = 0, triplesFailed = 0
-    let provenanceCreated = 0, provenanceFailed = 0
+    let atomsCreated = 0,
+      atomsFailed = 0
+    let triplesCreated = 0,
+      triplesFailed = 0
+    let provenanceCreated = 0,
+      provenanceFailed = 0
     let wasAborted = false
     let hadTrackingIssues = false
 
@@ -260,7 +316,11 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       }
 
       // 2. Execute with batching
-      for await (const event of executePublishPlan(fullPlan, walletClient, publicClient)) {
+      for await (const event of executePublishPlan(
+        fullPlan,
+        walletClient,
+        publicClient,
+      )) {
         // Update progress display
         if (event.progress) {
           setProgress({
@@ -293,9 +353,14 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
           // Update counters in real-time
           setCounters({
-            atomsCreated, atomsFailed, atomsSkipped: plan.atoms.existing.length,
-            triplesCreated, triplesFailed, triplesSkipped: plan.triples.existing.length,
-            provenanceCreated, provenanceFailed,
+            atomsCreated,
+            atomsFailed,
+            atomsSkipped: plan.atoms.existing.length,
+            triplesCreated,
+            triplesFailed,
+            triplesSkipped: plan.triples.existing.length,
+            provenanceCreated,
+            provenanceFailed,
           })
 
           // Collect errors
@@ -331,11 +396,13 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       }
 
       // 3. Finalize run
-      const finalStatus: RunStatus =
-        wasAborted ? (atomsCreated > 0 ? 'partial' : 'failed')
-        : (atomsFailed === 0 && triplesFailed === 0 && provenanceFailed === 0)
+      const finalStatus: RunStatus = wasAborted
+        ? atomsCreated > 0
+          ? 'partial'
+          : 'failed'
+        : atomsFailed === 0 && triplesFailed === 0 && provenanceFailed === 0
           ? 'completed'
-          : (atomsCreated > 0 || triplesCreated > 0)
+          : atomsCreated > 0 || triplesCreated > 0
             ? 'partial'
             : 'failed'
 
@@ -361,7 +428,8 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       if (!finalizeRes.ok) {
         const body = await finalizeRes.json().catch(() => ({}))
         console.error('Finalize failed:', finalizeRes.status, body.error ?? '')
-        const message = 'Run finalization failed. On-chain data is safe but the run status may be outdated.'
+        const message =
+          'Run finalization failed. On-chain data is safe but the run status may be outdated.'
         setError(message)
         setState('error')
         toast.warning(message)
@@ -371,7 +439,8 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       setState('complete')
 
       if (hadTrackingIssues) {
-        const message = 'On-chain publish completed, but some tracking writes failed. Review Supabase before rerunning.'
+        const message =
+          'On-chain publish completed, but some tracking writes failed. Review Supabase before rerunning.'
         setError(message)
         toast.warning(message)
         return
@@ -380,9 +449,13 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
       if (wasAborted) {
         toast.error('Publication aborted: an atom batch failed')
       } else if (finalStatus === 'completed') {
-        toast.success(`Published ${atomsCreated} atoms, ${triplesCreated} triples, ${provenanceCreated} provenance`)
+        toast.success(
+          `Published ${atomsCreated} atoms, ${triplesCreated} triples, ${provenanceCreated} provenance`,
+        )
       } else {
-        toast.warning(`Partial publish: ${atomsCreated} atoms, ${triplesCreated} triples (some failures)`)
+        toast.warning(
+          `Partial publish: ${atomsCreated} atoms, ${triplesCreated} triples (some failures)`,
+        )
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed')
@@ -398,7 +471,8 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
             body: JSON.stringify({
               action: 'finalize',
               runId: runIdRef.current,
-              status: (atomsCreated > 0 || triplesCreated > 0) ? 'partial' : 'failed',
+              status:
+                atomsCreated > 0 || triplesCreated > 0 ? 'partial' : 'failed',
               counters: {
                 atomsCreated,
                 atomsSkipped: plan.atoms.existing.length,
@@ -413,7 +487,11 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
           })
           if (!errFinalizeRes.ok) {
             const body = await errFinalizeRes.json().catch(() => ({}))
-            console.error('Error-path finalize failed:', errFinalizeRes.status, body.error ?? '')
+            console.error(
+              'Error-path finalize failed:',
+              errFinalizeRes.status,
+              body.error ?? '',
+            )
           }
         } catch {
           console.error('Error-path finalize network failure')
@@ -435,9 +513,13 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
         const grandTotal = atomsTotal + triplesTotal + provTotal
         if (grandTotal === 0) return 0
 
-        const done = counters.atomsCreated + counters.atomsFailed
-          + counters.triplesCreated + counters.triplesFailed
-          + counters.provenanceCreated + counters.provenanceFailed
+        const done =
+          counters.atomsCreated +
+          counters.atomsFailed +
+          counters.triplesCreated +
+          counters.triplesFailed +
+          counters.provenanceCreated +
+          counters.provenanceFailed
         return Math.round((done / grandTotal) * 100)
       })()
     : 0
@@ -451,29 +533,35 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <NodeGlyph type="graph_root" size={16} aria-hidden />
             Publish to Intuition
-            <Badge variant="outline" className="text-xs">testnet</Badge>
+            <Badge variant="outline" className="text-xs">
+              testnet
+            </Badge>
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Put this token&apos;s claims on-chain. The graph lights up as each batch confirms.
+            Put this token&apos;s claims on-chain. The graph lights up as each
+            batch confirms.
           </p>
         </div>
         <div className="space-y-4">
           {/* Connection warnings */}
           {!isConnected && (
             <Notice tone="warning" icon={AlertCircle}>
-              Connect your wallet (top bar) to publish on-chain. Preparing the plan works without it.
+              Connect your wallet (top bar) to publish on-chain. Preparing the
+              plan works without it.
             </Notice>
           )}
 
           {isWrongChain && (
             <Notice tone="warning" icon={AlertCircle}>
-              Switch to Intuition Testnet (chain {INTUITION_CHAIN_ID}) to publish.
+              Switch to Intuition Testnet (chain {INTUITION_CHAIN_ID}) to
+              publish.
             </Notice>
           )}
 
           {!isEligible && tokenStatus === 'in_review' && (
             <Notice tone="info" icon={AlertCircle}>
-              This token is in review. Preview the plan now; publishing opens once it is validated.
+              This token is in review. Preview the plan now; publishing opens
+              once it is validated.
             </Notice>
           )}
 
@@ -489,7 +577,10 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
           {/* Batch progress display */}
           {state === 'publishing' && progress && (
-            <div className="space-y-3 rounded-lg border bg-surface-2/60 p-4" aria-live="polite">
+            <div
+              className="space-y-3 rounded-lg border bg-surface-2/60 p-4"
+              aria-live="polite"
+            >
               {/* Phase indicator */}
               <div className="flex items-center gap-1.5">
                 {(['atoms', 'triples', 'provenance'] as const).map((phase) => {
@@ -502,7 +593,9 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
                       variant={progress.phase === phase ? 'default' : 'outline'}
                       className={cn(isDone && 'border-success/40 text-success')}
                     >
-                      {isDone && <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden />}
+                      {isDone && (
+                        <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden />
+                      )}
                       {PHASE_LABELS[phase]}
                     </Badge>
                   )
@@ -512,35 +605,58 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
               {/* Chunk progress */}
               <div className="flex items-center gap-2 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                <span className="font-medium">{PHASE_LABELS[progress.phase]}</span>
+                <span className="font-medium">
+                  {PHASE_LABELS[progress.phase]}
+                </span>
                 <span className="tabular text-muted-foreground">
-                  chunk {progress.currentChunk + (progress.chunkStatus === 'processing' ? 1 : 0)}/{progress.totalChunks}
-                  {progress.chunkStatus === 'processing' && ', waiting for your wallet signature…'}
+                  chunk{' '}
+                  {progress.currentChunk +
+                    (progress.chunkStatus === 'processing' ? 1 : 0)}
+                  /{progress.totalChunks}
+                  {progress.chunkStatus === 'processing' &&
+                    ', waiting for your wallet signature…'}
                 </span>
               </div>
 
               {/* Phase progress bar */}
               <div className="space-y-1">
                 <div className="tabular flex justify-between text-xs text-muted-foreground">
-                  <span>{progress.itemsProcessed}/{progress.totalItems} items</span>
+                  <span>
+                    {progress.itemsProcessed}/{progress.totalItems} items
+                  </span>
                   <span>{totalProgress}% overall</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full transition-all duration-300"
-                    style={{ width: `${totalProgress}%`, background: 'var(--gradient-brand)' }}
+                    style={{
+                      width: `${totalProgress}%`,
+                      background: 'var(--gradient-brand)',
+                    }}
                   />
                 </div>
               </div>
 
               {/* Live counters */}
               <div className="tabular flex gap-4 text-xs text-muted-foreground">
-                {counters.atomsCreated > 0 && <span>{counters.atomsCreated} atoms created</span>}
-                {counters.triplesCreated > 0 && <span>{counters.triplesCreated} triples created</span>}
-                {counters.provenanceCreated > 0 && <span>{counters.provenanceCreated} provenance created</span>}
-                {(counters.atomsFailed + counters.triplesFailed + counters.provenanceFailed) > 0 && (
+                {counters.atomsCreated > 0 && (
+                  <span>{counters.atomsCreated} atoms created</span>
+                )}
+                {counters.triplesCreated > 0 && (
+                  <span>{counters.triplesCreated} triples created</span>
+                )}
+                {counters.provenanceCreated > 0 && (
+                  <span>{counters.provenanceCreated} provenance created</span>
+                )}
+                {counters.atomsFailed +
+                  counters.triplesFailed +
+                  counters.provenanceFailed >
+                  0 && (
                   <span className="text-destructive">
-                    {counters.atomsFailed + counters.triplesFailed + counters.provenanceFailed} failed
+                    {counters.atomsFailed +
+                      counters.triplesFailed +
+                      counters.provenanceFailed}{' '}
+                    failed
                   </span>
                 )}
               </div>
@@ -551,7 +667,9 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
           {state === 'complete' && !aborted && (
             <Notice tone="success" icon={CheckCircle2}>
               <span className="tabular">
-                Publication complete: {counters.atomsCreated} atoms, {counters.triplesCreated} triples, {counters.provenanceCreated} provenance.
+                Publication complete: {counters.atomsCreated} atoms,{' '}
+                {counters.triplesCreated} triples, {counters.provenanceCreated}{' '}
+                provenance.
               </span>
             </Notice>
           )}
@@ -559,7 +677,9 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
           {state === 'complete' && aborted && (
             <Notice tone="warning" icon={XCircle}>
               <span className="tabular">
-                Publication stopped after an atom failure. {counters.atomsCreated} atoms made it on-chain; run again to continue.
+                Publication stopped after an atom failure.{' '}
+                {counters.atomsCreated} atoms made it on-chain; run again to
+                continue.
               </span>
             </Notice>
           )}
@@ -621,38 +741,43 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
   )
 }
 
-function buildExistingSnapshotMappings(plan: PublishPlan): ExistingSnapshotMappings {
-  const atomMappings: PublishRunResult['atomMappings'] = plan.atoms.existing.map((atom) => ({
-    atomId: atom.atomId,
-    atomType: atom.atomType,
-    normalizedData: atom.normalizedData,
-    termId: atom.computedTermId,
-    txHash: '',
-    status: 'confirmed',
-    errorMessage: 'Already existed on-chain before this run',
-  }))
+function buildExistingSnapshotMappings(
+  plan: PublishPlan,
+): ExistingSnapshotMappings {
+  const atomMappings: PublishRunResult['atomMappings'] =
+    plan.atoms.existing.map((atom) => ({
+      atomId: atom.atomId,
+      atomType: atom.atomType,
+      normalizedData: atom.normalizedData,
+      termId: atom.computedTermId,
+      txHash: '',
+      status: 'confirmed',
+      errorMessage: 'Already existed on-chain before this run',
+    }))
 
-  const claimMappings: PublishRunResult['claimMappings'] = plan.triples.existing.map((triple) => ({
-    tripleId: triple.tripleId,
-    claimGroup: triple.claimGroup,
-    originRowId: triple.originRowId,
-    subjectTermId: triple.subjectTermId,
-    predicateTermId: triple.predicateTermId,
-    objectTermId: triple.objectTermId,
-    tripleTermId: triple.computedTripleTermId,
-    txHash: '',
-    status: 'confirmed',
-    errorMessage: 'Already existed on-chain before this run',
-  }))
+  const claimMappings: PublishRunResult['claimMappings'] =
+    plan.triples.existing.map((triple) => ({
+      tripleId: triple.tripleId,
+      claimGroup: triple.claimGroup,
+      originRowId: triple.originRowId,
+      subjectTermId: triple.subjectTermId,
+      predicateTermId: triple.predicateTermId,
+      objectTermId: triple.objectTermId,
+      tripleTermId: triple.computedTripleTermId,
+      txHash: '',
+      status: 'confirmed',
+      errorMessage: 'Already existed on-chain before this run',
+    }))
 
-  const provenanceMappings: PublishRunResult['provenanceMappings'] = plan.provenance.existing.map((prov) => ({
-    tripleId: prov.claimTripleId,
-    sourceAtomId: prov.sourceAtomId,
-    provenanceTripleTermId: prov.computedTripleTermId,
-    txHash: '',
-    status: 'confirmed',
-    errorMessage: 'Already existed on-chain before this run',
-  }))
+  const provenanceMappings: PublishRunResult['provenanceMappings'] =
+    plan.provenance.existing.map((prov) => ({
+      tripleId: prov.claimTripleId,
+      sourceAtomId: prov.sourceAtomId,
+      provenanceTripleTermId: prov.computedTripleTermId,
+      txHash: '',
+      status: 'confirmed',
+      errorMessage: 'Already existed on-chain before this run',
+    }))
 
   return { atomMappings, claimMappings, provenanceMappings }
 }

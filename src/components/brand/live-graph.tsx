@@ -7,7 +7,9 @@ import { cn } from '@/lib/utils'
 import type { NodeType } from '@/lib/knowledge-graph/graph-types'
 import { getDataColor } from '@/lib/design/tokens'
 
-const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false })
+const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
+  ssr: false,
+})
 
 export type LiveGraphMode = 'hero' | 'ambient' | 'local'
 
@@ -55,7 +57,9 @@ const SIZE_BY_TYPE: Partial<Record<NodeType, number>> = {
 
 /** Deterministic synthetic graph: hub → tokens → a couple of atom/triple children each. */
 function buildSynthetic(count: number): LiveGraphData {
-  const nodes: LiveNode[] = [{ id: 'hub', type: 'graph_root', label: 'TrustNomiks', size: 9 }]
+  const nodes: LiveNode[] = [
+    { id: 'hub', type: 'graph_root', label: 'TrustNomiks', size: 9 },
+  ]
   const links: LiveLink[] = []
   for (let t = 0; t < count; t++) {
     const tid = `t${t}`
@@ -78,7 +82,13 @@ function buildSynthetic(count: number): LiveGraphData {
   return { nodes, links }
 }
 
-export function LiveGraph({ mode = 'hero', data, count = 12, className, onNodeClick }: LiveGraphProps) {
+export function LiveGraph({
+  mode = 'hero',
+  data,
+  count = 12,
+  className,
+  onNodeClick,
+}: LiveGraphProps) {
   const { resolvedTheme } = useTheme()
   const wrapRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,7 +132,9 @@ export function LiveGraph({ mode = 'hero', data, count = 12, className, onNodeCl
   // Pin hub at center
   const graphData = useMemo(
     () => ({
-      nodes: graph.nodes.map((n) => (n.id === 'hub' ? { ...n, fx: 0, fy: 0 } : { ...n })),
+      nodes: graph.nodes.map((n) =>
+        n.id === 'hub' ? { ...n, fx: 0, fy: 0 } : { ...n },
+      ),
       links: graph.links.map((l) => ({ ...l })),
     }),
     [graph],
@@ -136,7 +148,10 @@ export function LiveGraph({ mode = 'hero', data, count = 12, className, onNodeCl
       prevSig.current = sig
       const fg = fgRef.current
       if (!fg) return
-      const timer = setTimeout(() => fg.zoomToFit?.(500, mode === 'hero' ? 60 : 36), 700)
+      const timer = setTimeout(
+        () => fg.zoomToFit?.(500, mode === 'hero' ? 60 : 36),
+        700,
+      )
       return () => clearTimeout(timer)
     }
   }, [sig, size.w, mode])
@@ -205,7 +220,10 @@ export function LiveGraph({ mode = 'hero', data, count = 12, className, onNodeCl
   const particles = reducedMotion || ambient ? 0 : mode === 'hero' ? 2 : 1
 
   return (
-    <div ref={wrapRef} className={cn('relative h-full w-full overflow-hidden', className)}>
+    <div
+      ref={wrapRef}
+      className={cn('relative h-full w-full overflow-hidden', className)}
+    >
       {size.w > 0 && (
         <ForceGraph2D
           ref={fgRef}
@@ -215,7 +233,11 @@ export function LiveGraph({ mode = 'hero', data, count = 12, className, onNodeCl
           nodeId="id"
           nodeRelSize={1}
           nodeCanvasObject={nodeCanvasObject}
-          nodePointerAreaPaint={(raw: object, color: string, ctx: CanvasRenderingContext2D) => {
+          nodePointerAreaPaint={(
+            raw: object,
+            color: string,
+            ctx: CanvasRenderingContext2D,
+          ) => {
             const node = raw as LiveNode & { x?: number; y?: number }
             const s = (node.size ?? 4) + 3
             ctx.beginPath()
@@ -248,12 +270,15 @@ export function LiveGraph({ mode = 'hero', data, count = 12, className, onNodeCl
 
 function withAlpha(color: string, alpha: number): string {
   // color comes back as "hsl(H S% L%)" from getDataColor → make it hsla
-  if (color.startsWith('hsl(')) return color.replace('hsl(', 'hsla(').replace(')', ` / ${alpha})`)
+  if (color.startsWith('hsl('))
+    return color.replace('hsl(', 'hsla(').replace(')', ` / ${alpha})`)
   return color
 }
 
 function readEdgeColor(alpha = 0.5): string {
   if (typeof window === 'undefined') return `rgba(148,163,184,${alpha})`
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--graph-edge').trim()
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue('--graph-edge')
+    .trim()
   return v ? `hsla(${v} / ${alpha})` : `rgba(148,163,184,${alpha})`
 }

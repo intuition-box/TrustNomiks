@@ -3,7 +3,8 @@ import type { Hex } from 'viem'
 // ── Publish statuses ────────────────────────────────────────────────────────
 
 export type PublishStatus = 'pending' | 'submitted' | 'confirmed' | 'failed'
-export type RunStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed'
+export type RunStatus =
+  'pending' | 'running' | 'completed' | 'partial' | 'failed'
 
 // ── Atom plan item ──────────────────────────────────────────────────────────
 

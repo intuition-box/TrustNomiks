@@ -48,13 +48,34 @@ function getTierIndex(count: number) {
 }
 
 /** A node filling up: ○ → ◔ → ◑ → ◕ → ● in the primary color. */
-function TierGlyph({ level, size = 14, className }: { level: number; size?: number; className?: string }) {
+function TierGlyph({
+  level,
+  size = 14,
+  className,
+}: {
+  level: number
+  size?: number
+  className?: string
+}) {
   const fraction = level / (TIERS.length - 1)
   const r = size * 0.36
   const c = size / 2
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className={cn('shrink-0 text-primary', className)}>
-      <circle cx={c} cy={c} r={r} fill="none" stroke="currentColor" strokeWidth={size * 0.12} />
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      aria-hidden
+      className={cn('shrink-0 text-primary', className)}
+    >
+      <circle
+        cx={c}
+        cy={c}
+        r={r}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={size * 0.12}
+      />
       {fraction > 0 && (
         <path d={pieSlice(c, c, r * 0.82, fraction)} fill="currentColor" />
       )}
@@ -100,7 +121,9 @@ export default function ProfilePage() {
           .order('created_at', { ascending: false }),
         supabase.auth.getUser(),
         // Leaderboard names; RLS may narrow this to the own row, we degrade gracefully.
-        supabase.from('profiles').select('user_id, display_name, role, organization'),
+        supabase
+          .from('profiles')
+          .select('user_id, display_name, role, organization'),
       ])
       if (tokensResult.error) throw tokensResult.error
       setTokens(tokensResult.data || [])
@@ -110,7 +133,9 @@ export default function ProfilePage() {
       for (const row of profilesResult.data ?? []) map.set(row.user_id, row)
       setProfiles(map)
 
-      const own = userResult.data.user ? map.get(userResult.data.user.id) : undefined
+      const own = userResult.data.user
+        ? map.get(userResult.data.user.id)
+        : undefined
       setDisplayName(own?.display_name ?? '')
       setRole(own?.role ?? '')
       setOrganization(own?.organization ?? '')
@@ -134,11 +159,14 @@ export default function ProfilePage() {
       const { error } = await supabase.from('profiles').upsert(
         {
           user_id: currentUser.id,
-          display_name: displayName.trim() || currentUser.email?.split('@')[0] || 'Contributor',
+          display_name:
+            displayName.trim() ||
+            currentUser.email?.split('@')[0] ||
+            'Contributor',
           role: role.trim() || null,
           organization: organization.trim() || null,
         },
-        { onConflict: 'user_id' }
+        { onConflict: 'user_id' },
       )
       if (error) throw error
       setProfileDirty(false)
@@ -153,14 +181,21 @@ export default function ProfilePage() {
 
   // — User contribution
   const userTokens = useMemo(
-    () => (currentUser ? tokens.filter((t) => t.created_by === currentUser.id) : []),
+    () =>
+      currentUser ? tokens.filter((t) => t.created_by === currentUser.id) : [],
     [tokens, currentUser],
   )
   const userAvgCompleteness =
     userTokens.length > 0
-      ? Math.round(userTokens.reduce((sum, t) => sum + (t.completeness || 0), 0) / userTokens.length)
+      ? Math.round(
+          userTokens.reduce((sum, t) => sum + (t.completeness || 0), 0) /
+            userTokens.length,
+        )
       : 0
-  const sharePercent = tokens.length > 0 ? Math.round((userTokens.length / tokens.length) * 100) : 0
+  const sharePercent =
+    tokens.length > 0
+      ? Math.round((userTokens.length / tokens.length) * 100)
+      : 0
   const tierIndex = getTierIndex(userTokens.length)
   const tier = TIERS[tierIndex]
   const nextTier = tierIndex < TIERS.length - 1 ? TIERS[tierIndex + 1] : null
@@ -168,10 +203,17 @@ export default function ProfilePage() {
   // — Constellation: the user's own tokens as a local graph
   const constellation: LiveGraphData = useMemo(() => {
     const label = displayName || currentUser?.email?.split('@')[0] || 'You'
-    const nodes: LiveGraphData['nodes'] = [{ id: 'hub', type: 'wallet', label, size: 8 }]
+    const nodes: LiveGraphData['nodes'] = [
+      { id: 'hub', type: 'wallet', label, size: 8 },
+    ]
     const links: LiveGraphData['links'] = []
     userTokens.slice(0, 24).forEach((t) => {
-      nodes.push({ id: t.id, type: 'token', label: t.ticker, size: 4 + (t.completeness || 0) / 40 })
+      nodes.push({
+        id: t.id,
+        type: 'token',
+        label: t.ticker,
+        size: 4 + (t.completeness || 0) / 40,
+      })
       links.push({ source: 'hub', target: t.id })
     })
     return { nodes, links }
@@ -194,11 +236,17 @@ export default function ProfilePage() {
         avgCompleteness: Math.round(data.totalCompleteness / data.count),
         isCurrentUser: userId === currentUser?.id,
       }))
-      .sort((a, b) => b.count - a.count || b.avgCompleteness - a.avgCompleteness)
+      .sort(
+        (a, b) => b.count - a.count || b.avgCompleteness - a.avgCompleteness,
+      )
   }, [tokens, currentUser])
   const maxCount = leaderboard[0]?.count ?? 1
 
-  const contributorName = (userId: string, index: number, isCurrentUser: boolean) => {
+  const contributorName = (
+    userId: string,
+    index: number,
+    isCurrentUser: boolean,
+  ) => {
     const profile = profiles.get(userId)
     if (profile?.display_name) return profile.display_name
     if (isCurrentUser) return currentUser?.email ?? 'You'
@@ -206,13 +254,21 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return <GraphLoader className="mx-auto mt-24" label="Loading your constellation…" />
+    return (
+      <GraphLoader
+        className="mx-auto mt-24"
+        label="Loading your constellation…"
+      />
+    )
   }
 
   if (fetchFailed) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Profile" description="Your identity and your constellation in the graph." />
+        <PageHeader
+          title="Profile"
+          description="Your identity and your constellation in the graph."
+        />
         <ErrorState
           title="Your profile did not load"
           message="The contribution data could not be fetched. Your data is safe."
@@ -303,9 +359,19 @@ export default function ProfilePage() {
                 />
               </div>
             </div>
-            <p className="text-xs text-faint-foreground">Signed in as {currentUser?.email}</p>
-            <Button size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
-              {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CheckCircle2 className="h-4 w-4" aria-hidden />}
+            <p className="text-xs text-faint-foreground">
+              Signed in as {currentUser?.email}
+            </p>
+            <Button
+              size="sm"
+              onClick={saveProfile}
+              disabled={!profileDirty || savingProfile}
+            >
+              {savingProfile ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" aria-hidden />
+              )}
               Save profile
             </Button>
           </div>
@@ -329,10 +395,14 @@ export default function ProfilePage() {
                   )}
                   aria-current={i === tierIndex ? 'true' : undefined}
                 >
-                  <TierGlyph level={i} className={cn(i > tierIndex && 'opacity-40')} />
+                  <TierGlyph
+                    level={i}
+                    className={cn(i > tierIndex && 'opacity-40')}
+                  />
                   <span className="flex-1">{t.label}</span>
                   <span className="tabular text-xs">
-                    {t.max === Infinity ? `${t.min}+` : `${t.min}-${t.max}`} tokens
+                    {t.max === Infinity ? `${t.min}+` : `${t.min}-${t.max}`}{' '}
+                    tokens
                   </span>
                 </li>
               ))}
@@ -340,7 +410,8 @@ export default function ProfilePage() {
             {nextTier && userTokens.length > 0 && (
               <p className="tabular text-xs text-muted-foreground">
                 {nextTier.min - userTokens.length} more token
-                {nextTier.min - userTokens.length === 1 ? '' : 's'} to reach {nextTier.label}.
+                {nextTier.min - userTokens.length === 1 ? '' : 's'} to reach{' '}
+                {nextTier.label}.
               </p>
             )}
           </div>
@@ -351,7 +422,8 @@ export default function ProfilePage() {
           <div className="border-b px-5 py-4">
             <h2 className="text-sm font-semibold">Your constellation</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Every token you structured, orbiting you. Node size follows completeness.
+              Every token you structured, orbiting you. Node size follows
+              completeness.
             </p>
           </div>
           {userTokens.length === 0 ? (
@@ -360,7 +432,11 @@ export default function ProfilePage() {
               title="No tokens yet"
               description="Structure your first token and it appears here, orbiting your node."
               actions={
-                <Button variant="brand" size="sm" onClick={() => (window.location.href = '/tokens/new')}>
+                <Button
+                  variant="brand"
+                  size="sm"
+                  onClick={() => (window.location.href = '/tokens/new')}
+                >
                   Add your first token
                 </Button>
               }
@@ -402,7 +478,9 @@ export default function ProfilePage() {
                   <span
                     className={cn(
                       'tabular w-8 shrink-0 text-center font-mono text-xs',
-                      index < 3 ? 'font-semibold text-foreground' : 'text-muted-foreground',
+                      index < 3
+                        ? 'font-semibold text-foreground'
+                        : 'text-muted-foreground',
                     )}
                   >
                     #{index + 1}
@@ -410,7 +488,11 @@ export default function ProfilePage() {
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-sm font-medium">
-                        {contributorName(entry.userId, index, entry.isCurrentUser)}
+                        {contributorName(
+                          entry.userId,
+                          index,
+                          entry.isCurrentUser,
+                        )}
                       </p>
                       {entry.isCurrentUser && (
                         <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-semibold text-primary">
@@ -422,7 +504,9 @@ export default function ProfilePage() {
                       <div
                         className={cn(
                           'h-full rounded-full transition-all duration-500',
-                          entry.isCurrentUser ? 'bg-primary' : 'bg-muted-foreground/30',
+                          entry.isCurrentUser
+                            ? 'bg-primary'
+                            : 'bg-muted-foreground/30',
                         )}
                         style={{ width: `${barWidth}%` }}
                       />
@@ -435,7 +519,9 @@ export default function ProfilePage() {
                         token{entry.count === 1 ? '' : 's'}
                       </span>
                     </p>
-                    <p className="tabular text-[10px] text-muted-foreground">{entry.avgCompleteness}% avg</p>
+                    <p className="tabular text-[10px] text-muted-foreground">
+                      {entry.avgCompleteness}% avg
+                    </p>
                   </div>
                 </li>
               )

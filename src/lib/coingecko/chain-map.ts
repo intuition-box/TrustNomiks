@@ -14,7 +14,9 @@ export const CHAIN_TO_COINGECKO_PLATFORM: Record<string, string> = {
   starknet: 'starknet',
 }
 
-export function toCoinGeckoPlatform(chain: string | null | undefined): string | null {
+export function toCoinGeckoPlatform(
+  chain: string | null | undefined,
+): string | null {
   if (!chain) return null
   return CHAIN_TO_COINGECKO_PLATFORM[chain] ?? null
 }

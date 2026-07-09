@@ -18,7 +18,13 @@ interface EmptyStateProps {
  * Every empty surface is owned and on-brand — never a dead skeleton. Each can advance
  * one onboarding checklist item via `onboardingHint`.
  */
-export function EmptyState({ title, description, actions, onboardingHint, className }: EmptyStateProps) {
+export function EmptyState({
+  title,
+  description,
+  actions,
+  onboardingHint,
+  className,
+}: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -29,9 +35,17 @@ export function EmptyState({ title, description, actions, onboardingHint, classN
       <HubSketch />
       <div className="space-y-1.5">
         <h3 className="text-base font-semibold">{title}</h3>
-        {description && <p className="mx-auto max-w-sm text-sm text-muted-foreground">{description}</p>}
+        {description && (
+          <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+            {description}
+          </p>
+        )}
       </div>
-      {actions && <div className="flex flex-wrap items-center justify-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {actions}
+        </div>
+      )}
       {onboardingHint && (
         <p className="text-xs text-faint-foreground">↳ {onboardingHint}</p>
       )}
@@ -48,14 +62,42 @@ function HubSketch() {
     { x: 40, y: 60, c: '--data-chain' },
   ]
   return (
-    <svg width={88} height={74} viewBox="0 0 88 74" aria-hidden className="opacity-70 animate-[graph-breathe_6s_ease-in-out_infinite]">
+    <svg
+      width={88}
+      height={74}
+      viewBox="0 0 88 74"
+      aria-hidden
+      className="opacity-70 animate-[graph-breathe_6s_ease-in-out_infinite]"
+    >
       {nodes.map((n, i) => (
-        <line key={`l${i}`} x1={44} y1={36} x2={n.x} y2={n.y} stroke="hsl(var(--graph-edge))" strokeWidth={1} />
+        <line
+          key={`l${i}`}
+          x1={44}
+          y1={36}
+          x2={n.x}
+          y2={n.y}
+          stroke="hsl(var(--graph-edge))"
+          strokeWidth={1}
+        />
       ))}
       {nodes.map((n, i) => (
-        <circle key={`n${i}`} cx={n.x} cy={n.y} r={3.2} fill={`hsl(var(${n.c}))`} opacity={0.85} />
+        <circle
+          key={`n${i}`}
+          cx={n.x}
+          cy={n.y}
+          r={3.2}
+          fill={`hsl(var(${n.c}))`}
+          opacity={0.85}
+        />
       ))}
-      <circle cx={44} cy={36} r={6} fill="none" stroke="hsl(var(--data-hub))" strokeWidth={2.4} />
+      <circle
+        cx={44}
+        cy={36}
+        r={6}
+        fill="none"
+        stroke="hsl(var(--data-hub))"
+        strokeWidth={2.4}
+      />
       <circle cx={44} cy={36} r={2} fill="hsl(var(--data-hub))" />
     </svg>
   )

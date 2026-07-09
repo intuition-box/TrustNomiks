@@ -38,20 +38,37 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
     >
       {tokens.map((token) => {
         const maxSupply = parseSupply(token.supply_metrics?.max_supply)
-        const circulating = parseSupply(token.supply_metrics?.circulating_supply)
-        const circulatingShare = maxSupply > 0 && circulating > 0 ? (circulating / maxSupply) * 100 : null
-        const segments = [...token.allocation_segments].sort((a, b) => b.percentage - a.percentage)
+        const circulating = parseSupply(
+          token.supply_metrics?.circulating_supply,
+        )
+        const circulatingShare =
+          maxSupply > 0 && circulating > 0
+            ? (circulating / maxSupply) * 100
+            : null
+        const segments = [...token.allocation_segments].sort(
+          (a, b) => b.percentage - a.percentage,
+        )
 
         return (
-          <section key={token.id} className="overflow-hidden rounded-xl border bg-surface-1">
+          <section
+            key={token.id}
+            className="overflow-hidden rounded-xl border bg-surface-1"
+          >
             {/* Column header */}
             <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h2 className="truncate text-sm font-semibold">{token.name}</h2>
-                  <span className="font-mono text-xs text-muted-foreground">{token.ticker}</span>
+                  <h2 className="truncate text-sm font-semibold">
+                    {token.name}
+                  </h2>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {token.ticker}
+                  </span>
                 </div>
-                <StatusPill status={token.status as TokenStatus} className="mt-1" />
+                <StatusPill
+                  status={token.status as TokenStatus}
+                  className="mt-1"
+                />
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Link
@@ -83,7 +100,10 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
               ) : (
                 <p className="py-8 text-center text-xs text-muted-foreground">
                   No allocation data yet.{' '}
-                  <Link className="underline hover:text-foreground" href={`/tokens/new?id=${token.id}&section=allocation`}>
+                  <Link
+                    className="underline hover:text-foreground"
+                    href={`/tokens/new?id=${token.id}&section=allocation`}
+                  >
                     Add it
                   </Link>
                 </p>
@@ -94,18 +114,27 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
             {segments.length > 0 && (
               <ul className="space-y-1 border-b px-4 py-3">
                 {segments.slice(0, 6).map((seg) => (
-                  <li key={seg.id} className="flex items-center justify-between gap-2 text-xs">
+                  <li
+                    key={seg.id}
+                    className="flex items-center justify-between gap-2 text-xs"
+                  >
                     <span className="flex min-w-0 items-center gap-1.5">
                       <span
                         aria-hidden
                         className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: getSegmentChartColor(seg.segment_type) }}
+                        style={{
+                          backgroundColor: getSegmentChartColor(
+                            seg.segment_type,
+                          ),
+                        }}
                       />
                       <span className="truncate text-muted-foreground">
                         {formatSegmentTypeLabel(seg.segment_type)}
                       </span>
                     </span>
-                    <span className="tabular font-mono">{seg.percentage.toFixed(1)}%</span>
+                    <span className="tabular font-mono">
+                      {seg.percentage.toFixed(1)}%
+                    </span>
                   </li>
                 ))}
                 {segments.length > 6 && (
@@ -127,18 +156,26 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-muted-foreground">Circulating</dt>
                 <dd className="tabular font-mono">
-                  {circulating > 0 ? formatCompactNumber(circulating) : 'Not set'}
+                  {circulating > 0
+                    ? formatCompactNumber(circulating)
+                    : 'Not set'}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-muted-foreground">Circulating share</dt>
                 <dd className="tabular font-mono">
-                  {circulatingShare !== null ? `${circulatingShare.toFixed(1)}%` : 'Not set'}
+                  {circulatingShare !== null
+                    ? `${circulatingShare.toFixed(1)}%`
+                    : 'Not set'}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-muted-foreground">Emission</dt>
-                <dd className="truncate">{token.emission_models?.type ? token.emission_models.type.replaceAll('_', ' ') : 'Not set'}</dd>
+                <dd className="truncate">
+                  {token.emission_models?.type
+                    ? token.emission_models.type.replaceAll('_', ' ')
+                    : 'Not set'}
+                </dd>
               </div>
             </dl>
           </section>

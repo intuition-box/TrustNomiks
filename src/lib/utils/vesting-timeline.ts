@@ -43,7 +43,9 @@ export interface VestingTimelineResult {
   segmentKeys: Array<{ key: string; label: string; segment_type: string }>
 }
 
-export function computeVestingTimeline(config: VestingTimelineConfig): VestingTimelineResult {
+export function computeVestingTimeline(
+  config: VestingTimelineConfig,
+): VestingTimelineResult {
   const { allocations, maxSupply, tgeDate } = config
   const customSegments: string[] = []
 
@@ -70,7 +72,11 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
       key = alloc.label
     }
     uniqueKeys.push(key)
-    segmentKeys.push({ key, label: alloc.label, segment_type: alloc.segment_type })
+    segmentKeys.push({
+      key,
+      label: alloc.label,
+      segment_type: alloc.segment_type,
+    })
   }
 
   // --- Step 2: Determine max duration ---
@@ -91,7 +97,9 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
   maxDuration = Math.max(Math.ceil(maxDuration / 6) * 6, 1)
 
   // Collect segment keys (excluding custom)
-  const activeKeys = uniqueKeys.filter((_, i) => allocations[i].vesting?.frequency !== 'custom')
+  const activeKeys = uniqueKeys.filter(
+    (_, i) => allocations[i].vesting?.frequency !== 'custom',
+  )
 
   // --- Step 3: Initialize timeline ---
   const timeline: VestingTimelinePoint[] = []
@@ -113,13 +121,18 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
     const key = uniqueKeys[i]
     if (alloc.vesting?.frequency === 'custom') continue
 
-    const tokenAmount = alloc.token_amount || (alloc.percentage / 100) * maxSupply
+    const tokenAmount =
+      alloc.token_amount || (alloc.percentage / 100) * maxSupply
     if (tokenAmount <= 0) continue
 
     const vesting = alloc.vesting
 
     // No vesting or immediate: 100% at TGE
-    if (!vesting || vesting.frequency === 'immediate' || vesting.duration_months === 0) {
+    if (
+      !vesting ||
+      vesting.frequency === 'immediate' ||
+      vesting.duration_months === 0
+    ) {
       timeline[0][key] = (timeline[0][key] as number) + tokenAmount
       continue
     }
@@ -137,7 +150,8 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
     const cliffTokens = remaining * (cliffPct / 100)
 
     if (cliffEnd > 0 && cliffEnd <= maxDuration) {
-      timeline[cliffEnd][key] = (timeline[cliffEnd][key] as number) + cliffTokens
+      timeline[cliffEnd][key] =
+        (timeline[cliffEnd][key] as number) + cliffTokens
     } else if (cliffEnd === 0 && cliffPct > 0) {
       timeline[0][key] = (timeline[0][key] as number) + cliffTokens
     }
@@ -154,7 +168,11 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
         case 'daily': {
           const periods = vesting.duration_months
           const perPeriod = remaining / periods
-          for (let m = vestingStart + 1; m <= Math.min(vestingEnd, maxDuration); m++) {
+          for (
+            let m = vestingStart + 1;
+            m <= Math.min(vestingEnd, maxDuration);
+            m++
+          ) {
             timeline[m][key] = (timeline[m][key] as number) + perPeriod
           }
           break
@@ -170,9 +188,7 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
           for (let e = 1; e <= totalEvents; e++) {
             // First (totalEvents - 1) events at 12-month boundaries,
             // last event at the exact end of the duration
-            const m = e < totalEvents
-              ? vestingStart + e * 12
-              : vestingEnd
+            const m = e < totalEvents ? vestingStart + e * 12 : vestingEnd
             if (m <= maxDuration) {
               timeline[m][key] = (timeline[m][key] as number) + perEvent
             }
@@ -182,7 +198,11 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
         default: {
           const periods = vesting.duration_months
           const perPeriod = remaining / periods
-          for (let m = vestingStart + 1; m <= Math.min(vestingEnd, maxDuration); m++) {
+          for (
+            let m = vestingStart + 1;
+            m <= Math.min(vestingEnd, maxDuration);
+            m++
+          ) {
             timeline[m][key] = (timeline[m][key] as number) + perPeriod
           }
         }
@@ -193,7 +213,8 @@ export function computeVestingTimeline(config: VestingTimelineConfig): VestingTi
   // --- Step 5: Convert to cumulative ---
   for (let m = 1; m <= maxDuration; m++) {
     for (const key of activeKeys) {
-      timeline[m][key] = (timeline[m][key] as number) + (timeline[m - 1][key] as number)
+      timeline[m][key] =
+        (timeline[m][key] as number) + (timeline[m - 1][key] as number)
     }
   }
 

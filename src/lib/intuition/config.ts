@@ -8,9 +8,8 @@ export const INTUITION_CHAIN = intuitionTestnet
 
 export const INTUITION_CHAIN_ID = INTUITION_CHAIN.id
 
-export const MULTIVAULT_ADDRESS: Address = getMultiVaultAddressFromChainId(
-  INTUITION_CHAIN_ID,
-)
+export const MULTIVAULT_ADDRESS: Address =
+  getMultiVaultAddressFromChainId(INTUITION_CHAIN_ID)
 
 export const INTUITION_GRAPHQL_ENDPOINT =
   'https://testnet.intuition.sh/v1/graphql'

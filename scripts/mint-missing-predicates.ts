@@ -21,7 +21,10 @@ import {
 import type { Hex } from 'viem'
 import { calculateAtomId } from '@0xintuition/sdk'
 import { batchIsTermCreated } from '../src/lib/intuition/read-batcher'
-import { INTUITION_CHAIN, MULTIVAULT_ADDRESS } from '../src/lib/intuition/config'
+import {
+  INTUITION_CHAIN,
+  MULTIVAULT_ADDRESS,
+} from '../src/lib/intuition/config'
 import registry from '../src/lib/intuition/canonical-registry.json'
 
 const createAtomsAbi = parseAbi([
@@ -30,11 +33,16 @@ const createAtomsAbi = parseAbi([
 const readAbi = parseAbi(['function getAtomCost() view returns (uint256)'])
 
 async function main() {
-  const client = createPublicClient({ chain: INTUITION_CHAIN, transport: http() })
+  const client = createPublicClient({
+    chain: INTUITION_CHAIN,
+    transport: http(),
+  })
 
-  const predicates = (registry as {
-    predicates: Record<string, { uri: string; termId: Hex }>
-  }).predicates
+  const predicates = (
+    registry as {
+      predicates: Record<string, { uri: string; termId: Hex }>
+    }
+  ).predicates
   const all = Object.entries(predicates).map(([name, p]) => ({
     name,
     uri: p.uri,
@@ -42,15 +50,25 @@ async function main() {
   }))
 
   // Re-derive the missing set live (read-only) so we never re-create an existing atom.
-  const onchain = await batchIsTermCreated(client, all.map((a) => a.termId), { failureMode: 'throw' })
-  const missing = all.filter((a) => onchain.get(a.termId.toLowerCase() as Hex) !== true)
+  const onchain = await batchIsTermCreated(
+    client,
+    all.map((a) => a.termId),
+    { failureMode: 'throw' },
+  )
+  const missing = all.filter(
+    (a) => onchain.get(a.termId.toLowerCase() as Hex) !== true,
+  )
 
   console.log(`chain ${INTUITION_CHAIN.id} · MultiVault ${MULTIVAULT_ADDRESS}`)
-  console.log(`missing predicates (pinned, not minted): ${missing.length}/${all.length}`)
+  console.log(
+    `missing predicates (pinned, not minted): ${missing.length}/${all.length}`,
+  )
   for (const m of missing) console.log(`  · ${m.name}  ${m.termId}  ${m.uri}`)
 
   if (missing.length === 0) {
-    console.log('\n✅ Nothing to mint — every canonical predicate already exists on-chain.')
+    console.log(
+      '\n✅ Nothing to mint — every canonical predicate already exists on-chain.',
+    )
     return
   }
 
@@ -71,15 +89,24 @@ async function main() {
     args: [atomDatas, assets],
   })
 
-  console.log(`\natomCost = ${atomCost} wei (${formatEther(atomCost)} tTRUST) per atom`)
+  console.log(
+    `\natomCost = ${atomCost} wei (${formatEther(atomCost)} tTRUST) per atom`,
+  )
   console.log(`total value = ${value} wei (${formatEther(value)} tTRUST)`)
   console.log('\nExpected term ids after mint (verify post-broadcast):')
   for (const m of missing) console.log(`  ${m.name} -> ${m.termId}`)
 
-  console.log('\n--- UNSIGNED TRANSACTION (sign + broadcast with your wallet) ---')
+  console.log(
+    '\n--- UNSIGNED TRANSACTION (sign + broadcast with your wallet) ---',
+  )
   console.log(
     JSON.stringify(
-      { to: MULTIVAULT_ADDRESS, data, value: value.toString(), chainId: String(INTUITION_CHAIN.id) },
+      {
+        to: MULTIVAULT_ADDRESS,
+        data,
+        value: value.toString(),
+        chainId: String(INTUITION_CHAIN.id),
+      },
       null,
       2,
     ),

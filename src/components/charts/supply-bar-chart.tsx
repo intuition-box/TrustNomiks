@@ -7,7 +7,10 @@ interface SupplyBarChartProps {
   circulatingSupply: number
 }
 
-export function SupplyBarChart({ maxSupply, circulatingSupply }: SupplyBarChartProps) {
+export function SupplyBarChart({
+  maxSupply,
+  circulatingSupply,
+}: SupplyBarChartProps) {
   if (maxSupply <= 0) return null
 
   const circulatingPct = Math.min((circulatingSupply / maxSupply) * 100, 100)
@@ -23,7 +26,10 @@ export function SupplyBarChart({ maxSupply, circulatingSupply }: SupplyBarChartP
           <span className="font-mono">{formatCompactNumber(maxSupply)}</span>
         </div>
         <div className="h-5 rounded-full bg-muted overflow-hidden">
-          <div className="h-full bg-sky-500/40 rounded-full" style={{ width: '100%' }} />
+          <div
+            className="h-full bg-sky-500/40 rounded-full"
+            style={{ width: '100%' }}
+          />
         </div>
         <p className="text-xs text-muted-foreground">
           Circulating supply data not available.
@@ -64,12 +70,16 @@ export function SupplyBarChart({ maxSupply, circulatingSupply }: SupplyBarChartP
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           <span className="text-muted-foreground">Circulating</span>
-          <span className="font-mono font-medium">{formatCompactNumber(circulatingSupply)}</span>
+          <span className="font-mono font-medium">
+            {formatCompactNumber(circulatingSupply)}
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
           <span className="text-muted-foreground">Locked</span>
-          <span className="font-mono font-medium">{formatCompactNumber(locked)}</span>
+          <span className="font-mono font-medium">
+            {formatCompactNumber(locked)}
+          </span>
         </div>
       </div>
     </div>

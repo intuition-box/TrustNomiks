@@ -10,8 +10,15 @@ import { DetailView } from '@/components/token-detail/DetailView'
 export default function TokenDetailPage() {
   const router = useRouter()
   const params = useParams()
-  const { token, setToken, loading, graphData, vestingResult, vestingSegmentInfos, maxSupplyNum } =
-    useTokenDetail(params.id)
+  const {
+    token,
+    setToken,
+    loading,
+    graphData,
+    vestingResult,
+    vestingSegmentInfos,
+    maxSupplyNum,
+  } = useTokenDetail(params.id)
 
   if (loading) {
     return (
@@ -26,7 +33,9 @@ export default function TokenDetailPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Token Not Found</h1>
-          <p className="text-muted-foreground mt-2">The requested token does not exist.</p>
+          <p className="text-muted-foreground mt-2">
+            The requested token does not exist.
+          </p>
           <Button onClick={() => router.push('/dashboard')} className="mt-4">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Dashboard

@@ -19,7 +19,8 @@ interface PublishRunRow {
   completed_at: string | null
   tx_hashes: unknown
   created_by: string
-  tokens: { name: string; ticker: string } | { name: string; ticker: string }[] | null
+  tokens:
+    { name: string; ticker: string } | { name: string; ticker: string }[] | null
 }
 
 interface AtomMappingDbRow {
@@ -68,7 +69,10 @@ export async function GET(
   }
 
   const supabase = await createClient()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authErr,
+  } = await supabase.auth.getUser()
   if (authErr || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -79,7 +83,12 @@ export async function GET(
     } catch (error) {
       console.error('Failed to fetch verified Intuition run detail:', error)
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Failed to fetch verified Intuition run detail' },
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to fetch verified Intuition run detail',
+        },
         { status: 502 },
       )
     }
@@ -89,10 +98,12 @@ export async function GET(
 
   const { data: runRaw, error: runErr } = await supabase
     .from('intuition_publish_runs')
-    .select(`
+    .select(
+      `
       id, token_id, wallet_address, chain_id, status, started_at, completed_at, tx_hashes, created_by,
       tokens ( name, ticker )
-    `)
+    `,
+    )
     .eq('id', runId)
     .single()
 
@@ -120,7 +131,11 @@ export async function GET(
     snapshotSource = 'legacy_run_id'
   }
 
-  if (atomRows.length === 0 && claimRows.length === 0 && provRows.length === 0) {
+  if (
+    atomRows.length === 0 &&
+    claimRows.length === 0 &&
+    provRows.length === 0
+  ) {
     // Legacy fallback: pre-migration runs have no run_id on their mapping rows.
     // We identify them by:
     //   - created_by (same user who owns the run)
@@ -137,7 +152,8 @@ export async function GET(
     atomRows = legacy.atomRows
     claimRows = legacy.claimRows
     provRows = legacy.provRows
-    isLegacy = atomRows.length > 0 || claimRows.length > 0 || provRows.length > 0
+    isLegacy =
+      atomRows.length > 0 || claimRows.length > 0 || provRows.length > 0
     snapshotSource = isLegacy ? 'legacy_window' : 'empty'
   }
 
@@ -157,11 +173,20 @@ export async function GET(
 
   if (canonicalAtomsResult.error) {
     console.error('canonical atoms fetch failed:', canonicalAtomsResult.error)
-    return NextResponse.json({ error: 'Failed to load canonical atoms' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to load canonical atoms' },
+      { status: 500 },
+    )
   }
   if (canonicalTriplesResult.error) {
-    console.error('canonical triples fetch failed:', canonicalTriplesResult.error)
-    return NextResponse.json({ error: 'Failed to load canonical triples' }, { status: 500 })
+    console.error(
+      'canonical triples fetch failed:',
+      canonicalTriplesResult.error,
+    )
+    return NextResponse.json(
+      { error: 'Failed to load canonical triples' },
+      { status: 500 },
+    )
   }
 
   // ── 4. Shape response ─────────────────────────────────────────────────────
@@ -183,8 +208,10 @@ export async function GET(
     atomMappings: atomRows.map(mapAtomRow),
     claimMappings: claimRows.map(mapClaimRow),
     provenanceMappings: provRows.map(mapProvRow),
-    canonicalAtoms: (canonicalAtomsResult.data ?? []) as RunDetailResponse['canonicalAtoms'],
-    canonicalTriples: (canonicalTriplesResult.data ?? []) as RunDetailResponse['canonicalTriples'],
+    canonicalAtoms: (canonicalAtomsResult.data ??
+      []) as RunDetailResponse['canonicalAtoms'],
+    canonicalTriples: (canonicalTriplesResult.data ??
+      []) as RunDetailResponse['canonicalTriples'],
   }
 
   return NextResponse.json(response)
@@ -196,7 +223,9 @@ async function loadMappingsByRunId(supabase: SupabaseClient, runId: string) {
   const [atoms, claims, provs] = await Promise.all([
     supabase
       .from('intuition_atom_mappings')
-      .select('atom_id, atom_type, normalized_data, term_id, tx_hash, status, error_message')
+      .select(
+        'atom_id, atom_type, normalized_data, term_id, tx_hash, status, error_message',
+      )
       .eq('run_id', runId),
     supabase
       .from('intuition_claim_mappings')
@@ -206,14 +235,16 @@ async function loadMappingsByRunId(supabase: SupabaseClient, runId: string) {
       .eq('run_id', runId),
     supabase
       .from('intuition_provenance_mappings')
-      .select('triple_id, source_atom_id, provenance_triple_term_id, tx_hash, status, error_message')
+      .select(
+        'triple_id, source_atom_id, provenance_triple_term_id, tx_hash, status, error_message',
+      )
       .eq('run_id', runId),
   ])
 
   return {
-    atomRows: ((atoms.data as AtomMappingDbRow[] | null) ?? []),
-    claimRows: ((claims.data as ClaimMappingDbRow[] | null) ?? []),
-    provRows: ((provs.data as ProvMappingDbRow[] | null) ?? []),
+    atomRows: (atoms.data as AtomMappingDbRow[] | null) ?? [],
+    claimRows: (claims.data as ClaimMappingDbRow[] | null) ?? [],
+    provRows: (provs.data as ProvMappingDbRow[] | null) ?? [],
   }
 }
 
@@ -231,7 +262,9 @@ async function loadMappingsByRunWindow(
   const [atoms, claims, provs] = await Promise.all([
     supabase
       .from('intuition_atom_mappings')
-      .select('atom_id, atom_type, normalized_data, term_id, tx_hash, status, error_message')
+      .select(
+        'atom_id, atom_type, normalized_data, term_id, tx_hash, status, error_message',
+      )
       .eq('chain_id', params.chainId)
       .eq('created_by', params.createdBy)
       .gte('created_at', params.startedAt)
@@ -247,7 +280,9 @@ async function loadMappingsByRunWindow(
       .lte('created_at', upperBound),
     supabase
       .from('intuition_provenance_mappings')
-      .select('triple_id, source_atom_id, provenance_triple_term_id, tx_hash, status, error_message')
+      .select(
+        'triple_id, source_atom_id, provenance_triple_term_id, tx_hash, status, error_message',
+      )
       .eq('chain_id', params.chainId)
       .eq('created_by', params.createdBy)
       .gte('created_at', params.startedAt)
@@ -255,9 +290,9 @@ async function loadMappingsByRunWindow(
   ])
 
   return {
-    atomRows: ((atoms.data as AtomMappingDbRow[] | null) ?? []),
-    claimRows: ((claims.data as ClaimMappingDbRow[] | null) ?? []),
-    provRows: ((provs.data as ProvMappingDbRow[] | null) ?? []),
+    atomRows: (atoms.data as AtomMappingDbRow[] | null) ?? [],
+    claimRows: (claims.data as ClaimMappingDbRow[] | null) ?? [],
+    provRows: (provs.data as ProvMappingDbRow[] | null) ?? [],
   }
 }
 

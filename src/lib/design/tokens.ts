@@ -31,7 +31,9 @@ import {
 
 function readVar(name: string): string {
   if (typeof window === 'undefined') return ''
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim()
 }
 
 /** Map a NodeType → its semantic data-* CSS variable name. Exported so DOM
@@ -86,11 +88,11 @@ const SEGMENT_HEX: Record<SegmentType, string> = {
   'funding-private': '#3b82f6',
   'funding-public': '#a855f7',
   'team-founders': '#ec4899',
-  'treasury': '#f97316',
-  'marketing': '#22c55e',
-  'airdrop': '#14b8a6',
-  'rewards': '#6366f1',
-  'liquidity': '#06b6d4',
+  treasury: '#f97316',
+  marketing: '#22c55e',
+  airdrop: '#14b8a6',
+  rewards: '#6366f1',
+  liquidity: '#06b6d4',
 }
 
 export function getChartColor(segment: SegmentType): string {

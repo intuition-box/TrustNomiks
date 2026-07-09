@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { PublishRunRequest, PublishRunActionRequest } from '@/types/intuition'
+import type {
+  PublishRunRequest,
+  PublishRunActionRequest,
+} from '@/types/intuition'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authErr } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser()
     if (authErr || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -16,7 +22,11 @@ export async function POST(request: NextRequest) {
 
     // Route to incremental flow if body has an 'action' field
     if ('action' in body) {
-      return handleIncrementalAction(supabase, user.id, body as PublishRunActionRequest)
+      return handleIncrementalAction(
+        supabase,
+        user.id,
+        body as PublishRunActionRequest,
+      )
     }
 
     // Legacy flow: full persist at end
@@ -24,7 +34,10 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Publish runs error:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to save publish run' },
+      {
+        error:
+          err instanceof Error ? err.message : 'Failed to save publish run',
+      },
       { status: 500 },
     )
   }
@@ -57,7 +70,10 @@ async function handleInit(
   const { tokenId, walletAddress, chainId } = body
 
   if (!tokenId || !walletAddress) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Missing required fields' },
+      { status: 400 },
+    )
   }
 
   // Validate token exists
@@ -93,7 +109,10 @@ async function handleInit(
 
   if (runErr) {
     console.error('Failed to create publish run:', runErr)
-    return NextResponse.json({ error: 'Failed to create publish run' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to create publish run' },
+      { status: 500 },
+    )
   }
 
   return NextResponse.json({ runId: run.id, status: 'running' })
@@ -104,7 +123,14 @@ async function handleChunk(
   userId: string,
   body: Extract<PublishRunActionRequest, { action: 'chunk' }>,
 ) {
-  const { runId, chainId, atomMappings, claimMappings, provenanceMappings, txHash } = body
+  const {
+    runId,
+    chainId,
+    atomMappings,
+    claimMappings,
+    provenanceMappings,
+    txHash,
+  } = body
 
   if (!runId) {
     return NextResponse.json({ error: 'Missing runId' }, { status: 400 })
@@ -132,7 +158,9 @@ async function handleChunk(
       .eq('id', runId)
       .single()
 
-    const currentHashes = Array.isArray(runData?.tx_hashes) ? runData.tx_hashes : []
+    const currentHashes = Array.isArray(runData?.tx_hashes)
+      ? runData.tx_hashes
+      : []
     const updatedHashes = txHash ? [...currentHashes, txHash] : currentHashes
 
     const runUpdate: Record<string, unknown> = { tx_hashes: updatedHashes }
@@ -152,7 +180,10 @@ async function handleChunk(
 
     if (runUpdateErr) {
       console.error('Failed to update run row:', runUpdateErr)
-      return NextResponse.json({ error: 'Failed to update run' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to update run' },
+        { status: 500 },
+      )
     }
   }
 
@@ -177,7 +208,10 @@ async function handleChunk(
 
     if (atomErr) {
       console.error('Failed to upsert atom mappings:', atomErr)
-      return NextResponse.json({ error: 'Failed to persist atom mappings' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to persist atom mappings' },
+        { status: 500 },
+      )
     }
   }
 
@@ -205,7 +239,10 @@ async function handleChunk(
 
     if (claimErr) {
       console.error('Failed to upsert claim mappings:', claimErr)
-      return NextResponse.json({ error: 'Failed to persist claim mappings' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to persist claim mappings' },
+        { status: 500 },
+      )
     }
   }
 
@@ -229,7 +266,10 @@ async function handleChunk(
 
     if (provErr) {
       console.error('Failed to upsert provenance mappings:', provErr)
-      return NextResponse.json({ error: 'Failed to persist provenance mappings' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'Failed to persist provenance mappings' },
+        { status: 500 },
+      )
     }
   }
 
@@ -279,7 +319,10 @@ async function handleFinalize(
 
   if (updateErr) {
     console.error('Failed to finalize publish run:', updateErr)
-    return NextResponse.json({ error: 'Failed to finalize run' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to finalize run' },
+      { status: 500 },
+    )
   }
 
   return NextResponse.json({ runId, status })
@@ -295,7 +338,10 @@ async function handleLegacyPersist(
   const { tokenId, walletAddress, chainId, result } = body
 
   if (!tokenId || !walletAddress || !result) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Missing required fields' },
+      { status: 400 },
+    )
   }
 
   // Validate token exists
@@ -340,7 +386,10 @@ async function handleLegacyPersist(
 
   if (runErr) {
     console.error('Failed to create publish run:', runErr)
-    return NextResponse.json({ error: 'Failed to save publish run' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to save publish run' },
+      { status: 500 },
+    )
   }
 
   // 2. Upsert atom mappings

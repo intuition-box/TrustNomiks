@@ -113,7 +113,8 @@ export interface CompleteTokenData {
  */
 export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
   const triples: Triple[] = []
-  const { token, supply, allocations, vesting, emission, sources, risk_flags } = data
+  const { token, supply, allocations, vesting, emission, sources, risk_flags } =
+    data
   const ticker = token.ticker
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -289,7 +290,9 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
     if (!schedule.allocation) return
 
     // Find matching allocation index for consistent ID referencing
-    const allocIndex = allocations.findIndex((a) => a.id === schedule.allocation_id)
+    const allocIndex = allocations.findIndex(
+      (a) => a.id === schedule.allocation_id,
+    )
     const allocSuffix = allocIndex >= 0 ? allocIndex + 1 : vIndex + 1
     const allocationId = `Allocation_${ticker}_${schedule.allocation.segment_type}_${allocSuffix}`
     const vestingId = `Vesting_${ticker}_${schedule.allocation.segment_type}_${allocSuffix}`
@@ -318,7 +321,10 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       })
     }
 
-    if (schedule.duration_months !== null && schedule.duration_months !== undefined) {
+    if (
+      schedule.duration_months !== null &&
+      schedule.duration_months !== undefined
+    ) {
       triples.push({
         subject: vestingId,
         predicate: 'duration Months',
@@ -326,7 +332,10 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       })
     }
 
-    if (schedule.tge_percentage !== null && schedule.tge_percentage !== undefined) {
+    if (
+      schedule.tge_percentage !== null &&
+      schedule.tge_percentage !== undefined
+    ) {
       triples.push({
         subject: vestingId,
         predicate: 'TGE Percentage',
@@ -334,7 +343,10 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
       })
     }
 
-    if (schedule.cliff_unlock_percentage !== null && schedule.cliff_unlock_percentage !== undefined) {
+    if (
+      schedule.cliff_unlock_percentage !== null &&
+      schedule.cliff_unlock_percentage !== undefined
+    ) {
       triples.push({
         subject: vestingId,
         predicate: 'cliff Unlock Percentage',
@@ -514,7 +526,7 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
   if (data.claim_sources) {
     data.claim_sources.forEach((cs) => {
       // Find the matching data source
-      const sourceIndex = sources.findIndex(s => s.id === cs.data_source_id)
+      const sourceIndex = sources.findIndex((s) => s.id === cs.data_source_id)
       if (sourceIndex < 0) return
       const source = sources[sourceIndex]
       const sourceId = `DataSource_${ticker}_${source.source_type}_${sourceIndex + 1}`
@@ -541,14 +553,19 @@ export function convertTokenToTriples(data: CompleteTokenData): Triple[] {
 /**
  * Converts multiple tokens to triples (for bulk export)
  */
-export function convertMultipleTokensToTriples(tokensData: CompleteTokenData[]): Triple[] {
+export function convertMultipleTokensToTriples(
+  tokensData: CompleteTokenData[],
+): Triple[] {
   return tokensData.flatMap((data) => convertTokenToTriples(data))
 }
 
 /**
  * Generates a downloadable JSON file from triples
  */
-export function downloadTriplesAsJSON(triples: Triple[], filename: string = 'trustnomiks-export.json') {
+export function downloadTriplesAsJSON(
+  triples: Triple[],
+  filename: string = 'trustnomiks-export.json',
+) {
   const json = JSON.stringify(triples, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

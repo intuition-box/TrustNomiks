@@ -30,8 +30,20 @@ export function GraphLoader({ size = 96, label, className }: GraphLoaderProps) {
   const nodeR = size * 0.055
 
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3', className)} role="status" aria-live="polite">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-3',
+        className,
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        aria-hidden
+      >
         {SATELLITES.map((s, i) => {
           const rad = (s.angle * Math.PI) / 180
           const x = c + orbit * Math.cos(rad)
@@ -47,7 +59,9 @@ export function GraphLoader({ size = 96, label, className }: GraphLoaderProps) {
                 stroke={col}
                 strokeWidth={size * 0.012}
                 opacity={0.28}
-                style={{ animation: `graph-breathe 2.4s ease-in-out ${s.delay}s infinite` }}
+                style={{
+                  animation: `graph-breathe 2.4s ease-in-out ${s.delay}s infinite`,
+                }}
               />
               <circle
                 cx={x}
@@ -63,7 +77,14 @@ export function GraphLoader({ size = 96, label, className }: GraphLoaderProps) {
           )
         })}
         {/* hub */}
-        <circle cx={c} cy={c} r={hubR} fill="none" stroke="hsl(var(--data-hub))" strokeWidth={size * 0.03} />
+        <circle
+          cx={c}
+          cy={c}
+          r={hubR}
+          fill="none"
+          stroke="hsl(var(--data-hub))"
+          strokeWidth={size * 0.03}
+        />
         <circle cx={c} cy={c} r={hubR * 0.35} fill="hsl(var(--data-hub))" />
       </svg>
       {label && <p className="text-sm text-muted-foreground">{label}</p>}

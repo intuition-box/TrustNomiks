@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, TrendingUp, TrendingDown, AlertCircle, ExternalLink } from 'lucide-react'
+import {
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  ExternalLink,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,7 +27,8 @@ function formatCompactUSD(value: number): string {
 }
 
 function formatPrice(value: number): string {
-  if (value >= 1) return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (value >= 1)
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   if (value >= 0.01) return `$${value.toFixed(4)}`
   return `$${value.toFixed(6)}`
 }
@@ -38,9 +45,15 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
     setError(null)
 
     try {
-      const res = await fetch(`/api/coingecko/price?id=${encodeURIComponent(coingeckoId)}`)
+      const res = await fetch(
+        `/api/coingecko/price?id=${encodeURIComponent(coingeckoId)}`,
+      )
       if (!res.ok) {
-        throw new Error(res.status === 429 ? 'Rate limit reached, wait a moment' : 'Failed to fetch price')
+        throw new Error(
+          res.status === 429
+            ? 'Rate limit reached, wait a moment'
+            : 'Failed to fetch price',
+        )
       }
       const data: CoinGeckoPriceData = await res.json()
       setPrice(data)
@@ -74,7 +87,9 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
     return (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Market Data</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Market Data
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -116,7 +131,9 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Market Data</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Market Data
+          </CardTitle>
           <div className="flex items-center gap-2">
             <a
               href={`https://www.coingecko.com/en/coins/${coingeckoId}`}
@@ -134,7 +151,9 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
               onClick={fetchPrice}
               disabled={loading}
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+              <RefreshCw
+                className={cn('h-3.5 w-3.5', loading && 'animate-spin')}
+              />
             </Button>
           </div>
         </div>
@@ -151,9 +170,19 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
           <div>
             <div className="text-xs text-muted-foreground mb-1">24h Change</div>
             {change !== null ? (
-              <div className={cn('text-lg font-semibold flex items-center gap-1', isPositive ? 'text-success' : 'text-destructive')}>
-                {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                {isPositive ? '+' : ''}{change.toFixed(2)}%
+              <div
+                className={cn(
+                  'text-lg font-semibold flex items-center gap-1',
+                  isPositive ? 'text-success' : 'text-destructive',
+                )}
+              >
+                {isPositive ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : (
+                  <TrendingDown className="h-4 w-4" />
+                )}
+                {isPositive ? '+' : ''}
+                {change.toFixed(2)}%
               </div>
             ) : (
               <div className="text-lg text-muted-foreground">Not set</div>
@@ -164,7 +193,9 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
           <div>
             <div className="text-xs text-muted-foreground mb-1">Market Cap</div>
             <div className="text-lg font-semibold">
-              {price.usd_market_cap ? formatCompactUSD(price.usd_market_cap) : 'Not set'}
+              {price.usd_market_cap
+                ? formatCompactUSD(price.usd_market_cap)
+                : 'Not set'}
             </div>
           </div>
 
@@ -172,7 +203,9 @@ export function TokenPriceCard({ coingeckoId, tokenId }: TokenPriceCardProps) {
           <div>
             <div className="text-xs text-muted-foreground mb-1">24h Volume</div>
             <div className="text-lg font-semibold">
-              {price.usd_24h_vol ? formatCompactUSD(price.usd_24h_vol) : 'Not set'}
+              {price.usd_24h_vol
+                ? formatCompactUSD(price.usd_24h_vol)
+                : 'Not set'}
             </div>
           </div>
         </div>

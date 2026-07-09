@@ -15,12 +15,19 @@ import type { AuthMode } from '@/types/auth'
 /** Supabase auth errors, translated to copy a person can act on. */
 function humanAuthError(raw: string, mode: AuthMode): string {
   const msg = raw.toLowerCase()
-  if (msg.includes('invalid login credentials')) return "That email and password don't match."
-  if (msg.includes('email not confirmed')) return 'Check your inbox to confirm your email, then log in.'
-  if (msg.includes('already registered')) return 'This email already has an account. Log in instead.'
-  if (msg.includes('rate limit') || msg.includes('too many')) return 'Too many attempts. Wait a minute, then try again.'
-  if (msg.includes('network') || msg.includes('fetch')) return 'Connection problem. Check your network and retry.'
-  return mode === 'login' ? 'Login failed. Retry in a moment.' : 'Account creation failed. Retry in a moment.'
+  if (msg.includes('invalid login credentials'))
+    return "That email and password don't match."
+  if (msg.includes('email not confirmed'))
+    return 'Check your inbox to confirm your email, then log in.'
+  if (msg.includes('already registered'))
+    return 'This email already has an account. Log in instead.'
+  if (msg.includes('rate limit') || msg.includes('too many'))
+    return 'Too many attempts. Wait a minute, then try again.'
+  if (msg.includes('network') || msg.includes('fetch'))
+    return 'Connection problem. Check your network and retry.'
+  return mode === 'login'
+    ? 'Login failed. Retry in a moment.'
+    : 'Account creation failed. Retry in a moment.'
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -31,7 +38,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; confirm?: string }>({})
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string
+    confirm?: string
+  }>({})
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -41,7 +51,10 @@ export default function LoginPage() {
 
   const validateEmailField = () => {
     if (email && !EMAIL_REGEX.test(email)) {
-      setFieldErrors((f) => ({ ...f, email: 'This does not look like an email address.' }))
+      setFieldErrors((f) => ({
+        ...f,
+        email: 'This does not look like an email address.',
+      }))
       return false
     }
     setFieldErrors((f) => ({ ...f, email: undefined }))
@@ -78,14 +91,20 @@ export default function LoginPage() {
   }
 
   const handleLogin = async () => {
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     if (signInError) throw signInError
     router.push('/dashboard')
     router.refresh()
   }
 
   const handleSignup = async () => {
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password })
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+    })
     if (signUpError) throw signUpError
     if (!authData.user) throw new Error('No user created')
 
@@ -160,7 +179,11 @@ export default function LoginPage() {
           </div>
 
           {/* Mode switch */}
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1" role="tablist" aria-label="Authentication mode">
+          <div
+            className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1"
+            role="tablist"
+            aria-label="Authentication mode"
+          >
             {(['login', 'signup'] as const).map((m) => (
               <button
                 key={m}
@@ -205,7 +228,9 @@ export default function LoginPage() {
                 disabled={loading}
                 required
               />
-              {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
+              {fieldErrors.email && (
+                <p className="text-xs text-destructive">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -213,7 +238,9 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                autoComplete={
+                  mode === 'login' ? 'current-password' : 'new-password'
+                }
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -251,11 +278,21 @@ export default function LoginPage() {
                   disabled={loading}
                   required
                 />
-                {fieldErrors.confirm && <p className="text-xs text-destructive">{fieldErrors.confirm}</p>}
+                {fieldErrors.confirm && (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors.confirm}
+                  </p>
+                )}
               </div>
             )}
 
-            <Button type="submit" variant="brand" size="lg" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              variant="brand"
+              size="lg"
+              className="w-full"
+              disabled={loading}
+            >
               {loading
                 ? mode === 'login'
                   ? 'Logging in…'

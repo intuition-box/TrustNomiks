@@ -10,7 +10,9 @@ import type { CoinGeckoSearchResult } from '@/types/coingecko'
 
 interface CoinGeckoSearchProps {
   value: string | null
-  onSelect: (coin: { id: string; name: string; symbol: string; thumb: string } | null) => void
+  onSelect: (
+    coin: { id: string; name: string; symbol: string; thumb: string } | null,
+  ) => void
   chain?: string
   contractAddress?: string
   disabled?: boolean
@@ -32,17 +34,31 @@ export function CoinGeckoSearch({
 
   // Auto-resolve by contract address when chain + contractAddress are available
   useEffect(() => {
-    if (value || resolvedOnce || !chain || !contractAddress || chain === 'other') return
+    if (
+      value ||
+      resolvedOnce ||
+      !chain ||
+      !contractAddress ||
+      chain === 'other'
+    )
+      return
 
     let cancelled = false
     startTransition(() => setResolving(true))
 
-    fetch(`/api/coingecko/resolve?chain=${encodeURIComponent(chain)}&contract_address=${encodeURIComponent(contractAddress)}`)
+    fetch(
+      `/api/coingecko/resolve?chain=${encodeURIComponent(chain)}&contract_address=${encodeURIComponent(contractAddress)}`,
+    )
       .then(async (res) => {
         if (!res.ok || cancelled) return
         const data = await res.json()
         if (!cancelled && data.id) {
-          onSelect({ id: data.id, name: data.name, symbol: data.symbol, thumb: data.thumb })
+          onSelect({
+            id: data.id,
+            name: data.name,
+            symbol: data.symbol,
+            thumb: data.thumb,
+          })
         }
       })
       .catch(() => {})
@@ -55,7 +71,9 @@ export function CoinGeckoSearch({
         }
       })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [chain, contractAddress, value, resolvedOnce, onSelect])
 
   // Open dropdown when there are results
@@ -72,7 +90,10 @@ export function CoinGeckoSearch({
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
         setOpen(false)
       }
     }
@@ -119,7 +140,8 @@ export function CoinGeckoSearch({
     )
   }
 
-  const showDropdown = open && (results.length > 0 || error || (query.length >= 2 && !isLoading))
+  const showDropdown =
+    open && (results.length > 0 || error || (query.length >= 2 && !isLoading))
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -143,7 +165,9 @@ export function CoinGeckoSearch({
           {error ? (
             <div className="p-3 text-sm text-destructive">{error}</div>
           ) : results.length === 0 && query.length >= 2 && !isLoading ? (
-            <div className="p-3 text-sm text-muted-foreground">No results found</div>
+            <div className="p-3 text-sm text-muted-foreground">
+              No results found
+            </div>
           ) : (
             <ul className="max-h-64 overflow-y-auto">
               {results.map((coin) => (
@@ -183,7 +207,7 @@ function CoinOption({
         type="button"
         className={cn(
           'flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm',
-          'hover:bg-accent hover:text-accent-foreground transition-colors'
+          'hover:bg-accent hover:text-accent-foreground transition-colors',
         )}
         onClick={onSelect}
       >
@@ -197,7 +221,9 @@ function CoinOption({
         />
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{coin.name}</div>
-          <div className="text-xs text-muted-foreground uppercase">{coin.symbol}</div>
+          <div className="text-xs text-muted-foreground uppercase">
+            {coin.symbol}
+          </div>
         </div>
         {coin.market_cap_rank && (
           <span className="text-xs text-muted-foreground shrink-0">

@@ -11,7 +11,12 @@ export interface Token {
   sector: string | null
   status: TokenStatus
   completeness: number
-  cluster_scores: { identity: number; supply: number; allocation: number; vesting: number } | null
+  cluster_scores: {
+    identity: number
+    supply: number
+    allocation: number
+    vesting: number
+  } | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -32,5 +37,6 @@ export interface TokenFilters {
   status: TokenStatus | 'all'
 }
 
-export type SortField = 'name' | 'chain' | 'completeness' | 'status' | 'created_at' | 'updated_at'
+export type SortField =
+  'name' | 'chain' | 'completeness' | 'status' | 'created_at' | 'updated_at'
 export type SortDirection = 'asc' | 'desc'

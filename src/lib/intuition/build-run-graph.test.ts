@@ -29,7 +29,10 @@ function makeRun(overrides: Partial<RunDetailMeta> = {}): RunDetailMeta {
   }
 }
 
-function atomMapping(partial: Partial<RunAtomMappingRow> & Pick<RunAtomMappingRow, 'atomId' | 'atomType' | 'normalizedData'>): RunAtomMappingRow {
+function atomMapping(
+  partial: Partial<RunAtomMappingRow> &
+    Pick<RunAtomMappingRow, 'atomId' | 'atomType' | 'normalizedData'>,
+): RunAtomMappingRow {
   return {
     termId: '0x' + 'a'.repeat(64),
     txHash: '0x' + 'b'.repeat(64),
@@ -41,7 +44,10 @@ function atomMapping(partial: Partial<RunAtomMappingRow> & Pick<RunAtomMappingRo
 
 function claimMapping(
   partial: Partial<RunClaimMappingRow> &
-    Pick<RunClaimMappingRow, 'tripleId' | 'subjectTermId' | 'predicateTermId' | 'objectTermId'>,
+    Pick<
+      RunClaimMappingRow,
+      'tripleId' | 'subjectTermId' | 'predicateTermId' | 'objectTermId'
+    >,
 ): RunClaimMappingRow {
   return {
     claimGroup: null,
@@ -178,7 +184,12 @@ describe('buildRunGraph', () => {
 
     expect(result.counts.atoms.confirmed).toBe(3)
     expect(result.counts.triples.confirmed).toBe(1)
-    expect(result.counts.provenance).toEqual({ pending: 0, submitted: 0, confirmed: 0, failed: 0 })
+    expect(result.counts.provenance).toEqual({
+      pending: 0,
+      submitted: 0,
+      confirmed: 0,
+      failed: 0,
+    })
   })
 
   it('mixed statuses: failed + skipped atoms tracked in counts, rendered nodes carry status', () => {
@@ -217,7 +228,12 @@ describe('buildRunGraph', () => {
 
     const result = buildRunGraph(input)
 
-    expect(result.counts.atoms).toEqual({ pending: 1, submitted: 0, confirmed: 1, failed: 1 })
+    expect(result.counts.atoms).toEqual({
+      pending: 1,
+      submitted: 0,
+      confirmed: 1,
+      failed: 1,
+    })
 
     const allocNode = result.nodes.find((n) => n.id === ALLOC_ATOM_ID)!
     expect(allocNode.metadata.onChain).toMatchObject({
@@ -226,7 +242,9 @@ describe('buildRunGraph', () => {
     })
 
     // Non-confirmed predicate atoms must be rendered so failures stay visible.
-    const predicateNode = result.nodes.find((n) => n.id === 'atom:predicate:has_allocation_segment')
+    const predicateNode = result.nodes.find(
+      (n) => n.id === 'atom:predicate:has_allocation_segment',
+    )
     expect(predicateNode).toBeDefined()
     expect(predicateNode!.type).toBe('predicate')
     expect(predicateNode!.metadata.onChain).toMatchObject({ status: 'pending' })
@@ -266,8 +284,12 @@ describe('buildRunGraph', () => {
 
     const result = buildRunGraph(input)
 
-    expect(result.nodes.find((n) => n.id === 'atom:predicate:has_name')).toBeUndefined()
-    const literalNode = result.nodes.find((n) => n.id === 'atom:literal:triple:broken')
+    expect(
+      result.nodes.find((n) => n.id === 'atom:predicate:has_name'),
+    ).toBeUndefined()
+    const literalNode = result.nodes.find(
+      (n) => n.id === 'atom:literal:triple:broken',
+    )
     expect(literalNode).toBeDefined()
     expect(literalNode!.type).toBe('literal')
   })
@@ -345,9 +367,16 @@ describe('buildRunGraph', () => {
 
     const provEdges = result.edges.filter((e) => e.source === provNodeId)
     expect(provEdges).toHaveLength(2)
-    expect(provEdges.map((e) => e.predicate).sort()).toEqual(['object_of', 'subject_of'])
-    expect(provEdges.find((e) => e.predicate === 'subject_of')!.target).toBe(CLAIM_TRIPLE_ID)
-    expect(provEdges.find((e) => e.predicate === 'object_of')!.target).toBe(SOURCE_ATOM_ID)
+    expect(provEdges.map((e) => e.predicate).sort()).toEqual([
+      'object_of',
+      'subject_of',
+    ])
+    expect(provEdges.find((e) => e.predicate === 'subject_of')!.target).toBe(
+      CLAIM_TRIPLE_ID,
+    )
+    expect(provEdges.find((e) => e.predicate === 'object_of')!.target).toBe(
+      SOURCE_ATOM_ID,
+    )
 
     expect(result.counts.provenance.confirmed).toBe(1)
   })
@@ -417,8 +446,16 @@ describe('buildRunGraph', () => {
       subject_id: EXPORT_RUN_ID,
       object_id: CLAIM_TRIPLE_ID,
     })
-    expect(result.edges.find((e) => e.id === `${membershipNodeId}--subject_of--${EXPORT_RUN_ID}`)).toBeDefined()
-    expect(result.edges.find((e) => e.id === `${membershipNodeId}--object_of--${CLAIM_TRIPLE_ID}`)).toBeDefined()
+    expect(
+      result.edges.find(
+        (e) => e.id === `${membershipNodeId}--subject_of--${EXPORT_RUN_ID}`,
+      ),
+    ).toBeDefined()
+    expect(
+      result.edges.find(
+        (e) => e.id === `${membershipNodeId}--object_of--${CLAIM_TRIPLE_ID}`,
+      ),
+    ).toBeDefined()
   })
 
   it('provenance is dropped when the claim triple node was skipped (orphan)', () => {

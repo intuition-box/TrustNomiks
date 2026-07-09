@@ -42,15 +42,24 @@ interface TokenSummary {
  *  Specific families first: "percentage Of Max Supply" is allocation, not supply. */
 function tripleFamily(predicate: string): NodeType {
   const p = predicate.toLowerCase()
-  if (/vesting|cliff|duration|tge percentage|start date/.test(p)) return 'vesting'
-  if (/allocation|segment|percentage|token amount|wallet address|label/.test(p)) return 'allocation'
+  if (/vesting|cliff|duration|tge percentage|start date/.test(p))
+    return 'vesting'
+  if (/allocation|segment|percentage|token amount|wallet address|label/.test(p))
+    return 'allocation'
   if (/emission|inflation|burn|buyback/.test(p)) return 'emission'
   if (/source|document|url|verified/.test(p)) return 'data_source'
   if (/risk|severity|flag/.test(p)) return 'risk_flag'
   return 'token'
 }
 
-const FAMILY_ORDER: NodeType[] = ['token', 'allocation', 'vesting', 'emission', 'data_source', 'risk_flag']
+const FAMILY_ORDER: NodeType[] = [
+  'token',
+  'allocation',
+  'vesting',
+  'emission',
+  'data_source',
+  'risk_flag',
+]
 
 const FAMILY_TITLES: Partial<Record<NodeType, string>> = {
   token: 'Identity & supply',
@@ -73,7 +82,9 @@ export default function ExportPage() {
 
   const [tab, setTab] = useState<ExportTab>('pipeline')
   const [tokens, setTokens] = useState<TokenSummary[]>([])
-  const [selectedTokenIds, setSelectedTokenIds] = useState<Set<string>>(new Set())
+  const [selectedTokenIds, setSelectedTokenIds] = useState<Set<string>>(
+    new Set(),
+  )
   const [loading, setLoading] = useState(true)
   const [fetchFailed, setFetchFailed] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -119,15 +130,20 @@ export default function ExportPage() {
     resetPreview()
   }
 
-  const allSelected = tokens.length > 0 && selectedTokenIds.size === tokens.length
+  const allSelected =
+    tokens.length > 0 && selectedTokenIds.size === tokens.length
 
   const toggleAll = () => {
-    setSelectedTokenIds(allSelected ? new Set() : new Set(tokens.map((t) => t.id)))
+    setSelectedTokenIds(
+      allSelected ? new Set() : new Set(tokens.map((t) => t.id)),
+    )
     resetPreview()
   }
 
   // Fetch complete data for selected tokens
-  const fetchCompleteTokenData = async (tokenId: string): Promise<CompleteTokenData | null> => {
+  const fetchCompleteTokenData = async (
+    tokenId: string,
+  ): Promise<CompleteTokenData | null> => {
     try {
       // Token must be fetched first (gate on existence)
       const { data: tokenData, error: tokenError } = await supabase
@@ -139,24 +155,45 @@ export default function ExportPage() {
       if (tokenError || !tokenData) return null
 
       // Fetch all independent related data in parallel
-      const [supplyResult, allocResult, emissionResult, sourcesResult, riskResult] = await Promise.all([
-        supabase.from('supply_metrics').select('*').eq('token_id', tokenId).single(),
-        supabase.from('allocation_segments').select('*').eq('token_id', tokenId).order('percentage', { ascending: false }),
-        supabase.from('emission_models').select('*').eq('token_id', tokenId).single(),
+      const [
+        supplyResult,
+        allocResult,
+        emissionResult,
+        sourcesResult,
+        riskResult,
+      ] = await Promise.all([
+        supabase
+          .from('supply_metrics')
+          .select('*')
+          .eq('token_id', tokenId)
+          .single(),
+        supabase
+          .from('allocation_segments')
+          .select('*')
+          .eq('token_id', tokenId)
+          .order('percentage', { ascending: false }),
+        supabase
+          .from('emission_models')
+          .select('*')
+          .eq('token_id', tokenId)
+          .single(),
         supabase.from('data_sources').select('*').eq('token_id', tokenId),
         supabase.from('risk_flags').select('*').eq('token_id', tokenId),
       ])
 
-      const allocationIds = allocResult.data?.map((a: { id: string }) => a.id) || []
+      const allocationIds =
+        allocResult.data?.map((a: { id: string }) => a.id) || []
 
       // Vesting needs allocation IDs; claim_sources is independent but grouped here for clarity
       const [vestingResult, claimSourcesResult] = await Promise.all([
         supabase
           .from('vesting_schedules')
-          .select(`
+          .select(
+            `
             *,
             allocation:allocation_segments!vesting_schedules_allocation_id_fkey(id, label, segment_type)
-          `)
+          `,
+          )
           .in('allocation_id', allocationIds.length > 0 ? allocationIds : ['']),
         supabase.from('claim_sources').select('*').eq('token_id', tokenId),
       ])
@@ -189,7 +226,9 @@ export default function ExportPage() {
 
       for (let i = 0; i < tokenIds.length; i += BATCH_SIZE) {
         const batch = tokenIds.slice(i, i + BATCH_SIZE)
-        const results = await Promise.all(batch.map((id) => fetchCompleteTokenData(id)))
+        const results = await Promise.all(
+          batch.map((id) => fetchCompleteTokenData(id)),
+        )
         for (const result of results) {
           if (result) selectedTokensData.push(result)
         }
@@ -209,7 +248,10 @@ export default function ExportPage() {
   const handleDownload = () => {
     if (generatedTriples.length === 0) return
     const timestamp = new Date().toISOString().split('T')[0]
-    downloadTriplesAsJSON(generatedTriples, `trustnomiks-export-${timestamp}.json`)
+    downloadTriplesAsJSON(
+      generatedTriples,
+      `trustnomiks-export-${timestamp}.json`,
+    )
   }
 
   const groupedTriples = useMemo(() => {
@@ -227,7 +269,10 @@ export default function ExportPage() {
   }, [generatedTriples])
 
   const selectedTokens = tokens.filter((t) => selectedTokenIds.has(t.id))
-  const fileSizeKb = generatedTriples.length > 0 ? JSON.stringify(generatedTriples).length / 1024 : 0
+  const fileSizeKb =
+    generatedTriples.length > 0
+      ? JSON.stringify(generatedTriples).length / 1024
+      : 0
 
   return (
     <div className="space-y-6">
@@ -235,7 +280,11 @@ export default function ExportPage() {
         title="Publish & Export"
         description="One selection, two deliveries: download JSON triples, or light the graph up on-chain."
         actions={
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1" role="tablist" aria-label="Export views">
+          <div
+            className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1"
+            role="tablist"
+            aria-label="Export views"
+          >
             {(['pipeline', 'runs'] as const).map((t) => (
               <button
                 key={t}
@@ -245,7 +294,9 @@ export default function ExportPage() {
                 onClick={() => setTab(t)}
                 className={cn(
                   'rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
-                  tab === t ? 'bg-surface-3 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  tab === t
+                    ? 'bg-surface-3 text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
                 )}
               >
                 {t === 'pipeline' ? 'Pipeline' : 'Runs'}
@@ -264,7 +315,8 @@ export default function ExportPage() {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-4">
               <div>
                 <h2 className="text-sm font-semibold">
-                  <span className="text-faint-foreground">1 ·</span> Select validated tokens
+                  <span className="text-faint-foreground">1 ·</span> Select
+                  validated tokens
                 </h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Only validated tokens can leave the workshop.
@@ -274,14 +326,22 @@ export default function ExportPage() {
                 <span className="tabular text-xs text-muted-foreground">
                   {selectedTokenIds.size} of {tokens.length} selected
                 </span>
-                <Button variant="outline" size="sm" onClick={toggleAll} disabled={tokens.length === 0}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAll}
+                  disabled={tokens.length === 0}
+                >
                   {allSelected ? 'Deselect all' : 'Select all'}
                 </Button>
               </div>
             </div>
 
             {loading ? (
-              <GraphLoader className="mx-auto my-12" label="Loading validated tokens…" />
+              <GraphLoader
+                className="mx-auto my-12"
+                label="Loading validated tokens…"
+              />
             ) : fetchFailed ? (
               <ErrorState
                 className="m-4"
@@ -303,19 +363,31 @@ export default function ExportPage() {
             ) : (
               <ul className="max-h-96 divide-y overflow-y-auto">
                 {tokens.map((token) => (
-                  <li key={token.id} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-surface-2/60">
+                  <li
+                    key={token.id}
+                    className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-surface-2/60"
+                  >
                     <Checkbox
                       id={token.id}
                       checked={selectedTokenIds.has(token.id)}
                       onCheckedChange={() => toggleToken(token.id)}
                     />
-                    <label htmlFor={token.id} className="flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1">
+                    <label
+                      htmlFor={token.id}
+                      className="flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1"
+                    >
                       <span className="flex min-w-0 items-center gap-2">
                         <NodeGlyph type="token" size={11} aria-hidden />
-                        <span className="truncate font-medium">{token.name}</span>
-                        <span className="font-mono text-xs text-muted-foreground">{token.ticker}</span>
+                        <span className="truncate font-medium">
+                          {token.name}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {token.ticker}
+                        </span>
                       </span>
-                      {token.chain && <DataBadge type="chain" label={token.chain} />}
+                      {token.chain && (
+                        <DataBadge type="chain" label={token.chain} />
+                      )}
                       <ClusterMeter
                         className="ml-auto"
                         scores={token.cluster_scores}
@@ -334,10 +406,12 @@ export default function ExportPage() {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-4">
               <div>
                 <h2 className="text-sm font-semibold">
-                  <span className="text-faint-foreground">2 ·</span> Review the claims
+                  <span className="text-faint-foreground">2 ·</span> Review the
+                  claims
                 </h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Every fact becomes a subject · predicate · object triple, readable before it ships.
+                  Every fact becomes a subject · predicate · object triple,
+                  readable before it ships.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -360,7 +434,9 @@ export default function ExportPage() {
                   ) : (
                     <FileJson className="h-4 w-4" aria-hidden />
                   )}
-                  {generatedTriples.length > 0 ? 'Regenerate' : 'Generate triples'}
+                  {generatedTriples.length > 0
+                    ? 'Regenerate'
+                    : 'Generate triples'}
                 </Button>
               </div>
             </div>
@@ -374,7 +450,9 @@ export default function ExportPage() {
             ) : showRaw ? (
               <div className="p-4">
                 <div className="max-h-96 overflow-auto rounded-lg bg-surface-2 p-4">
-                  <pre className="font-mono text-xs">{JSON.stringify(generatedTriples, null, 2)}</pre>
+                  <pre className="font-mono text-xs">
+                    {JSON.stringify(generatedTriples, null, 2)}
+                  </pre>
                 </div>
               </div>
             ) : (
@@ -384,14 +462,23 @@ export default function ExportPage() {
                     <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-faint-foreground">
                       <NodeGlyph type={group.family} size={10} aria-hidden />
                       {FAMILY_TITLES[group.family]}
-                      <span className="tabular normal-case tracking-normal">· {group.triples.length}</span>
+                      <span className="tabular normal-case tracking-normal">
+                        · {group.triples.length}
+                      </span>
                     </p>
                     <ul className="space-y-0.5">
                       {group.triples.slice(0, 50).map((triple, i) => (
-                        <li key={i} className="flex flex-wrap items-baseline gap-x-2 rounded px-2 py-1 text-xs odd:bg-surface-2/50">
+                        <li
+                          key={i}
+                          className="flex flex-wrap items-baseline gap-x-2 rounded px-2 py-1 text-xs odd:bg-surface-2/50"
+                        >
                           <span className="font-medium">{triple.subject}</span>
-                          <span className="text-muted-foreground">{triple.predicate}</span>
-                          <span className="tabular break-all font-mono">{formatObject(triple.object)}</span>
+                          <span className="text-muted-foreground">
+                            {triple.predicate}
+                          </span>
+                          <span className="tabular break-all font-mono">
+                            {formatObject(triple.object)}
+                          </span>
                         </li>
                       ))}
                       {group.triples.length > 50 && (
@@ -407,7 +494,9 @@ export default function ExportPage() {
 
             {generatedTriples.length > 0 && (
               <p className="tabular border-t px-5 py-2.5 text-xs text-muted-foreground">
-                {generatedTriples.length} triples · {selectedTokenIds.size} token{selectedTokenIds.size === 1 ? '' : 's'} · {fileSizeKb.toFixed(1)} KB
+                {generatedTriples.length} triples · {selectedTokenIds.size}{' '}
+                token{selectedTokenIds.size === 1 ? '' : 's'} ·{' '}
+                {fileSizeKb.toFixed(1)} KB
               </p>
             )}
           </section>
@@ -416,10 +505,12 @@ export default function ExportPage() {
           <section className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-3 rounded-xl border bg-surface-1 p-5">
               <h2 className="text-sm font-semibold">
-                <span className="text-faint-foreground">3a ·</span> Download JSON
+                <span className="text-faint-foreground">3a ·</span> Download
+                JSON
               </h2>
               <p className="text-sm text-muted-foreground">
-                Machine-readable triples for pipelines, agents and analysis. No wallet involved.
+                Machine-readable triples for pipelines, agents and analysis. No
+                wallet involved.
               </p>
               <Button
                 className="mt-auto w-fit"
@@ -433,7 +524,8 @@ export default function ExportPage() {
 
             <div className="flex flex-col gap-3 rounded-xl border bg-surface-1 p-5">
               <h2 className="text-sm font-semibold">
-                <span className="text-faint-foreground">3b ·</span> Publish on-chain
+                <span className="text-faint-foreground">3b ·</span> Publish
+                on-chain
               </h2>
               <WalletGate
                 title="Connect to publish"
@@ -441,7 +533,8 @@ export default function ExportPage() {
               >
                 {selectedTokens.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Select tokens above, then open each one&apos;s publish panel.
+                    Select tokens above, then open each one&apos;s publish
+                    panel.
                   </p>
                 ) : (
                   <ul className="space-y-1.5">
@@ -454,7 +547,9 @@ export default function ExportPage() {
                           <span className="flex min-w-0 items-center gap-2">
                             <NodeGlyph type="token" size={11} aria-hidden />
                             <span className="truncate">{token.name}</span>
-                            <span className="font-mono text-xs text-muted-foreground">{token.ticker}</span>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {token.ticker}
+                            </span>
                           </span>
                           <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors group-hover:text-foreground">
                             Open publish panel
@@ -481,11 +576,14 @@ export default function ExportPage() {
             </summary>
             <div className="mt-2 space-y-2">
               <p>
-                Each fact ships as a subject · predicate · object triple, the shape the Intuition
-                knowledge graph ingests. It keeps every claim machine-readable and verifiable.
+                Each fact ships as a subject · predicate · object triple, the
+                shape the Intuition knowledge graph ingests. It keeps every
+                claim machine-readable and verifiable.
               </p>
               <p className="rounded bg-surface-2 p-2 font-mono text-xs">
-                {'{ "subject": "ETH", "predicate": "has Max Supply", "object": "120000000" }'}
+                {
+                  '{ "subject": "ETH", "predicate": "has Max Supply", "object": "120000000" }'
+                }
               </p>
             </div>
           </details>

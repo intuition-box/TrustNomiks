@@ -14,7 +14,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { calculateAtomId, calculateTripleId } from '@0xintuition/sdk'
 import { toHex, type Hex } from 'viem'
-import type { CanonicalAtom, CanonicalTriple, CanonicalSource } from '@/lib/knowledge-graph/graph-types'
+import type {
+  CanonicalAtom,
+  CanonicalTriple,
+  CanonicalSource,
+} from '@/lib/knowledge-graph/graph-types'
 import {
   normalizePredicate,
   normalizeLiteral,
@@ -82,7 +86,11 @@ function atomTermId(normalizedData: string): Hex {
   return calculateAtomId(stringToAtomData(normalizedData))
 }
 
-function tripleTermId(subjectTermId: Hex, predicateTermId: Hex, objectTermId: Hex): Hex {
+function tripleTermId(
+  subjectTermId: Hex,
+  predicateTermId: Hex,
+  objectTermId: Hex,
+): Hex {
   return calculateTripleId(subjectTermId, predicateTermId, objectTermId)
 }
 
@@ -96,17 +104,30 @@ export async function buildPublishBundle(
   // 1. Fetch canonical data in parallel
   const scopeFilter = `token_id.eq.${tokenId},token_id.is.null`
 
-  const [atomsResult, triplesResult, sourcesResult, tokenResult] = await Promise.all([
-    supabase.from('kg_atoms_v1').select('*').or(scopeFilter).limit(10000),
-    supabase.from('kg_triples_v1').select('*').eq('token_id', tokenId).limit(50000),
-    supabase.from('kg_triple_sources_v1').select('*').eq('token_id', tokenId).limit(10000),
-    supabase.from('tokens').select('name, ticker').eq('id', tokenId).single(),
-  ])
+  const [atomsResult, triplesResult, sourcesResult, tokenResult] =
+    await Promise.all([
+      supabase.from('kg_atoms_v1').select('*').or(scopeFilter).limit(10000),
+      supabase
+        .from('kg_triples_v1')
+        .select('*')
+        .eq('token_id', tokenId)
+        .limit(50000),
+      supabase
+        .from('kg_triple_sources_v1')
+        .select('*')
+        .eq('token_id', tokenId)
+        .limit(10000),
+      supabase.from('tokens').select('name, ticker').eq('id', tokenId).single(),
+    ])
 
-  if (atomsResult.error) throw new Error(`Atoms fetch failed: ${atomsResult.error.message}`)
-  if (triplesResult.error) throw new Error(`Triples fetch failed: ${triplesResult.error.message}`)
-  if (sourcesResult.error) throw new Error(`Sources fetch failed: ${sourcesResult.error.message}`)
-  if (tokenResult.error) throw new Error(`Token fetch failed: ${tokenResult.error.message}`)
+  if (atomsResult.error)
+    throw new Error(`Atoms fetch failed: ${atomsResult.error.message}`)
+  if (triplesResult.error)
+    throw new Error(`Triples fetch failed: ${triplesResult.error.message}`)
+  if (sourcesResult.error)
+    throw new Error(`Sources fetch failed: ${sourcesResult.error.message}`)
+  if (tokenResult.error)
+    throw new Error(`Token fetch failed: ${tokenResult.error.message}`)
 
   const rawAtoms = (atomsResult.data ?? []) as CanonicalAtom[]
   const rawTriples = (triplesResult.data ?? []) as CanonicalTriple[]
@@ -130,10 +151,14 @@ export async function buildPublishBundle(
   // concurrent pins of distinct atoms are safe).
   const pinnerDeps: EntityPinnerDeps = {
     supabase,
-    tokenContext: new Map([[tokenId, { name: tokenName, ticker: tokenTicker }]]),
+    tokenContext: new Map([
+      [tokenId, { name: tokenName, ticker: tokenTicker }],
+    ]),
   }
   const ENTITY_PIN_CONCURRENCY = 5
-  console.log(`[bundle-builder] pinning ${atoms.length} entity atom(s) for token ${tokenId}…`)
+  console.log(
+    `[bundle-builder] pinning ${atoms.length} entity atom(s) for token ${tokenId}…`,
+  )
   for (let i = 0; i < atoms.length; i += ENTITY_PIN_CONCURRENCY) {
     const batch = atoms.slice(i, i + ENTITY_PIN_CONCURRENCY)
     const results = await Promise.all(
@@ -276,7 +301,9 @@ export async function buildPublishBundle(
     const predicateTermId = atomTermIds.get(triple.predicateAtomId)
     const objectTermId = atomTermIds.get(triple.objectAtomId)
     if (!subjectTermId || !predicateTermId || !objectTermId) {
-      throw new Error(`Cannot compute claim term id for ${triple.tripleId}: missing atom term id`)
+      throw new Error(
+        `Cannot compute claim term id for ${triple.tripleId}: missing atom term id`,
+      )
     }
     return tripleTermId(subjectTermId, predicateTermId, objectTermId)
   })
@@ -341,12 +368,14 @@ export async function buildPublishBundle(
     // Try specific match: claim_type + claim_id
     let targetTripleIds: string[] = []
     if (cs.claim_id) {
-      targetTripleIds = triplesByClaimKey.get(`${cs.claim_type}:${cs.claim_id}`) ?? []
+      targetTripleIds =
+        triplesByClaimKey.get(`${cs.claim_type}:${cs.claim_id}`) ?? []
     }
 
     // Fallback: claim_type + token_id
     if (targetTripleIds.length === 0) {
-      targetTripleIds = triplesByGroupToken.get(`${cs.claim_type}:${tokenId}`) ?? []
+      targetTripleIds =
+        triplesByGroupToken.get(`${cs.claim_type}:${tokenId}`) ?? []
     }
 
     for (const tripleId of targetTripleIds) {

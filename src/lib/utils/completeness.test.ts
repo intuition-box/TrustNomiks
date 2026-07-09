@@ -284,7 +284,10 @@ describe('computeScores', () => {
       d.emission = { type: 'inflationary' }
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(5)
     })
 
@@ -293,7 +296,10 @@ describe('computeScores', () => {
       d.emission = { type: 'inflationary', annual_inflation_rate: 3 }
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(10)
     })
 
@@ -302,7 +308,10 @@ describe('computeScores', () => {
       d.emission = { type: 'deflationary', has_burn: true }
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(10)
     })
 
@@ -311,7 +320,10 @@ describe('computeScores', () => {
       d.emission = { type: 'mixed', has_buyback: true }
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(10)
     })
 
@@ -325,7 +337,10 @@ describe('computeScores', () => {
       }
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(5)
     })
 
@@ -333,7 +348,10 @@ describe('computeScores', () => {
       const d = emptyData()
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(0)
     })
 
@@ -342,7 +360,10 @@ describe('computeScores', () => {
       d.emission = { type: null }
       const { totalScore, clusterScores } = computeScores(d)
       const clusterSum =
-        clusterScores.identity + clusterScores.supply + clusterScores.allocation + clusterScores.vesting
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
       expect(totalScore - clusterSum).toBe(0)
     })
 
@@ -419,7 +440,12 @@ describe('computeScores', () => {
     it('returns 0 for a completely empty token', () => {
       const { totalScore, clusterScores } = computeScores(emptyData())
       expect(totalScore).toBe(0)
-      expect(clusterScores).toEqual({ identity: 0, supply: 0, allocation: 0, vesting: 0 })
+      expect(clusterScores).toEqual({
+        identity: 0,
+        supply: 0,
+        allocation: 0,
+        vesting: 0,
+      })
     })
   })
 })
@@ -430,7 +456,12 @@ describe('computeScores', () => {
 
 describe('isClusterComplete', () => {
   it('returns all true when every cluster is at max', () => {
-    const scores: ClusterScores = { identity: 20, supply: 15, allocation: 20, vesting: 20 }
+    const scores: ClusterScores = {
+      identity: 20,
+      supply: 15,
+      allocation: 20,
+      vesting: 20,
+    }
     expect(isClusterComplete(scores)).toEqual({
       identity: true,
       supply: true,
@@ -440,7 +471,12 @@ describe('isClusterComplete', () => {
   })
 
   it('returns false for a cluster that is one point below max', () => {
-    const scores: ClusterScores = { identity: 19, supply: 15, allocation: 20, vesting: 20 }
+    const scores: ClusterScores = {
+      identity: 19,
+      supply: 15,
+      allocation: 20,
+      vesting: 20,
+    }
     const result = isClusterComplete(scores)
     expect(result.identity).toBe(false)
     expect(result.supply).toBe(true)
@@ -449,7 +485,12 @@ describe('isClusterComplete', () => {
   })
 
   it('returns all false when every cluster is zero', () => {
-    const scores: ClusterScores = { identity: 0, supply: 0, allocation: 0, vesting: 0 }
+    const scores: ClusterScores = {
+      identity: 0,
+      supply: 0,
+      allocation: 0,
+      vesting: 0,
+    }
     expect(isClusterComplete(scores)).toEqual({
       identity: false,
       supply: false,
@@ -459,7 +500,12 @@ describe('isClusterComplete', () => {
   })
 
   it('handles scores above max (still true)', () => {
-    const scores: ClusterScores = { identity: 25, supply: 20, allocation: 25, vesting: 25 }
+    const scores: ClusterScores = {
+      identity: 25,
+      supply: 20,
+      allocation: 25,
+      vesting: 25,
+    }
     expect(isClusterComplete(scores)).toEqual({
       identity: true,
       supply: true,
@@ -475,22 +521,42 @@ describe('isClusterComplete', () => {
 
 describe('isVisualizationReady', () => {
   it('returns true when all clusters are at max', () => {
-    const scores: ClusterScores = { identity: 20, supply: 15, allocation: 20, vesting: 20 }
+    const scores: ClusterScores = {
+      identity: 20,
+      supply: 15,
+      allocation: 20,
+      vesting: 20,
+    }
     expect(isVisualizationReady(scores)).toBe(true)
   })
 
   it('returns false when one cluster is below max', () => {
-    const scores: ClusterScores = { identity: 20, supply: 14, allocation: 20, vesting: 20 }
+    const scores: ClusterScores = {
+      identity: 20,
+      supply: 14,
+      allocation: 20,
+      vesting: 20,
+    }
     expect(isVisualizationReady(scores)).toBe(false)
   })
 
   it('returns false when all clusters are zero', () => {
-    const scores: ClusterScores = { identity: 0, supply: 0, allocation: 0, vesting: 0 }
+    const scores: ClusterScores = {
+      identity: 0,
+      supply: 0,
+      allocation: 0,
+      vesting: 0,
+    }
     expect(isVisualizationReady(scores)).toBe(false)
   })
 
   it('returns false when only one cluster is complete', () => {
-    const scores: ClusterScores = { identity: 20, supply: 0, allocation: 0, vesting: 0 }
+    const scores: ClusterScores = {
+      identity: 20,
+      supply: 0,
+      allocation: 0,
+      vesting: 0,
+    }
     expect(isVisualizationReady(scores)).toBe(false)
   })
 })

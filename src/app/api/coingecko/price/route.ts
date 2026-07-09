@@ -5,7 +5,10 @@ import type { CoinGeckoPriceResponse } from '@/types/coingecko'
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3'
 const CACHE_TTL_MS = 60 * 1000 // 60 seconds
 
-const cache = new Map<string, { data: CoinGeckoPriceResponse[string]; timestamp: number }>()
+const cache = new Map<
+  string,
+  { data: CoinGeckoPriceResponse[string]; timestamp: number }
+>()
 
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get('id')?.trim()
@@ -24,7 +27,12 @@ export async function GET(request: NextRequest) {
   if (!allowed) {
     return NextResponse.json(
       { error: 'Rate limit exceeded' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil((retryAfterMs ?? 1000) / 1000)) } }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil((retryAfterMs ?? 1000) / 1000)),
+        },
+      },
     )
   }
 
@@ -42,7 +50,10 @@ export async function GET(request: NextRequest) {
     })
 
     if (!res.ok) {
-      return NextResponse.json({ error: 'CoinGecko API error' }, { status: res.status })
+      return NextResponse.json(
+        { error: 'CoinGecko API error' },
+        { status: res.status },
+      )
     }
 
     const data: CoinGeckoPriceResponse = await res.json()
@@ -56,6 +67,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(priceData)
   } catch {
-    return NextResponse.json({ error: 'Failed to reach CoinGecko' }, { status: 502 })
+    return NextResponse.json(
+      { error: 'Failed to reach CoinGecko' },
+      { status: 502 },
+    )
   }
 }

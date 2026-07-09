@@ -16,7 +16,12 @@ export interface TokenData {
   sector: string | null
   status: string
   completeness: number
-  cluster_scores: { identity: number; supply: number; allocation: number; vesting: number } | null
+  cluster_scores: {
+    identity: number
+    supply: number
+    allocation: number
+    vesting: number
+  } | null
   notes: string | null
   created_at: string
   supply_metrics: {

@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ExternalLink } from 'lucide-react'
 
@@ -37,7 +43,9 @@ export function PublishedClaimsView({ tokenId }: PublishedClaimsViewProps) {
       const [recentRunsResult, allCountsResult] = await Promise.all([
         supabase
           .from('intuition_publish_runs')
-          .select('id, wallet_address, status, atoms_created, triples_created, started_at, completed_at')
+          .select(
+            'id, wallet_address, status, atoms_created, triples_created, started_at, completed_at',
+          )
           .eq('token_id', tokenId)
           .order('started_at', { ascending: false })
           .limit(5),
@@ -71,7 +79,9 @@ export function PublishedClaimsView({ tokenId }: PublishedClaimsViewProps) {
     return (
       <Card>
         <CardContent className="py-6">
-          <p className="text-sm text-muted-foreground text-center">Loading publish history...</p>
+          <p className="text-sm text-muted-foreground text-center">
+            Loading publish history...
+          </p>
         </CardContent>
       </Card>
     )
@@ -89,13 +99,20 @@ export function PublishedClaimsView({ tokenId }: PublishedClaimsViewProps) {
         <CardTitle className="text-lg flex items-center gap-2">
           On-Chain Status
           <Badge
-            variant={latestRun.status === 'completed' ? 'default' : latestRun.status === 'partial' ? 'secondary' : 'destructive'}
+            variant={
+              latestRun.status === 'completed'
+                ? 'default'
+                : latestRun.status === 'partial'
+                  ? 'secondary'
+                  : 'destructive'
+            }
           >
             {latestRun.status}
           </Badge>
         </CardTitle>
         <CardDescription>
-          {atomCount} atoms, {tripleCount} triples confirmed on Intuition testnet
+          {atomCount} atoms, {tripleCount} triples confirmed on Intuition
+          testnet
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -107,7 +124,10 @@ export function PublishedClaimsView({ tokenId }: PublishedClaimsViewProps) {
           </p>
           <p>
             <span className="text-muted-foreground">Wallet:</span>{' '}
-            <code className="text-xs">{latestRun.wallet_address.slice(0, 6)}...{latestRun.wallet_address.slice(-4)}</code>
+            <code className="text-xs">
+              {latestRun.wallet_address.slice(0, 6)}...
+              {latestRun.wallet_address.slice(-4)}
+            </code>
           </p>
           <p>
             <span className="text-muted-foreground">Created:</span>{' '}

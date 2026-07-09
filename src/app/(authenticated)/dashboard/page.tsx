@@ -36,7 +36,12 @@ type DashboardToken = {
   ticker: string
   status: TokenStatus
   completeness: number
-  cluster_scores: { identity: number; supply: number; allocation: number; vesting: number } | null
+  cluster_scores: {
+    identity: number
+    supply: number
+    allocation: number
+    vesting: number
+  } | null
 }
 
 export default function DashboardPage() {
@@ -74,15 +79,21 @@ export default function DashboardPage() {
   }
 
   // weakest cluster, drives the "contribute" bridge
-  const clusterStats = (Object.keys(CLUSTER_MAX) as Array<keyof ClusterScores>).map((key) => {
+  const clusterStats = (
+    Object.keys(CLUSTER_MAX) as Array<keyof ClusterScores>
+  ).map((key) => {
     const max = CLUSTER_MAX[key]
     const complete = tokens.filter((t) =>
-      key === 'identity' ? !!(t.name && t.ticker) : (t.cluster_scores?.[key] ?? 0) >= max,
+      key === 'identity'
+        ? !!(t.name && t.ticker)
+        : (t.cluster_scores?.[key] ?? 0) >= max,
     ).length
     const rate = tokens.length > 0 ? (complete / tokens.length) * 100 : 0
     return { key, complete, total: tokens.length, rate }
   })
-  const weakest = clusterStats.length ? clusterStats.reduce((a, b) => (a.rate <= b.rate ? a : b)) : null
+  const weakest = clusterStats.length
+    ? clusterStats.reduce((a, b) => (a.rate <= b.rate ? a : b))
+    : null
   const goalPct = Math.round((stats.total / TARGET_TOKENS) * 100)
 
   if (loading) {
@@ -109,7 +120,11 @@ export default function DashboardPage() {
           description="Structure your first token and watch its supply, allocations and vesting spawn into the living graph."
           onboardingHint='this completes "Contribute your first token"'
           actions={
-            <Button variant="brand" size="lg" onClick={() => router.push('/tokens/new')}>
+            <Button
+              variant="brand"
+              size="lg"
+              onClick={() => router.push('/tokens/new')}
+            >
               <Plus className="h-4 w-4" /> Structure your first token
             </Button>
           }
@@ -159,7 +174,11 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-4">
               <NextBestAction
-                weakestLabel={weakest && weakest.rate < 100 ? CLUSTER_LABELS[weakest.key] : null}
+                weakestLabel={
+                  weakest && weakest.rate < 100
+                    ? CLUSTER_LABELS[weakest.key]
+                    : null
+                }
                 weakestMissing={weakest ? weakest.total - weakest.complete : 0}
                 validated={stats.validated}
                 onContribute={() => router.push('/tokens')}
@@ -174,7 +193,10 @@ export default function DashboardPage() {
           </div>
 
           {/* BAND 3, recent tokens */}
-          <RecentTokens tokens={tokens.slice(0, 6)} onOpen={(id) => router.push(`/tokens/${id}`)} />
+          <RecentTokens
+            tokens={tokens.slice(0, 6)}
+            onOpen={(id) => router.push(`/tokens/${id}`)}
+          />
         </>
       )}
     </div>
@@ -189,10 +211,16 @@ function PageHeader({ onAdd }: { onAdd: () => void }) {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Home</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Track the graph as it grows toward {TARGET_TOKENS} fully-structured tokens.
+          Track the graph as it grows toward {TARGET_TOKENS} fully-structured
+          tokens.
         </p>
       </div>
-      <Button variant="brand" size="lg" onClick={onAdd} className="w-full sm:w-auto">
+      <Button
+        variant="brand"
+        size="lg"
+        onClick={onAdd}
+        className="w-full sm:w-auto"
+      >
         <Plus className="h-5 w-5" /> Add token
       </Button>
     </div>
@@ -238,7 +266,11 @@ function NextBestAction({
         <BridgeRow
           accent="--data-vesting"
           icon={Compass}
-          title={validated > 0 ? `${validated} validated tokens to explore` : 'Explore the knowledge graph'}
+          title={
+            validated > 0
+              ? `${validated} validated tokens to explore`
+              : 'Explore the knowledge graph'
+          }
           cta="Explore"
           onClick={onExplore}
         />
@@ -269,7 +301,10 @@ function BridgeRow({
     >
       <span
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-        style={{ backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`, color }}
+        style={{
+          backgroundColor: `color-mix(in oklab, ${color} 15%, transparent)`,
+          color,
+        }}
       >
         <Icon className="h-4 w-4" />
       </span>
@@ -326,7 +361,9 @@ function GettingStarted({
               ) : (
                 <Circle className="h-4 w-4 shrink-0 text-faint-foreground" />
               )}
-              <span className={cn(item.done && 'text-muted-foreground')}>{item.label}</span>
+              <span className={cn(item.done && 'text-muted-foreground')}>
+                {item.label}
+              </span>
             </button>
           </li>
         ))}
@@ -337,14 +374,23 @@ function GettingStarted({
 
 /* ── Recent tokens ────────────────────────────────────────────────────────── */
 
-function RecentTokens({ tokens, onOpen }: { tokens: DashboardToken[]; onOpen: (id: string) => void }) {
+function RecentTokens({
+  tokens,
+  onOpen,
+}: {
+  tokens: DashboardToken[]
+  onOpen: (id: string) => void
+}) {
   return (
     <div className="overflow-hidden rounded-xl border bg-surface-1">
       <div className="flex items-center justify-between border-b px-5 py-3.5">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <NodeGlyph type="token" size={14} /> Recent tokens
         </h2>
-        <Link href="/tokens" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link
+          href="/tokens"
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
           View all →
         </Link>
       </div>
@@ -359,17 +405,25 @@ function RecentTokens({ tokens, onOpen }: { tokens: DashboardToken[]; onOpen: (i
               <NodeGlyph type="token" size={14} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">
-                  {t.name} <span className="font-mono text-xs text-faint-foreground">{t.ticker}</span>
+                  {t.name}{' '}
+                  <span className="font-mono text-xs text-faint-foreground">
+                    {t.ticker}
+                  </span>
                 </div>
               </div>
               <div className="hidden w-40 items-center gap-2 sm:flex">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                   <div
                     className="h-full rounded-full"
-                    style={{ width: `${t.completeness ?? 0}%`, background: 'var(--gradient-brand)' }}
+                    style={{
+                      width: `${t.completeness ?? 0}%`,
+                      background: 'var(--gradient-brand)',
+                    }}
                   />
                 </div>
-                <span className="tabular w-9 text-right text-xs text-muted-foreground">{t.completeness ?? 0}%</span>
+                <span className="tabular w-9 text-right text-xs text-muted-foreground">
+                  {t.completeness ?? 0}%
+                </span>
               </div>
               <StatusPill status={t.status} />
             </button>

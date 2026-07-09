@@ -7,13 +7,13 @@ import type { SegmentType } from '@/types/form'
  */
 export const SEGMENT_TYPE_COLORS: Record<SegmentType, string> = {
   'funding-private': '#3b82f6', // blue-500
-  'funding-public':  '#a855f7', // purple-500
-  'team-founders':   '#ec4899', // pink-500
-  'treasury':        '#f97316', // orange-500
-  'marketing':       '#22c55e', // green-500
-  'airdrop':         '#14b8a6', // teal-500
-  'rewards':         '#6366f1', // indigo-500
-  'liquidity':       '#06b6d4', // cyan-500
+  'funding-public': '#a855f7', // purple-500
+  'team-founders': '#ec4899', // pink-500
+  treasury: '#f97316', // orange-500
+  marketing: '#22c55e', // green-500
+  airdrop: '#14b8a6', // teal-500
+  rewards: '#6366f1', // indigo-500
+  liquidity: '#06b6d4', // cyan-500
 }
 
 const FALLBACK_COLORS = [
@@ -27,7 +27,10 @@ const FALLBACK_COLORS = [
  * Get the chart color for a segment_type.
  * Falls back to a rotating palette for unknown types.
  */
-export function getSegmentChartColor(segmentType: string, fallbackIndex = 0): string {
+export function getSegmentChartColor(
+  segmentType: string,
+  fallbackIndex = 0,
+): string {
   return (
     SEGMENT_TYPE_COLORS[segmentType as SegmentType] ??
     FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length]
@@ -40,11 +43,11 @@ export function getSegmentChartColor(segmentType: string, fallbackIndex = 0): st
  */
 export const SEGMENT_TYPE_TEXT_COLORS: Record<SegmentType, string> = {
   'funding-private': 'text-blue-500',
-  'funding-public':  'text-purple-500',
-  'team-founders':   'text-pink-500',
-  'treasury':        'text-orange-500',
-  'marketing':       'text-green-500',
-  'airdrop':         'text-teal-500',
-  'rewards':         'text-indigo-500',
-  'liquidity':       'text-cyan-500',
+  'funding-public': 'text-purple-500',
+  'team-founders': 'text-pink-500',
+  treasury: 'text-orange-500',
+  marketing: 'text-green-500',
+  airdrop: 'text-teal-500',
+  rewards: 'text-indigo-500',
+  liquidity: 'text-cyan-500',
 }

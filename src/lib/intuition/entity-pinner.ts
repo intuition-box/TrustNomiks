@@ -48,16 +48,26 @@ export interface EntityPinnerDeps {
 
 function entityKindOf(atomType: string): EntityKind {
   switch (atomType) {
-    case 'token': return 'token'
-    case 'allocation': return 'allocation'
-    case 'vesting': return 'vesting'
-    case 'emission': return 'emission'
-    case 'data_source': return 'data_source'
-    case 'category': return 'category'
-    case 'sector': return 'sector'
-    case 'chain': return 'chain'
+    case 'token':
+      return 'token'
+    case 'allocation':
+      return 'allocation'
+    case 'vesting':
+      return 'vesting'
+    case 'emission':
+      return 'emission'
+    case 'data_source':
+      return 'data_source'
+    case 'category':
+      return 'category'
+    case 'sector':
+      return 'sector'
+    case 'chain':
+      return 'chain'
     default:
-      throw new Error(`[entity-pinner] unsupported entity atom_type: ${atomType}`)
+      throw new Error(
+        `[entity-pinner] unsupported entity atom_type: ${atomType}`,
+      )
   }
 }
 
@@ -67,10 +77,15 @@ function entityKindOf(atomType: string): EntityKind {
  */
 function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']'
+  if (Array.isArray(value))
+    return '[' + value.map(canonicalJson).join(',') + ']'
   const obj = value as Record<string, unknown>
   const keys = Object.keys(obj).sort()
-  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') + '}'
+  return (
+    '{' +
+    keys.map((k) => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') +
+    '}'
+  )
 }
 
 function sha256Hex(s: string): string {
@@ -96,7 +111,9 @@ function buildTokenPayload(atom: CanonicalAtom): PinPayload {
   const description = [
     ticker ? `Ticker: ${ticker}` : null,
     chain ? `Chain: ${chain}` : null,
-  ].filter(Boolean).join(' · ')
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return {
     schema: 'Thing',
@@ -109,21 +126,38 @@ function buildTokenPayload(atom: CanonicalAtom): PinPayload {
   }
 }
 
-function buildAllocationPayload(atom: CanonicalAtom, deps: EntityPinnerDeps): PinPayload {
+function buildAllocationPayload(
+  atom: CanonicalAtom,
+  deps: EntityPinnerDeps,
+): PinPayload {
   const meta = atom.metadata ?? {}
   const segmentType = meta.segment_type as string | undefined
-  const tokenName = atom.token_id ? deps.tokenContext?.get(atom.token_id)?.name : undefined
+  const tokenName = atom.token_id
+    ? deps.tokenContext?.get(atom.token_id)?.name
+    : undefined
   const baseLabel = atom.label || segmentType || 'allocation'
-  const name = tokenName ? `${tokenName} ${baseLabel} allocation` : `${baseLabel} allocation`
+  const name = tokenName
+    ? `${tokenName} ${baseLabel} allocation`
+    : `${baseLabel} allocation`
 
   return {
     schema: 'Thing',
-    data: { name, description: `Token allocation segment.`, image: '', url: '' },
+    data: {
+      name,
+      description: `Token allocation segment.`,
+      image: '',
+      url: '',
+    },
   }
 }
 
-function buildVestingPayload(atom: CanonicalAtom, deps: EntityPinnerDeps): PinPayload {
-  const tokenName = atom.token_id ? deps.tokenContext?.get(atom.token_id)?.name : undefined
+function buildVestingPayload(
+  atom: CanonicalAtom,
+  deps: EntityPinnerDeps,
+): PinPayload {
+  const tokenName = atom.token_id
+    ? deps.tokenContext?.get(atom.token_id)?.name
+    : undefined
   const name = tokenName ? `${tokenName} vesting schedule` : 'vesting schedule'
   return {
     schema: 'Thing',
@@ -131,8 +165,13 @@ function buildVestingPayload(atom: CanonicalAtom, deps: EntityPinnerDeps): PinPa
   }
 }
 
-function buildEmissionPayload(atom: CanonicalAtom, deps: EntityPinnerDeps): PinPayload {
-  const tokenName = atom.token_id ? deps.tokenContext?.get(atom.token_id)?.name : undefined
+function buildEmissionPayload(
+  atom: CanonicalAtom,
+  deps: EntityPinnerDeps,
+): PinPayload {
+  const tokenName = atom.token_id
+    ? deps.tokenContext?.get(atom.token_id)?.name
+    : undefined
   const name = tokenName ? `${tokenName} emission model` : 'emission model'
   return {
     schema: 'Thing',
@@ -164,27 +203,43 @@ function buildTaxonomyPayload(atom: CanonicalAtom): PinPayload {
 }
 
 function safeHostname(url: string): string {
-  try { return new URL(url).hostname } catch { return url }
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
 }
 
 function buildPayload(atom: CanonicalAtom, deps: EntityPinnerDeps): PinPayload {
   switch (atom.atom_type) {
-    case 'token':       return buildTokenPayload(atom)
-    case 'allocation':  return buildAllocationPayload(atom, deps)
-    case 'vesting':     return buildVestingPayload(atom, deps)
-    case 'emission':    return buildEmissionPayload(atom, deps)
-    case 'data_source': return buildDataSourcePayload(atom)
+    case 'token':
+      return buildTokenPayload(atom)
+    case 'allocation':
+      return buildAllocationPayload(atom, deps)
+    case 'vesting':
+      return buildVestingPayload(atom, deps)
+    case 'emission':
+      return buildEmissionPayload(atom, deps)
+    case 'data_source':
+      return buildDataSourcePayload(atom)
     case 'category':
     case 'sector':
-    case 'chain':       return buildTaxonomyPayload(atom)
+    case 'chain':
+      return buildTaxonomyPayload(atom)
     default:
-      throw new Error(`[entity-pinner] no payload builder for atom_type: ${atom.atom_type}`)
+      throw new Error(
+        `[entity-pinner] no payload builder for atom_type: ${atom.atom_type}`,
+      )
   }
 }
 
 // ── Cache I/O ───────────────────────────────────────────────────────────────
 
-interface CacheRow { cid: string; uri: string; term_id: string }
+interface CacheRow {
+  cid: string
+  uri: string
+  term_id: string
+}
 
 async function readCache(
   supabase: SupabaseClient,
@@ -199,7 +254,8 @@ async function readCache(
     .eq('entity_key', key)
     .eq('content_hash', contentHash)
     .maybeSingle()
-  if (error) throw new Error(`[entity-pinner] cache read failed: ${error.message}`)
+  if (error)
+    throw new Error(`[entity-pinner] cache read failed: ${error.message}`)
   return (data as CacheRow | null) ?? null
 }
 
@@ -218,7 +274,8 @@ async function writeCache(
   const { error } = await supabase
     .from('intuition_pin_cache')
     .upsert(row, { onConflict: 'entity_kind,entity_key,content_hash' })
-  if (error) throw new Error(`[entity-pinner] cache write failed: ${error.message}`)
+  if (error)
+    throw new Error(`[entity-pinner] cache write failed: ${error.message}`)
 }
 
 function cidFromUri(uri: string): string {
@@ -241,7 +298,11 @@ export async function pinEntity(
 
   const cached = await readCache(deps.supabase, kind, atom.atom_id, contentHash)
   if (cached) {
-    return { uri: cached.uri, termId: cached.term_id as `0x${string}`, cached: true }
+    return {
+      uri: cached.uri,
+      termId: cached.term_id as `0x${string}`,
+      cached: true,
+    }
   }
 
   const uri = await pinByPayload(payload)
@@ -271,4 +332,9 @@ export async function pinEntities(
   return out
 }
 
-export const _internal = { canonicalJson, sha256Hex, buildPayload, entityKindOf }
+export const _internal = {
+  canonicalJson,
+  sha256Hex,
+  buildPayload,
+  entityKindOf,
+}

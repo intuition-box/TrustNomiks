@@ -8,19 +8,29 @@ import {
   type MulticallCapableClient,
 } from './read-batcher'
 
-const TERM_A = '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex
-const TERM_B = '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex
+const TERM_A =
+  '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex
+const TERM_B =
+  '0x0000000000000000000000000000000000000000000000000000000000000002' as Hex
 
 function successResult<T>(value: T) {
   return { status: 'success' as const, result: value, error: undefined }
 }
 
 function failureResult() {
-  return { status: 'failure' as const, result: undefined, error: new Error('revert') }
+  return {
+    status: 'failure' as const,
+    result: undefined,
+    error: new Error('revert'),
+  }
 }
 
 function mockMulticallClient(
-  results: Array<{ status: 'success' | 'failure'; result: unknown; error: unknown }>,
+  results: Array<{
+    status: 'success' | 'failure'
+    result: unknown
+    error: unknown
+  }>,
 ): MulticallCapableClient {
   return {
     multicall: vi.fn().mockResolvedValue(results),
@@ -44,19 +54,26 @@ describe('batchIsTermCreated', () => {
     expect(result.size).toBe(1)
     expect(result.get(TERM_A.toLowerCase() as Hex)).toBe(true)
     // Only one contract call, not three
-    const multicallArgs = (client.multicall as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    const multicallArgs = (client.multicall as ReturnType<typeof vi.fn>).mock
+      .calls[0][0]
     expect(multicallArgs.contracts).toHaveLength(1)
   })
 
   it('maps true results correctly', async () => {
-    const client = mockMulticallClient([successResult(true), successResult(true)])
+    const client = mockMulticallClient([
+      successResult(true),
+      successResult(true),
+    ])
     const result = await batchIsTermCreated(client, [TERM_A, TERM_B])
     expect(result.get(TERM_A.toLowerCase() as Hex)).toBe(true)
     expect(result.get(TERM_B.toLowerCase() as Hex)).toBe(true)
   })
 
   it('maps false results correctly', async () => {
-    const client = mockMulticallClient([successResult(false), successResult(false)])
+    const client = mockMulticallClient([
+      successResult(false),
+      successResult(false),
+    ])
     const result = await batchIsTermCreated(client, [TERM_A, TERM_B])
     expect(result.get(TERM_A.toLowerCase() as Hex)).toBe(false)
     expect(result.get(TERM_B.toLowerCase() as Hex)).toBe(false)
@@ -64,8 +81,9 @@ describe('batchIsTermCreated', () => {
 
   it('chunks large lists automatically', async () => {
     // 250 term IDs with chunkSize 100 → 3 multicalls
-    const ids = Array.from({ length: 250 }, (_, i) =>
-      `0x${String(i).padStart(64, '0')}` as Hex,
+    const ids = Array.from(
+      { length: 250 },
+      (_, i) => `0x${String(i).padStart(64, '0')}` as Hex,
     )
     const results = Array.from({ length: 100 }, () => successResult(false))
     const client = mockMulticallClient(results)
@@ -83,13 +101,17 @@ describe('batchIsTermCreated', () => {
 
   it('failureMode assumeExists returns true on failed call', async () => {
     const client = mockMulticallClient([failureResult()])
-    const result = await batchIsTermCreated(client, [TERM_A], { failureMode: 'assumeExists' })
+    const result = await batchIsTermCreated(client, [TERM_A], {
+      failureMode: 'assumeExists',
+    })
     expect(result.get(TERM_A.toLowerCase() as Hex)).toBe(true)
   })
 
   it('failureMode assumeMissing returns false on failed call', async () => {
     const client = mockMulticallClient([failureResult()])
-    const result = await batchIsTermCreated(client, [TERM_A], { failureMode: 'assumeMissing' })
+    const result = await batchIsTermCreated(client, [TERM_A], {
+      failureMode: 'assumeMissing',
+    })
     expect(result.get(TERM_A.toLowerCase() as Hex)).toBe(false)
   })
 
@@ -99,13 +121,16 @@ describe('batchIsTermCreated', () => {
   })
 
   it('preserves case-insensitive dedup (hex addresses)', async () => {
-    const lower = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1' as Hex
-    const upper = '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1' as Hex
+    const lower =
+      '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1' as Hex
+    const upper =
+      '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1' as Hex
     const client = mockMulticallClient([successResult(true)])
 
     const result = await batchIsTermCreated(client, [lower, upper])
     expect(result.size).toBe(1)
-    const multicallArgs = (client.multicall as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    const multicallArgs = (client.multicall as ReturnType<typeof vi.fn>).mock
+      .calls[0][0]
     expect(multicallArgs.contracts).toHaveLength(1)
   })
 

@@ -56,7 +56,9 @@ async function main() {
     { auth: { persistSession: false } },
   )
 
-  console.log('[republish-status] comparing predicate term_ids against canonical registry…')
+  console.log(
+    '[republish-status] comparing predicate term_ids against canonical registry…',
+  )
 
   // 1. Pull all predicate mappings (both snake_case and earlier-IPFS).
   const { data: predMappings, error: e1 } = await supabase
@@ -88,7 +90,9 @@ async function main() {
   console.log(`  ${aligned.length} predicate(s) already aligned with registry`)
   console.log(`  ${diverging.length} predicate(s) diverging — need republish`)
   if (diverging.length === 0) {
-    console.log('[republish-status] all predicates aligned — nothing to migrate.')
+    console.log(
+      '[republish-status] all predicates aligned — nothing to migrate.',
+    )
     return
   }
 
@@ -105,7 +109,9 @@ async function main() {
     )
   }
 
-  const legacyTermIds = diverging.map((m) => m.term_id).filter(Boolean) as string[]
+  const legacyTermIds = diverging
+    .map((m) => m.term_id)
+    .filter(Boolean) as string[]
 
   // 2. Pull triples that reference any legacy predicate.
   const { data: claims, error: e2 } = await supabase
@@ -130,7 +136,9 @@ async function main() {
     new Set((runs ?? []).map((r) => r.token_id as string)),
   )
   if (publishedTokenIds.length === 0) {
-    console.log('[republish-status] no completed publish runs in DB; legacy predicates exist but no token attribution available.')
+    console.log(
+      '[republish-status] no completed publish runs in DB; legacy predicates exist but no token attribution available.',
+    )
     return
   }
 
@@ -143,24 +151,40 @@ async function main() {
 
   // 4. Print checklist.
   console.log('')
-  console.log(`[republish-status] ${(tokens ?? []).length} published token(s) to re-publish under V2 vocabulary:`)
+  console.log(
+    `[republish-status] ${(tokens ?? []).length} published token(s) to re-publish under V2 vocabulary:`,
+  )
   console.log('')
   console.log('  status  ticker     name                         token_id')
   console.log('  ' + '─'.repeat(78))
   for (const t of (tokens ?? []) as TokenRow[]) {
-    console.log(`  ${t.status.padEnd(7)} ${(t.ticker ?? '').padEnd(10)} ${(t.name ?? '').padEnd(28)} ${t.id}`)
+    console.log(
+      `  ${t.status.padEnd(7)} ${(t.ticker ?? '').padEnd(10)} ${(t.name ?? '').padEnd(28)} ${t.id}`,
+    )
   }
 
   console.log('')
   console.log(`Affected on-chain triples: ${affected.length}`)
   console.log('')
   console.log('Next step:')
-  console.log('  Open each token in the dashboard and click "Publish to Intuition".')
-  console.log('  The bundle-builder now resolves predicates via canonical-registry.json,')
-  console.log('  so the new run will produce fresh canonical predicate term_ids and')
-  console.log('  re-link existing entity atoms to them. Old triples remain on-chain as')
-  console.log('  legacy noise (testnet acceptable). Mainnet migration would add')
-  console.log('  `deprecates` provenance triples — out of scope for this sprint.')
+  console.log(
+    '  Open each token in the dashboard and click "Publish to Intuition".',
+  )
+  console.log(
+    '  The bundle-builder now resolves predicates via canonical-registry.json,',
+  )
+  console.log(
+    '  so the new run will produce fresh canonical predicate term_ids and',
+  )
+  console.log(
+    '  re-link existing entity atoms to them. Old triples remain on-chain as',
+  )
+  console.log(
+    '  legacy noise (testnet acceptable). Mainnet migration would add',
+  )
+  console.log(
+    '  `deprecates` provenance triples — out of scope for this sprint.',
+  )
 }
 
 main().catch((err) => {

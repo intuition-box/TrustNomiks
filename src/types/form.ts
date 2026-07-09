@@ -1,9 +1,7 @@
 import { z } from 'zod'
 
 const toTitleCaseFromSlug = (value: string) =>
-  value
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase())
+  value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 
 export const CATEGORY_OPTIONS = [
   {
@@ -42,9 +40,24 @@ export const SECTOR_OPTIONS = [
     category: 'financial',
     description: `A passive investment solution that offers returns linked to the performance of a asset or market. It can be managed (by an entity or verified traders) or in self-managed mode (by the owner or their personal managers). Includes AI-driven investment applications such as Numeraire (NMR).`,
   },
-  { value: 'cex', label: 'CEX', category: 'financial', description: `Centralized stock exchange for trading.` },
-  { value: 'dex', label: 'DEX', category: 'financial', description: `Decentralized protocol (Dapp) enabling exchanges and the provision of liquidity in return for payment.` },
-  { value: 'lending', label: 'Lending', category: 'financial', description: `(Pseudo-)decentralized protocol (Dapp) for borrowing and lending.` },
+  {
+    value: 'cex',
+    label: 'CEX',
+    category: 'financial',
+    description: `Centralized stock exchange for trading.`,
+  },
+  {
+    value: 'dex',
+    label: 'DEX',
+    category: 'financial',
+    description: `Decentralized protocol (Dapp) enabling exchanges and the provision of liquidity in return for payment.`,
+  },
+  {
+    value: 'lending',
+    label: 'Lending',
+    category: 'financial',
+    description: `(Pseudo-)decentralized protocol (Dapp) for borrowing and lending.`,
+  },
   {
     value: 'yield-strategy',
     label: 'Yield Strategy',
@@ -57,8 +70,18 @@ export const SECTOR_OPTIONS = [
     category: 'financial',
     description: `Gambling platform or prediction market enabling speculation on various future events such as political or sporting events. These protocols usually have a smart-contract infrastructure, giving life to autonomous prediction markets.`,
   },
-  { value: 'derivative-market', label: 'Derivative Market', category: 'financial', description: `Protocol for trading options, derivatives or synthetic assets.` },
-  { value: 'funding', label: 'Funding', category: 'financial', description: `Crowdfunding platform, particularly launchpads and fundraising protocols that facilitate ICOs, IDOs, or IFOs.` },
+  {
+    value: 'derivative-market',
+    label: 'Derivative Market',
+    category: 'financial',
+    description: `Protocol for trading options, derivatives or synthetic assets.`,
+  },
+  {
+    value: 'funding',
+    label: 'Funding',
+    category: 'financial',
+    description: `Crowdfunding platform, particularly launchpads and fundraising protocols that facilitate ICOs, IDOs, or IFOs.`,
+  },
   {
     value: 'oracle-data',
     label: 'Oracle/Data',
@@ -194,7 +217,9 @@ const LEGACY_CATEGORY_MAP: Record<string, CategoryType> = {
   other: 'two-sided-market',
 }
 
-export const normalizeCategory = (value: string | null | undefined): CategoryType | null => {
+export const normalizeCategory = (
+  value: string | null | undefined,
+): CategoryType | null => {
   const normalized = value?.trim().toLowerCase()
   if (!normalized) return null
 
@@ -204,10 +229,13 @@ export const normalizeCategory = (value: string | null | undefined): CategoryTyp
   return LEGACY_CATEGORY_MAP[normalized] || null
 }
 
-export const toSupportedCategory = (value: string | null | undefined): CategoryType | null =>
-  normalizeCategory(value)
+export const toSupportedCategory = (
+  value: string | null | undefined,
+): CategoryType | null => normalizeCategory(value)
 
-export const normalizeSector = (value: string | null | undefined): SectorType | null => {
+export const normalizeSector = (
+  value: string | null | undefined,
+): SectorType | null => {
   const normalized = value?.trim().toLowerCase()
   if (!normalized) return null
 
@@ -216,8 +244,9 @@ export const normalizeSector = (value: string | null | undefined): SectorType | 
   return match?.value || null
 }
 
-export const toSupportedSector = (value: string | null | undefined): SectorType | null =>
-  normalizeSector(value)
+export const toSupportedSector = (
+  value: string | null | undefined,
+): SectorType | null => normalizeSector(value)
 
 export const getCategoryOption = (value: string | null | undefined) => {
   const normalized = normalizeCategory(value)
@@ -234,17 +263,19 @@ export const getSectorOption = (value: string | null | undefined) => {
 }
 
 export const getSectorOptionsByCategory = (
-  category: string | null | undefined
+  category: string | null | undefined,
 ) => {
   const normalizedCategory = normalizeCategory(category)
   if (!normalizedCategory) return []
 
-  return SECTOR_OPTIONS.filter((option) => option.category === normalizedCategory)
+  return SECTOR_OPTIONS.filter(
+    (option) => option.category === normalizedCategory,
+  )
 }
 
 export const isSectorCompatibleWithCategory = (
   category: string | null | undefined,
-  sector: string | null | undefined
+  sector: string | null | undefined,
 ) => {
   const normalizedCategory = normalizeCategory(category)
   const sectorOption = getSectorOption(sector)
@@ -253,7 +284,9 @@ export const isSectorCompatibleWithCategory = (
   return sectorOption.category === normalizedCategory
 }
 
-export const formatCategoryLabel = (value: string | null | undefined): string => {
+export const formatCategoryLabel = (
+  value: string | null | undefined,
+): string => {
   const option = getCategoryOption(value)
   if (option) return option.label
 
@@ -269,117 +302,148 @@ export const formatSectorLabel = (value: string | null | undefined): string => {
   return toTitleCaseFromSlug(value)
 }
 
-export const getCategoryDescription = (value: string | null | undefined): string => {
+export const getCategoryDescription = (
+  value: string | null | undefined,
+): string => {
   const option = getCategoryOption(value)
   return option?.description || ''
 }
 
-export const getSectorDescription = (value: string | null | undefined): string => {
+export const getSectorDescription = (
+  value: string | null | undefined,
+): string => {
   const option = getSectorOption(value)
   return option?.description || ''
 }
 
 // Step 1: Token Identity
-export const tokenIdentitySchema = z.object({
-  name: z.string().min(1, 'Project name is required'),
-  ticker: z.string().min(1, 'Ticker is required').transform(val => val.toUpperCase()),
-  chain: z.string().optional(),
-  contract_address: z.string().optional(),
-  coingecko_id: z.string().optional(),
-  coingecko_image: z.string().optional(),
-  tge_date: z.string().optional(),
-  category: z.string().optional(),
-  sector: z.string().optional(),
-  notes: z.string().optional(),
-}).superRefine((data, ctx) => {
-  const category = normalizeCategory(data.category)
-  const sector = normalizeSector(data.sector)
+export const tokenIdentitySchema = z
+  .object({
+    name: z.string().min(1, 'Project name is required'),
+    ticker: z
+      .string()
+      .min(1, 'Ticker is required')
+      .transform((val) => val.toUpperCase()),
+    chain: z.string().optional(),
+    contract_address: z.string().optional(),
+    coingecko_id: z.string().optional(),
+    coingecko_image: z.string().optional(),
+    tge_date: z.string().optional(),
+    category: z.string().optional(),
+    sector: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const category = normalizeCategory(data.category)
+    const sector = normalizeSector(data.sector)
 
-  if (data.category && !category) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Invalid category selected',
-      path: ['category'],
-    })
-  }
+    if (data.category && !category) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid category selected',
+        path: ['category'],
+      })
+    }
 
-  if (data.sector && !sector) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Invalid sector selected',
-      path: ['sector'],
-    })
-  }
+    if (data.sector && !sector) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid sector selected',
+        path: ['sector'],
+      })
+    }
 
-  if (category && !sector) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Sector is required when category is selected',
-      path: ['sector'],
-    })
-  }
+    if (category && !sector) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Sector is required when category is selected',
+        path: ['sector'],
+      })
+    }
 
-  if (sector && !category) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Category is required when sector is selected',
-      path: ['category'],
-    })
-  }
+    if (sector && !category) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Category is required when sector is selected',
+        path: ['category'],
+      })
+    }
 
-  if (category && sector && !isSectorCompatibleWithCategory(category, sector)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Selected sector does not belong to this category',
-      path: ['sector'],
-    })
-  }
-})
+    if (
+      category &&
+      sector &&
+      !isSectorCompatibleWithCategory(category, sector)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Selected sector does not belong to this category',
+        path: ['sector'],
+      })
+    }
+  })
 
 export type TokenIdentityFormData = z.infer<typeof tokenIdentitySchema>
 
 // Step 2: Supply Metrics
-export const supplyMetricsSchema = z.object({
-  max_supply: z.string().optional(),
-  initial_supply: z.string().optional(),
-  tge_supply: z.string().optional(),
-  circulating_supply: z.string().optional(),
-  circulating_date: z.string().optional(),
-  source_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
-  notes: z.string().optional(),
-}).superRefine((data, ctx) => {
-  const parse = (v?: string) => {
-    if (!v || v.trim() === '') return null
-    const n = Number(v.replace(/,/g, ''))
-    return isNaN(n) ? null : n
-  }
-  const maxSupply = parse(data.max_supply)
-  const initialSupply = parse(data.initial_supply)
-  const tgeSupply = parse(data.tge_supply)
-  const circulatingSupply = parse(data.circulating_supply)
+export const supplyMetricsSchema = z
+  .object({
+    max_supply: z.string().optional(),
+    initial_supply: z.string().optional(),
+    tge_supply: z.string().optional(),
+    circulating_supply: z.string().optional(),
+    circulating_date: z.string().optional(),
+    source_url: z
+      .string()
+      .url('Must be a valid URL')
+      .optional()
+      .or(z.literal('')),
+    notes: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const parse = (v?: string) => {
+      if (!v || v.trim() === '') return null
+      const n = Number(v.replace(/,/g, ''))
+      return isNaN(n) ? null : n
+    }
+    const maxSupply = parse(data.max_supply)
+    const initialSupply = parse(data.initial_supply)
+    const tgeSupply = parse(data.tge_supply)
+    const circulatingSupply = parse(data.circulating_supply)
 
-  if (maxSupply !== null && initialSupply !== null && maxSupply < initialSupply) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Initial supply cannot exceed max supply',
-      path: ['initial_supply'],
-    })
-  }
-  if (initialSupply !== null && tgeSupply !== null && initialSupply < tgeSupply) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'TGE supply cannot exceed initial supply',
-      path: ['tge_supply'],
-    })
-  }
-  if (maxSupply !== null && circulatingSupply !== null && circulatingSupply > maxSupply) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Circulating supply cannot exceed max supply',
-      path: ['circulating_supply'],
-    })
-  }
-})
+    if (
+      maxSupply !== null &&
+      initialSupply !== null &&
+      maxSupply < initialSupply
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Initial supply cannot exceed max supply',
+        path: ['initial_supply'],
+      })
+    }
+    if (
+      initialSupply !== null &&
+      tgeSupply !== null &&
+      initialSupply < tgeSupply
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'TGE supply cannot exceed initial supply',
+        path: ['tge_supply'],
+      })
+    }
+    if (
+      maxSupply !== null &&
+      circulatingSupply !== null &&
+      circulatingSupply > maxSupply
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Circulating supply cannot exceed max supply',
+        path: ['circulating_supply'],
+      })
+    }
+  })
 
 export type SupplyMetricsFormData = z.infer<typeof supplyMetricsSchema>
 
@@ -410,7 +474,9 @@ const LEGACY_SEGMENT_TYPE_MAP: Record<string, SegmentType> = {
   other: 'marketing',
 }
 
-export const normalizeSegmentType = (value: string | null | undefined): SegmentType | null => {
+export const normalizeSegmentType = (
+  value: string | null | undefined,
+): SegmentType | null => {
   const normalized = value?.trim().toLowerCase()
   if (!normalized) return null
   if ((SEGMENT_TYPES as readonly string[]).includes(normalized)) {
@@ -422,7 +488,7 @@ export const normalizeSegmentType = (value: string | null | undefined): SegmentT
 
 export const toSupportedSegmentType = (
   value: string | null | undefined,
-  fallback: SegmentType = 'marketing'
+  fallback: SegmentType = 'marketing',
 ): SegmentType => normalizeSegmentType(value) ?? fallback
 
 export const allocationSegmentSchema = z.object({
@@ -438,7 +504,9 @@ export const allocationSegmentSchema = z.object({
 // simply worth fewer completeness points. The 100% target is communicated by
 // the studio's live sum bar, not enforced by a save-blocking validation.
 export const allocationsSchema = z.object({
-  segments: z.array(allocationSegmentSchema).min(1, 'At least one allocation segment is required'),
+  segments: z
+    .array(allocationSegmentSchema)
+    .min(1, 'At least one allocation segment is required'),
 })
 
 export type AllocationSegment = z.infer<typeof allocationSegmentSchema>
@@ -500,10 +568,14 @@ export const getSegmentTypeOption = (value: string | null | undefined) => {
   const normalized = normalizeSegmentType(value)
   if (!normalized) return null
 
-  return SEGMENT_TYPE_OPTIONS.find((option) => option.value === normalized) || null
+  return (
+    SEGMENT_TYPE_OPTIONS.find((option) => option.value === normalized) || null
+  )
 }
 
-export const formatSegmentTypeLabel = (value: string | null | undefined): string => {
+export const formatSegmentTypeLabel = (
+  value: string | null | undefined,
+): string => {
   const option = getSegmentTypeOption(value)
   if (option) return option.label
 
@@ -511,7 +583,9 @@ export const formatSegmentTypeLabel = (value: string | null | undefined): string
   return toTitleCaseFromSlug(value)
 }
 
-export const getSegmentTypeDescription = (value: string | null | undefined): string => {
+export const getSegmentTypeDescription = (
+  value: string | null | undefined,
+): string => {
   const option = getSegmentTypeOption(value)
   return option?.description || ''
 }
@@ -528,7 +602,7 @@ export const VESTING_FREQUENCIES = [
 export type VestingFrequency = (typeof VESTING_FREQUENCIES)[number]
 
 export const normalizeVestingFrequency = (
-  frequency: string | null | undefined
+  frequency: string | null | undefined,
 ): VestingFrequency => {
   if (frequency === 'quarterly') return 'yearly'
   if (!frequency) return 'monthly'
@@ -548,38 +622,48 @@ export const vestingScheduleSchema = z.object({
   notes: z.string().optional(),
 })
 
-export const vestingSchedulesSchema = z.object({
-  schedules: z.record(z.string(), vestingScheduleSchema),
-}).superRefine((data, ctx) => {
-  for (const [allocId, schedule] of Object.entries(data.schedules)) {
-    // Validate cliff_months <= duration_months
-    if (schedule.cliff_months && schedule.cliff_months.trim() !== '' &&
-        schedule.duration_months && schedule.duration_months.trim() !== '') {
-      const cliff = parseInt(schedule.cliff_months, 10)
-      const duration = parseInt(schedule.duration_months, 10)
-      if (!isNaN(cliff) && !isNaN(duration) && cliff > duration) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Cliff period cannot exceed vesting duration',
-          path: ['schedules', allocId, 'cliff_months'],
-        })
+export const vestingSchedulesSchema = z
+  .object({
+    schedules: z.record(z.string(), vestingScheduleSchema),
+  })
+  .superRefine((data, ctx) => {
+    for (const [allocId, schedule] of Object.entries(data.schedules)) {
+      // Validate cliff_months <= duration_months
+      if (
+        schedule.cliff_months &&
+        schedule.cliff_months.trim() !== '' &&
+        schedule.duration_months &&
+        schedule.duration_months.trim() !== ''
+      ) {
+        const cliff = parseInt(schedule.cliff_months, 10)
+        const duration = parseInt(schedule.duration_months, 10)
+        if (!isNaN(cliff) && !isNaN(duration) && cliff > duration) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Cliff period cannot exceed vesting duration',
+            path: ['schedules', allocId, 'cliff_months'],
+          })
+        }
+      }
+      // Validate tge_percentage + cliff_unlock_percentage <= 100
+      if (
+        schedule.tge_percentage &&
+        schedule.tge_percentage.trim() !== '' &&
+        schedule.cliff_unlock_percentage &&
+        schedule.cliff_unlock_percentage.trim() !== ''
+      ) {
+        const tge = parseFloat(schedule.tge_percentage)
+        const cliffUnlock = parseFloat(schedule.cliff_unlock_percentage)
+        if (!isNaN(tge) && !isNaN(cliffUnlock) && tge + cliffUnlock > 100) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'TGE% + Cliff unlock% cannot exceed 100%',
+            path: ['schedules', allocId, 'tge_percentage'],
+          })
+        }
       }
     }
-    // Validate tge_percentage + cliff_unlock_percentage <= 100
-    if (schedule.tge_percentage && schedule.tge_percentage.trim() !== '' &&
-        schedule.cliff_unlock_percentage && schedule.cliff_unlock_percentage.trim() !== '') {
-      const tge = parseFloat(schedule.tge_percentage)
-      const cliffUnlock = parseFloat(schedule.cliff_unlock_percentage)
-      if (!isNaN(tge) && !isNaN(cliffUnlock) && tge + cliffUnlock > 100) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'TGE% + Cliff unlock% cannot exceed 100%',
-          path: ['schedules', allocId, 'tge_percentage'],
-        })
-      }
-    }
-  }
-})
+  })
 
 export type VestingSchedule = z.infer<typeof vestingScheduleSchema>
 export type VestingSchedulesFormData = z.infer<typeof vestingSchedulesSchema>
@@ -594,16 +678,24 @@ export const VESTING_FREQUENCY_OPTIONS = [
 ]
 
 // Segment types that typically have immediate vesting
-export const IMMEDIATE_SEGMENT_TYPES: SegmentType[] = ['liquidity', 'airdrop', 'funding-public']
+export const IMMEDIATE_SEGMENT_TYPES: SegmentType[] = [
+  'liquidity',
+  'airdrop',
+  'funding-public',
+]
 
 // Step 5: Emission Model
 export const emissionModelSchema = z.object({
   type: z.string().min(1, 'Emission type is required'),
   annual_inflation_rate: z.string().optional(),
-  inflation_schedule: z.array(z.object({
-    year: z.string().min(1, 'Year is required'),
-    rate: z.string().min(1, 'Rate is required'),
-  })).optional(),
+  inflation_schedule: z
+    .array(
+      z.object({
+        year: z.string().min(1, 'Year is required'),
+        rate: z.string().min(1, 'Rate is required'),
+      }),
+    )
+    .optional(),
   has_burn: z.boolean().optional(),
   burn_details: z.string().optional(),
   has_buyback: z.boolean().optional(),
@@ -745,7 +837,8 @@ export const RISK_FLAG_TYPE_OPTIONS = [
   {
     value: 'other',
     label: 'Other',
-    description: 'Any other risk signal not covered by the categories above. Describe it in the justification.',
+    description:
+      'Any other risk signal not covered by the categories above. Describe it in the justification.',
   },
 ] as const
 
@@ -758,10 +851,14 @@ export const RISK_SEVERITY_OPTIONS = [
 export const getRiskFlagTypeOption = (value: string | null | undefined) => {
   if (!value) return null
   const normalized = value.trim().toLowerCase()
-  return RISK_FLAG_TYPE_OPTIONS.find((option) => option.value === normalized) || null
+  return (
+    RISK_FLAG_TYPE_OPTIONS.find((option) => option.value === normalized) || null
+  )
 }
 
-export const formatRiskFlagTypeLabel = (value: string | null | undefined): string => {
+export const formatRiskFlagTypeLabel = (
+  value: string | null | undefined,
+): string => {
   const option = getRiskFlagTypeOption(value)
   if (option) return option.label
 
@@ -769,21 +866,30 @@ export const formatRiskFlagTypeLabel = (value: string | null | undefined): strin
   return toTitleCaseFromSlug(value)
 }
 
-export const getRiskFlagTypeDescription = (value: string | null | undefined): string => {
+export const getRiskFlagTypeDescription = (
+  value: string | null | undefined,
+): string => {
   const option = getRiskFlagTypeOption(value)
   return option?.description || ''
 }
 
-export const normalizeRiskSeverity = (value: string | null | undefined): RiskSeverity => {
+export const normalizeRiskSeverity = (
+  value: string | null | undefined,
+): RiskSeverity => {
   const normalized = value?.trim().toLowerCase()
   return (RISK_SEVERITIES as readonly string[]).includes(normalized ?? '')
     ? (normalized as RiskSeverity)
     : 'medium'
 }
 
-export const formatRiskSeverityLabel = (value: string | null | undefined): string => {
+export const formatRiskSeverityLabel = (
+  value: string | null | undefined,
+): string => {
   const severity = normalizeRiskSeverity(value)
-  return RISK_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ?? 'Medium'
+  return (
+    RISK_SEVERITY_OPTIONS.find((option) => option.value === severity)?.label ??
+    'Medium'
+  )
 }
 
 // Form steps

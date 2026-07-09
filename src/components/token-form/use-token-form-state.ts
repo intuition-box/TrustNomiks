@@ -75,9 +75,16 @@ export function useTokenFormState() {
   const [finalScore, setFinalScore] = useState<number | null>(null)
   const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
-  const [identityGuideTarget, setIdentityGuideTarget] = useState<'category' | 'sector' | null>(null)
-  const [segmentGuideRowIndex, setSegmentGuideRowIndex] = useState<number | null>(null)
-  const [pendingRemoval, setPendingRemoval] = useState<{ type: 'allocation' | 'source' | 'risk'; index: number } | null>(null)
+  const [identityGuideTarget, setIdentityGuideTarget] = useState<
+    'category' | 'sector' | null
+  >(null)
+  const [segmentGuideRowIndex, setSegmentGuideRowIndex] = useState<
+    number | null
+  >(null)
+  const [pendingRemoval, setPendingRemoval] = useState<{
+    type: 'allocation' | 'source' | 'risk'
+    index: number
+  } | null>(null)
   const prevScoreRef = useRef(0)
   const [flashPts, setFlashPts] = useState(0)
   const [flashKey, setFlashKey] = useState(0)
@@ -90,9 +97,12 @@ export function useTokenFormState() {
   const [activeSection, setActiveSection] = useState<StudioSectionKey>(
     SECTION_ORDER.includes(sectionParam as StudioSectionKey)
       ? (sectionParam as StudioSectionKey)
-      : 'identity'
+      : 'identity',
   )
-  const [autosave, setAutosave] = useState<{ status: AutosaveStatus; at: number | null }>({
+  const [autosave, setAutosave] = useState<{
+    status: AutosaveStatus
+    at: number | null
+  }>({
     status: 'idle',
     at: null,
   })
@@ -118,7 +128,7 @@ export function useTokenFormState() {
     return () => window.clearInterval(i)
   }, [])
 
-  const enqueueSave = <T,>(fn: () => Promise<T>): Promise<T> => {
+  const enqueueSave = <T>(fn: () => Promise<T>): Promise<T> => {
     const next = saveChainRef.current.then(fn, fn)
     saveChainRef.current = next.catch(() => undefined)
     return next
@@ -208,7 +218,11 @@ export function useTokenFormState() {
     },
   })
 
-  const { fields: sourceFields, append: appendSource, remove: removeSource } = useFieldArray({
+  const {
+    fields: sourceFields,
+    append: appendSource,
+    remove: removeSource,
+  } = useFieldArray({
     control: step6Form.control,
     name: 'sources',
   })
@@ -221,7 +235,11 @@ export function useTokenFormState() {
     },
   })
 
-  const { fields: riskFields, append: appendRisk, remove: removeRisk } = useFieldArray({
+  const {
+    fields: riskFields,
+    append: appendRisk,
+    remove: removeRisk,
+  } = useFieldArray({
     control: step7Form.control,
     name: 'flags',
   })
@@ -231,7 +249,10 @@ export function useTokenFormState() {
     if (!tokenId || allocations.length === 0) return
     const current = step6Form.getValues('attributions')
     if (!current || current.length === 0) {
-      step6Form.setValue('attributions', buildDefaultAttributions(allocations, current))
+      step6Form.setValue(
+        'attributions',
+        buildDefaultAttributions(allocations, current),
+      )
     }
   }, [tokenId, allocations.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -274,8 +295,11 @@ export function useTokenFormState() {
 
       step4Form.reset({
         schedules: buildStep4Schedules(
-          (allocationData || []).map((alloc) => ({ id: alloc.id, segment_type: alloc.segment_type })),
-          vestingData || []
+          (allocationData || []).map((alloc) => ({
+            id: alloc.id,
+            segment_type: alloc.segment_type,
+          })),
+          vestingData || [],
         ),
       })
     } catch (error: unknown) {
@@ -340,10 +364,18 @@ export function useTokenFormState() {
 
       if (supplyData) {
         step2Form.reset({
-          max_supply: supplyData.max_supply ? formatNumber(String(supplyData.max_supply)) : '',
-          initial_supply: supplyData.initial_supply ? formatNumber(String(supplyData.initial_supply)) : '',
-          tge_supply: supplyData.tge_supply ? formatNumber(String(supplyData.tge_supply)) : '',
-          circulating_supply: supplyData.circulating_supply ? formatNumber(String(supplyData.circulating_supply)) : '',
+          max_supply: supplyData.max_supply
+            ? formatNumber(String(supplyData.max_supply))
+            : '',
+          initial_supply: supplyData.initial_supply
+            ? formatNumber(String(supplyData.initial_supply))
+            : '',
+          tge_supply: supplyData.tge_supply
+            ? formatNumber(String(supplyData.tge_supply))
+            : '',
+          circulating_supply: supplyData.circulating_supply
+            ? formatNumber(String(supplyData.circulating_supply))
+            : '',
           circulating_date: supplyData.circulating_date || undefined,
           source_url: supplyData.source_url || '',
           notes: supplyData.notes || '',
@@ -360,14 +392,15 @@ export function useTokenFormState() {
         .eq('token_id', id)
         .order('percentage', { ascending: false })
 
-      const allocationsWithIds: AllocationWithId[] = allocData?.map((alloc) => ({
-        id: alloc.id,
-        segment_type: toSupportedSegmentType(alloc.segment_type),
-        label: alloc.label,
-        percentage: alloc.percentage.toString(),
-        token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
-        wallet_address: alloc.wallet_address || '',
-      })) ?? []
+      const allocationsWithIds: AllocationWithId[] =
+        allocData?.map((alloc) => ({
+          id: alloc.id,
+          segment_type: toSupportedSegmentType(alloc.segment_type),
+          label: alloc.label,
+          percentage: alloc.percentage.toString(),
+          token_amount: alloc.token_amount ? String(alloc.token_amount) : '',
+          wallet_address: alloc.wallet_address || '',
+        })) ?? []
 
       if (allocationsWithIds.length > 0) {
         setAllocations(allocationsWithIds)
@@ -376,7 +409,7 @@ export function useTokenFormState() {
 
       // Fetch and pre-fill Step 4 - Vesting Schedules
       if (allocData && allocData.length > 0) {
-        const allocationIds = allocData.map(a => a.id)
+        const allocationIds = allocData.map((a) => a.id)
         const { data: vestingData } = await supabase
           .from('vesting_schedules')
           .select('*')
@@ -384,8 +417,11 @@ export function useTokenFormState() {
 
         step4Form.reset({
           schedules: buildStep4Schedules(
-            allocData.map((alloc) => ({ id: alloc.id, segment_type: alloc.segment_type })),
-            vestingData || []
+            allocData.map((alloc) => ({
+              id: alloc.id,
+              segment_type: alloc.segment_type,
+            })),
+            vestingData || [],
           ),
         })
       }
@@ -400,7 +436,8 @@ export function useTokenFormState() {
       if (emissionData) {
         step5Form.reset({
           type: emissionData.type,
-          annual_inflation_rate: emissionData.annual_inflation_rate?.toString() || '',
+          annual_inflation_rate:
+            emissionData.annual_inflation_rate?.toString() || '',
           has_burn: emissionData.has_burn || false,
           burn_details: emissionData.burn_details || '',
           has_buyback: emissionData.has_buyback || false,
@@ -424,22 +461,26 @@ export function useTokenFormState() {
 
         // Build attribution index map: key → list of source indices (as strings)
         const attrMap = new Map<string, string[]>()
-        claimSourcesData?.forEach(cs => {
+        claimSourcesData?.forEach((cs) => {
           const key = `${cs.claim_type}:${cs.claim_id ?? 'null'}`
-          const srcIdx = sourcesData.findIndex(s => s.id === cs.data_source_id)
+          const srcIdx = sourcesData.findIndex(
+            (s) => s.id === cs.data_source_id,
+          )
           if (srcIdx < 0) return
           if (!attrMap.has(key)) attrMap.set(key, [])
           attrMap.get(key)!.push(srcIdx.toString())
         })
 
         // Build attribution rows from the locally-loaded allocations (not stale state)
-        const prefilledAttributions = buildDefaultAttributions(allocationsWithIds).map(row => {
+        const prefilledAttributions = buildDefaultAttributions(
+          allocationsWithIds,
+        ).map((row) => {
           const key = `${row.claim_type}:${row.claim_id ?? 'null'}`
           return { ...row, data_source_ids: attrMap.get(key) ?? [] }
         })
 
         step6Form.reset({
-          sources: sourcesData.map(source => ({
+          sources: sourcesData.map((source) => ({
             id: source.id,
             source_type: source.source_type,
             document_name: source.document_name,
@@ -567,7 +608,9 @@ export function useTokenFormState() {
   // closes over fresh state (initialUpdatedAt for the optimistic lock). The
   // real implementation is assigned in use-token-save-handlers.ts, which is
   // the only place with access to onSubmitStep1..7.
-  const saveSectionRef = useRef<(key: StudioSectionKey) => Promise<boolean>>(async () => false)
+  const saveSectionRef = useRef<(key: StudioSectionKey) => Promise<boolean>>(
+    async () => false,
+  )
 
   const allocationsRef = useRef(allocations)
   useEffect(() => {
@@ -579,45 +622,64 @@ export function useTokenFormState() {
   const autosaveActiveRef = useRef<() => Promise<void>>(async () => {})
 
   // Live token identity values for the page header
-  const liveTokenName   = step1Form.watch('name')
+  const liveTokenName = step1Form.watch('name')
   const liveTokenTicker = step1Form.watch('ticker')
-  const liveChain       = step1Form.watch('chain')
-  const liveCategory    = step1Form.watch('category')
-  const liveSector      = step1Form.watch('sector')
-  const chainLabel      = BLOCKCHAIN_OPTIONS.find(b => b.value === liveChain)?.label ?? liveChain
+  const liveChain = step1Form.watch('chain')
+  const liveCategory = step1Form.watch('category')
+  const liveSector = step1Form.watch('sector')
+  const chainLabel =
+    BLOCKCHAIN_OPTIONS.find((b) => b.value === liveChain)?.label ?? liveChain
 
   // ── Live score (client-side, mirrors computeScores logic) ──────────────────
-  const _lw1name   = step1Form.watch('name')
+  const _lw1name = step1Form.watch('name')
   const _lw1ticker = step1Form.watch('ticker')
-  const _lw1chain  = step1Form.watch('chain')
-  const _lw1addr   = step1Form.watch('contract_address')
-  const _lw1tge    = step1Form.watch('tge_date')
-  const _lw2max    = step2Form.watch('max_supply')
-  const _lw2init   = step2Form.watch('initial_supply')
-  const _lw2tge    = step2Form.watch('tge_supply')
-  const _lw3segs   = step3Form.watch('segments') || []
-  const _lw5type   = step5Form.watch('type')
-  const _lw5infl   = step5Form.watch('annual_inflation_rate')
-  const _lw5burn   = step5Form.watch('has_burn')
-  const _lw5buy    = step5Form.watch('has_buyback')
-  const _lw6srcs   = step6Form.watch('sources') || []
-  const _lw7flags  = step7Form.watch('flags') || []
+  const _lw1chain = step1Form.watch('chain')
+  const _lw1addr = step1Form.watch('contract_address')
+  const _lw1tge = step1Form.watch('tge_date')
+  const _lw2max = step2Form.watch('max_supply')
+  const _lw2init = step2Form.watch('initial_supply')
+  const _lw2tge = step2Form.watch('tge_supply')
+  const _lw3segs = step3Form.watch('segments') || []
+  const _lw5type = step5Form.watch('type')
+  const _lw5infl = step5Form.watch('annual_inflation_rate')
+  const _lw5burn = step5Form.watch('has_burn')
+  const _lw5buy = step5Form.watch('has_buyback')
+  const _lw6srcs = step6Form.watch('sources') || []
+  const _lw7flags = step7Form.watch('flags') || []
 
-  const liveIdentityScore   = (_lw1name && _lw1ticker && _lw1chain ? 10 : 0) + (_lw1addr ? 5 : 0) + (_lw1tge ? 5 : 0)
-  const liveSupplyScore     = _lw2max ? 10 + ((_lw2init || _lw2tge) ? 5 : 0) : 0
-  const _lw3total           = _lw3segs.reduce((t, s) => t + (parseFloat(s.percentage) || 0), 0)
-  const liveAllocationScore = (_lw3segs.length >= 3 ? 10 : 0) + (Math.abs(_lw3total - 100) < 0.01 ? 10 : 0)
-  const liveVestingScore    = completedSteps.includes(4) ? 20 : 0
-  const liveEmissionScore   = _lw5type ? 5 + ((_lw5infl || _lw5burn || _lw5buy) ? 5 : 0) : 0
-  const liveSourcesScore    = _lw6srcs.length >= 1 ? 10 : 0
-  const liveTotalScore      = Math.min(100, liveIdentityScore + liveSupplyScore + liveAllocationScore + liveVestingScore + liveEmissionScore + liveSourcesScore)
+  const liveIdentityScore =
+    (_lw1name && _lw1ticker && _lw1chain ? 10 : 0) +
+    (_lw1addr ? 5 : 0) +
+    (_lw1tge ? 5 : 0)
+  const liveSupplyScore = _lw2max ? 10 + (_lw2init || _lw2tge ? 5 : 0) : 0
+  const _lw3total = _lw3segs.reduce(
+    (t, s) => t + (parseFloat(s.percentage) || 0),
+    0,
+  )
+  const liveAllocationScore =
+    (_lw3segs.length >= 3 ? 10 : 0) +
+    (Math.abs(_lw3total - 100) < 0.01 ? 10 : 0)
+  const liveVestingScore = completedSteps.includes(4) ? 20 : 0
+  const liveEmissionScore = _lw5type
+    ? 5 + (_lw5infl || _lw5burn || _lw5buy ? 5 : 0)
+    : 0
+  const liveSourcesScore = _lw6srcs.length >= 1 ? 10 : 0
+  const liveTotalScore = Math.min(
+    100,
+    liveIdentityScore +
+      liveSupplyScore +
+      liveAllocationScore +
+      liveVestingScore +
+      liveEmissionScore +
+      liveSourcesScore,
+  )
 
   // Flash animation when score increases
   useEffect(() => {
     const diff = liveTotalScore - prevScoreRef.current
     if (diff > 0) {
       setFlashPts(diff)
-      setFlashKey(k => k + 1)
+      setFlashKey((k) => k + 1)
       setShowFlash(true)
       const t = setTimeout(() => setShowFlash(false), 1400)
       prevScoreRef.current = liveTotalScore

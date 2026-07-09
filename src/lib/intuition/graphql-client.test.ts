@@ -44,76 +44,96 @@ describe('intuition graphql-client', () => {
 
   it('maps account activity into the UI response shape', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({
-        data: {
-          positions: [
-            {
-              id: 'position-1',
-              account_id: WALLET,
-              shares: '2000000000000000000',
-              term_id: '0xterm',
-              curve_id: '1',
-              created_at: '2026-05-01T00:00:00+00:00',
-              updated_at: '2026-05-02T00:00:00+00:00',
-              transaction_hash: '0xtx',
-              vault: {
+      new Response(
+        JSON.stringify({
+          data: {
+            positions: [
+              {
+                id: 'position-1',
+                account_id: WALLET,
+                shares: '2000000000000000000',
                 term_id: '0xterm',
                 curve_id: '1',
-                total_shares: '3000000000000000000',
-                total_assets: '3000000000000000000',
-                current_share_price: '1000000000000000000',
-                position_count: 2,
-                market_cap: '3',
-                term: {
-                  atom: {
-                    term_id: '0xterm',
-                    label: 'Test Atom',
-                    image: null,
-                    type: 'Thing',
-                    data: 'ipfs://test',
-                    created_at: '2026-05-01T00:00:00+00:00',
-                    transaction_hash: '0xtx',
-                    creator: { id: WALLET, label: 'you', image: null },
+                created_at: '2026-05-01T00:00:00+00:00',
+                updated_at: '2026-05-02T00:00:00+00:00',
+                transaction_hash: '0xtx',
+                vault: {
+                  term_id: '0xterm',
+                  curve_id: '1',
+                  total_shares: '3000000000000000000',
+                  total_assets: '3000000000000000000',
+                  current_share_price: '1000000000000000000',
+                  position_count: 2,
+                  market_cap: '3',
+                  term: {
+                    atom: {
+                      term_id: '0xterm',
+                      label: 'Test Atom',
+                      image: null,
+                      type: 'Thing',
+                      data: 'ipfs://test',
+                      created_at: '2026-05-01T00:00:00+00:00',
+                      transaction_hash: '0xtx',
+                      creator: { id: WALLET, label: 'you', image: null },
+                    },
+                    triple: null,
                   },
-                  triple: null,
                 },
               },
+            ],
+            positions_aggregate: {
+              aggregate: { count: 1, sum: { shares: '2000000000000000000' } },
             },
-          ],
-          positions_aggregate: {
-            aggregate: { count: 1, sum: { shares: '2000000000000000000' } },
+            atoms: [
+              {
+                term_id: '0xatom',
+                label: 'Created Atom',
+                image: null,
+                type: 'Thing',
+                data: 'ipfs://created',
+                created_at: '2026-05-03T00:00:00+00:00',
+                transaction_hash: '0xatomtx',
+                creator: { id: WALLET, label: 'you', image: null },
+                term: { vaults: [] },
+              },
+            ],
+            atoms_aggregate: { aggregate: { count: 4 } },
+            triples: [
+              {
+                term_id: '0xtriple',
+                counter_term_id: '0xcounter',
+                created_at: '2026-05-04T00:00:00+00:00',
+                transaction_hash: '0xtripletx',
+                creator: { id: WALLET, label: 'you', image: null },
+                subject: {
+                  term_id: '0xs',
+                  label: 'S',
+                  image: null,
+                  type: 'Thing',
+                  data: null,
+                },
+                predicate: {
+                  term_id: '0xp',
+                  label: 'P',
+                  image: null,
+                  type: 'Thing',
+                  data: null,
+                },
+                object: {
+                  term_id: '0xo',
+                  label: 'O',
+                  image: null,
+                  type: 'Thing',
+                  data: null,
+                },
+                term: { vaults: [] },
+                counter_term: { vaults: [] },
+              },
+            ],
+            triples_aggregate: { aggregate: { count: 5 } },
           },
-          atoms: [
-            {
-              term_id: '0xatom',
-              label: 'Created Atom',
-              image: null,
-              type: 'Thing',
-              data: 'ipfs://created',
-              created_at: '2026-05-03T00:00:00+00:00',
-              transaction_hash: '0xatomtx',
-              creator: { id: WALLET, label: 'you', image: null },
-              term: { vaults: [] },
-            },
-          ],
-          atoms_aggregate: { aggregate: { count: 4 } },
-          triples: [
-            {
-              term_id: '0xtriple',
-              counter_term_id: '0xcounter',
-              created_at: '2026-05-04T00:00:00+00:00',
-              transaction_hash: '0xtripletx',
-              creator: { id: WALLET, label: 'you', image: null },
-              subject: { term_id: '0xs', label: 'S', image: null, type: 'Thing', data: null },
-              predicate: { term_id: '0xp', label: 'P', image: null, type: 'Thing', data: null },
-              object: { term_id: '0xo', label: 'O', image: null, type: 'Thing', data: null },
-              term: { vaults: [] },
-              counter_term: { vaults: [] },
-            },
-          ],
-          triples_aggregate: { aggregate: { count: 5 } },
-        },
-      })),
+        }),
+      ),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -149,30 +169,35 @@ describe('intuition graphql-client', () => {
   })
 
   it('handles missing aggregates and nullable nested records', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({
-        data: {
-          positions: [
-            {
-              id: 'position-1',
-              account_id: WALLET,
-              shares: '1',
-              term_id: '0xterm',
-              curve_id: 1,
-              created_at: '2026-05-01T00:00:00+00:00',
-              updated_at: '2026-05-02T00:00:00+00:00',
-              transaction_hash: '0xtx',
-              vault: null,
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: {
+              positions: [
+                {
+                  id: 'position-1',
+                  account_id: WALLET,
+                  shares: '1',
+                  term_id: '0xterm',
+                  curve_id: 1,
+                  created_at: '2026-05-01T00:00:00+00:00',
+                  updated_at: '2026-05-02T00:00:00+00:00',
+                  transaction_hash: '0xtx',
+                  vault: null,
+                },
+              ],
+              positions_aggregate: { aggregate: null },
+              atoms: [],
+              atoms_aggregate: { aggregate: null },
+              triples: [],
+              triples_aggregate: { aggregate: null },
             },
-          ],
-          positions_aggregate: { aggregate: null },
-          atoms: [],
-          atoms_aggregate: { aggregate: null },
-          triples: [],
-          triples_aggregate: { aggregate: null },
-        },
-      })),
-    ))
+          }),
+        ),
+      ),
+    )
 
     const activity = await fetchAccountActivity(WALLET, {
       positionLimit: 1,
@@ -194,9 +219,14 @@ describe('intuition graphql-client', () => {
   })
 
   it('throws structured errors for GraphQL errors', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ errors: [{ message: 'bad query' }] })),
-    ))
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ errors: [{ message: 'bad query' }] })),
+        ),
+    )
 
     await expect(postIntuitionGraphQL('query Bad { bad }', {})).rejects.toThrow(
       'Intuition GraphQL errors: bad query',
@@ -208,8 +238,9 @@ describe('intuition graphql-client', () => {
     abort.name = 'AbortError'
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort))
 
-    await expect(postIntuitionGraphQL('query Slow { positions { id } }', {}))
-      .rejects.toBeInstanceOf(IntuitionGraphQLError)
+    await expect(
+      postIntuitionGraphQL('query Slow { positions { id } }', {}),
+    ).rejects.toBeInstanceOf(IntuitionGraphQLError)
   })
 
   it('parses My Exports from plain JSON payloads', async () => {
@@ -220,21 +251,26 @@ describe('intuition graphql-client', () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { query: string }
       if (body.query.includes('query ExportRuns')) {
-        return new Response(JSON.stringify({
-          data: {
-            atoms: [
-              exportRunAtom(runTermId, JSON.stringify(payload)),
-              exportRunAtom(term('7'), JSON.stringify(badPayload)),
-            ],
-            atoms_aggregate: { aggregate: { count: 2 } },
-          },
-        }))
+        return new Response(
+          JSON.stringify({
+            data: {
+              atoms: [
+                exportRunAtom(runTermId, JSON.stringify(payload)),
+                exportRunAtom(term('7'), JSON.stringify(badPayload)),
+              ],
+              atoms_aggregate: { aggregate: { count: 2 } },
+            },
+          }),
+        )
       }
       throw new Error('unexpected query')
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await fetchExportRunsByWallet(WALLET, { page: 1, pageSize: 20 })
+    const result = await fetchExportRunsByWallet(WALLET, {
+      page: 1,
+      pageSize: 20,
+    })
 
     expect(result.runs).toHaveLength(1)
     expect(result.runs[0]).toMatchObject({
@@ -251,39 +287,51 @@ describe('intuition graphql-client', () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { query: string }
       if (body.query.includes('query TrustNomiksStakeExportRuns')) {
-        return new Response(JSON.stringify({
-          data: { atoms: [exportRunAtom(runTermId, JSON.stringify(payload))] },
-        }))
+        return new Response(
+          JSON.stringify({
+            data: {
+              atoms: [exportRunAtom(runTermId, JSON.stringify(payload))],
+            },
+          }),
+        )
       }
       if (body.query.includes('query TrustNomiksStakePositions')) {
-        return new Response(JSON.stringify({
-          data: {
-            positions: [
-              {
-                id: 'position-1',
-                shares: '999',
-                term_id: payload.claimTermIds[0],
-                vault: { total_shares: '1', total_assets: '1' },
-              },
-            ],
-          },
-        }))
+        return new Response(
+          JSON.stringify({
+            data: {
+              positions: [
+                {
+                  id: 'position-1',
+                  shares: '999',
+                  term_id: payload.claimTermIds[0],
+                  vault: { total_shares: '1', total_assets: '1' },
+                },
+              ],
+            },
+          }),
+        )
       }
       throw new Error('unexpected query')
     })
     vi.stubGlobal('fetch', fetchMock)
 
     const publicClient = {
-      readContract: vi.fn(async ({ functionName }: { functionName: string }) => {
-        if (functionName === 'getBondingCurveConfig') return { defaultCurveId: BigInt(1) }
-        if (functionName === 'getShares') return BigInt(2)
-        if (functionName === 'convertToAssets') return BigInt(5)
-        throw new Error(`unexpected read ${functionName}`)
-      }),
+      readContract: vi.fn(
+        async ({ functionName }: { functionName: string }) => {
+          if (functionName === 'getBondingCurveConfig')
+            return { defaultCurveId: BigInt(1) }
+          if (functionName === 'getShares') return BigInt(2)
+          if (functionName === 'convertToAssets') return BigInt(5)
+          throw new Error(`unexpected read ${functionName}`)
+        },
+      ),
     }
 
     const result = await fetchTrustNomiksStakeByWallet(WALLET, {
-      publicClient: publicClient as unknown as Pick<PublicClient, 'readContract'>,
+      publicClient: publicClient as unknown as Pick<
+        PublicClient,
+        'readContract'
+      >,
     })
 
     expect(result).toMatchObject({
@@ -292,9 +340,11 @@ describe('intuition graphql-client', () => {
       positionCount: 1,
       stakedTrustWei: '5',
     })
-    expect(publicClient.readContract).toHaveBeenCalledWith(expect.objectContaining({
-      functionName: 'convertToAssets',
-    }))
+    expect(publicClient.readContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        functionName: 'convertToAssets',
+      }),
+    )
   })
 
   it('ignores atoms whose description has wrong type even if app is correct', async () => {
@@ -303,18 +353,23 @@ describe('intuition graphql-client', () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { query: string }
       if (body.query.includes('query ExportRuns')) {
-        return new Response(JSON.stringify({
-          data: {
-            atoms: [exportRunAtom(term('9'), JSON.stringify(payload))],
-            atoms_aggregate: { aggregate: { count: 1 } },
-          },
-        }))
+        return new Response(
+          JSON.stringify({
+            data: {
+              atoms: [exportRunAtom(term('9'), JSON.stringify(payload))],
+              atoms_aggregate: { aggregate: { count: 1 } },
+            },
+          }),
+        )
       }
       throw new Error('unexpected query')
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await fetchExportRunsByWallet(WALLET, { page: 1, pageSize: 20 })
+    const result = await fetchExportRunsByWallet(WALLET, {
+      page: 1,
+      pageSize: 20,
+    })
     expect(result.runs).toHaveLength(0)
   })
 
@@ -325,24 +380,50 @@ describe('intuition graphql-client', () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as { query: string }
       if (body.query.includes('query ExportRunAtom')) {
-        return new Response(JSON.stringify({
-          data: { atom: exportRunAtom(runTermId, JSON.stringify(payload)) },
-        }))
+        return new Response(
+          JSON.stringify({
+            data: { atom: exportRunAtom(runTermId, JSON.stringify(payload)) },
+          }),
+        )
       }
       if (body.query.includes('query ExportRunClaims')) {
-        return new Response(JSON.stringify({
-          data: {
-            claimTriples: [{
-              term_id: term('a'),
-              subject_id: term('s'), predicate_id: term('p'), object_id: term('o'),
-              created_at: '2026-05-15T08:00:00+00:00',
-              transaction_hash: '0xtx',
-              subject: { term_id: term('s'), label: 'S', image: null, type: 'Thing', data: null },
-              predicate: { term_id: term('p'), label: 'P', image: null, type: 'Thing', data: null },
-              object: { term_id: term('o'), label: 'O', image: null, type: 'Thing', data: null },
-            }],
-          },
-        }))
+        return new Response(
+          JSON.stringify({
+            data: {
+              claimTriples: [
+                {
+                  term_id: term('a'),
+                  subject_id: term('s'),
+                  predicate_id: term('p'),
+                  object_id: term('o'),
+                  created_at: '2026-05-15T08:00:00+00:00',
+                  transaction_hash: '0xtx',
+                  subject: {
+                    term_id: term('s'),
+                    label: 'S',
+                    image: null,
+                    type: 'Thing',
+                    data: null,
+                  },
+                  predicate: {
+                    term_id: term('p'),
+                    label: 'P',
+                    image: null,
+                    type: 'Thing',
+                    data: null,
+                  },
+                  object: {
+                    term_id: term('o'),
+                    label: 'O',
+                    image: null,
+                    type: 'Thing',
+                    data: null,
+                  },
+                },
+              ],
+            },
+          }),
+        )
       }
       throw new Error('unexpected query')
     })
@@ -370,20 +451,22 @@ describe('intuition graphql-client', () => {
     const runTermId = term('9')
 
     const fetchMock = vi.fn(async () => {
-      return new Response(JSON.stringify({
-        data: {
-          atom: {
-            term_id: runTermId,
-            label: 'TrustNomiks Export: TestCoin (TEST)',
-            type: 'Thing',
-            data: 'ipfs://export',
-            created_at: '2026-05-15T08:00:00+00:00',
-            transaction_hash: '0xtx',
-            creator: { id: WALLET.toLowerCase(), label: 'you', image: null },
-            value: { thing: { name: 'Test', description: null, url: '' } },
+      return new Response(
+        JSON.stringify({
+          data: {
+            atom: {
+              term_id: runTermId,
+              label: 'TrustNomiks Export: TestCoin (TEST)',
+              type: 'Thing',
+              data: 'ipfs://export',
+              created_at: '2026-05-15T08:00:00+00:00',
+              transaction_hash: '0xtx',
+              creator: { id: WALLET.toLowerCase(), label: 'you', image: null },
+              value: { thing: { name: 'Test', description: null, url: '' } },
+            },
           },
-        },
-      }))
+        }),
+      )
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -422,6 +505,12 @@ function exportRunAtom(termId: Hex, description: string) {
     created_at: '2026-05-15T08:00:00+00:00',
     transaction_hash: '0xtx',
     creator: { id: WALLET.toLowerCase(), label: 'you', image: null },
-    value: { thing: { name: 'TrustNomiks Export: TestCoin (TEST)', description, url: '' } },
+    value: {
+      thing: {
+        name: 'TrustNomiks Export: TestCoin (TEST)',
+        description,
+        url: '',
+      },
+    },
   }
 }

@@ -9,7 +9,10 @@ const WALLET_REGEX = /^0x[a-fA-F0-9]{40}$/
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const { data: { user }, error: authErr } = await supabase.auth.getUser()
+  const {
+    data: { user },
+    error: authErr,
+  } = await supabase.auth.getUser()
   if (authErr || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -29,7 +32,11 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, parseInt(pageRaw ?? '1', 10) || 1)
   const pageSize = Math.min(
     MAX_PAGE_SIZE,
-    Math.max(1, parseInt(pageSizeRaw ?? String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE),
+    Math.max(
+      1,
+      parseInt(pageSizeRaw ?? String(DEFAULT_PAGE_SIZE), 10) ||
+        DEFAULT_PAGE_SIZE,
+    ),
   )
   let verifiedRuns: Pick<MyRunsResponse, 'runs' | 'total' | 'aggregates'>
   try {
@@ -37,7 +44,12 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Failed to fetch verified Intuition export runs:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch verified Intuition export runs' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch verified Intuition export runs',
+      },
       { status: 502 },
     )
   }

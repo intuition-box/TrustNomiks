@@ -1,6 +1,13 @@
 'use client'
 
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Label } from 'recharts'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Label,
+} from 'recharts'
 import { getSegmentChartColor } from '@/lib/utils/chart-colors'
 import { formatSegmentTypeLabel } from '@/types/form'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
@@ -71,10 +78,20 @@ export function AllocationDonutChart({
                   dominantBaseline="central"
                   className="fill-foreground"
                 >
-                  <tspan x="50%" dy="-0.5em" fontSize={size === 'sm' ? 11 : 14} fontWeight={600}>
+                  <tspan
+                    x="50%"
+                    dy="-0.5em"
+                    fontSize={size === 'sm' ? 11 : 14}
+                    fontWeight={600}
+                  >
                     {formattedSupply}
                   </tspan>
-                  <tspan x="50%" dy="1.4em" fontSize={size === 'sm' ? 9 : 11} className="fill-muted-foreground">
+                  <tspan
+                    x="50%"
+                    dy="1.4em"
+                    fontSize={size === 'sm' ? 9 : 11}
+                    className="fill-muted-foreground"
+                  >
                     Max Supply
                   </tspan>
                 </text>
@@ -84,7 +101,12 @@ export function AllocationDonutChart({
         </Pie>
         {size === 'lg' && (
           <Tooltip
-            wrapperStyle={{ outline: 'none', background: 'transparent', border: 'none', boxShadow: 'none' }}
+            wrapperStyle={{
+              outline: 'none',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
+            }}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null
               const d = payload[0].payload
@@ -98,13 +120,22 @@ export function AllocationDonutChart({
                   }}
                 >
                   <p className="font-medium">{d.name}</p>
-                  <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                  <p
+                    className="text-xs"
+                    style={{ color: 'hsl(var(--muted-foreground))' }}
+                  >
                     {formatSegmentTypeLabel(d.segment_type)}
                   </p>
                   <p className="mt-1 font-mono">{d.value.toFixed(1)}%</p>
                   {d.token_amount && (
-                    <p className="text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
-                      {formatCompactNumber(Number(d.token_amount.toString().replace(/,/g, '')))} tokens
+                    <p
+                      className="text-xs"
+                      style={{ color: 'hsl(var(--muted-foreground))' }}
+                    >
+                      {formatCompactNumber(
+                        Number(d.token_amount.toString().replace(/,/g, '')),
+                      )}{' '}
+                      tokens
                     </p>
                   )}
                 </div>

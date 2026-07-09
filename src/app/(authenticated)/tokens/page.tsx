@@ -37,7 +37,13 @@ import {
   Plus,
   Search,
 } from 'lucide-react'
-import type { Token, TokenStats, TokenStatus, SortField, SortDirection } from '@/types/token'
+import type {
+  Token,
+  TokenStats,
+  TokenStatus,
+  SortField,
+  SortDirection,
+} from '@/types/token'
 
 const ITEMS_PER_PAGE = 20
 const TARGET_TOKENS = 300
@@ -55,12 +61,20 @@ function formatDate(dateString: string | null): string {
   if (!dateString) return 'Not set'
   const date = new Date(dateString)
   if (isNaN(date.getTime())) return 'Not set'
-  return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+  return date.toLocaleDateString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 export default function TokensPage() {
   return (
-    <Suspense fallback={<GraphLoader className="mx-auto mt-24" label="Loading the registry…" />}>
+    <Suspense
+      fallback={
+        <GraphLoader className="mx-auto mt-24" label="Loading the registry…" />
+      }
+    >
       <TokensRegistry />
     </Suspense>
   )
@@ -73,7 +87,9 @@ function TokensRegistry() {
 
   const initialStatus = (() => {
     const s = searchParams.get('status')
-    return s === 'draft' || s === 'in_review' || s === 'validated' ? (s as TokenStatus) : 'all'
+    return s === 'draft' || s === 'in_review' || s === 'validated'
+      ? (s as TokenStatus)
+      : 'all'
   })()
 
   const [tokens, setTokens] = useState<Token[]>([])
@@ -123,7 +139,9 @@ function TokensRegistry() {
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(
-        (t) => t.name.toLowerCase().includes(q) || t.ticker.toLowerCase().includes(q),
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.ticker.toLowerCase().includes(q),
       )
     }
     if (status !== 'all') {
@@ -149,14 +167,19 @@ function TokensRegistry() {
 
   const totalPages = Math.ceil(filteredTokens.length / ITEMS_PER_PAGE)
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const paginatedTokens = filteredTokens.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  const paginatedTokens = filteredTokens.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE,
+  )
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
-      setSortDirection(field === 'completeness' || field === 'updated_at' ? 'desc' : 'asc')
+      setSortDirection(
+        field === 'completeness' || field === 'updated_at' ? 'desc' : 'asc',
+      )
     }
   }
 
@@ -175,10 +198,24 @@ function TokensRegistry() {
 
   const goToToken = (id: string) => router.push(`/tokens/${id}`)
 
-  const SortHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => (
+  const SortHeader = ({
+    field,
+    children,
+    className,
+  }: {
+    field: SortField
+    children: React.ReactNode
+    className?: string
+  }) => (
     <TableHead
       className={className}
-      aria-sort={sortField === field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+      aria-sort={
+        sortField === field
+          ? sortDirection === 'asc'
+            ? 'ascending'
+            : 'descending'
+          : 'none'
+      }
     >
       <button
         type="button"
@@ -221,7 +258,9 @@ function TokensRegistry() {
           progress={(stats.total / TARGET_TOKENS) * 100}
           brandProgress
           onClick={() => setStatus('all')}
-          className={cn(status === 'all' && 'border-border-strong ring-1 ring-primary/40')}
+          className={cn(
+            status === 'all' && 'border-border-strong ring-1 ring-primary/40',
+          )}
         />
         <StatTile
           label="Validated"
@@ -230,7 +269,10 @@ function TokensRegistry() {
           icon={CheckCircle2}
           accentVar="--status-validated"
           onClick={() => setStatus('validated')}
-          className={cn(status === 'validated' && 'border-border-strong ring-1 ring-primary/40')}
+          className={cn(
+            status === 'validated' &&
+              'border-border-strong ring-1 ring-primary/40',
+          )}
         />
         <StatTile
           label="In review"
@@ -239,7 +281,10 @@ function TokensRegistry() {
           icon={Clock}
           accentVar="--status-review"
           onClick={() => setStatus('in_review')}
-          className={cn(status === 'in_review' && 'border-border-strong ring-1 ring-primary/40')}
+          className={cn(
+            status === 'in_review' &&
+              'border-border-strong ring-1 ring-primary/40',
+          )}
         />
         <StatTile
           label="Drafts"
@@ -248,7 +293,9 @@ function TokensRegistry() {
           icon={FileText}
           accentVar="--status-draft"
           onClick={() => setStatus('draft')}
-          className={cn(status === 'draft' && 'border-border-strong ring-1 ring-primary/40')}
+          className={cn(
+            status === 'draft' && 'border-border-strong ring-1 ring-primary/40',
+          )}
         />
       </div>
 
@@ -256,7 +303,10 @@ function TokensRegistry() {
       <section className="overflow-hidden rounded-xl border bg-surface-1">
         <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Search
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
             <Input
               placeholder="Search by name or ticker…"
               value={search}
@@ -290,7 +340,10 @@ function TokensRegistry() {
         </div>
 
         {loading ? (
-          <GraphLoader className="mx-auto my-16" label="Loading the registry…" />
+          <GraphLoader
+            className="mx-auto my-16"
+            label="Loading the registry…"
+          />
         ) : fetchFailed ? (
           <ErrorState
             className="m-4"
@@ -304,7 +357,10 @@ function TokensRegistry() {
             title="No tokens yet"
             description="Structure your first token and watch the graph grow from it."
             actions={
-              <Button variant="brand" onClick={() => router.push('/tokens/new')}>
+              <Button
+                variant="brand"
+                onClick={() => router.push('/tokens/new')}
+              >
                 <Plus className="h-4 w-4" aria-hidden />
                 Add your first token
               </Button>
@@ -363,7 +419,9 @@ function TokensRegistry() {
                               <span className="block max-w-[220px] truncate font-medium leading-tight">
                                 {token.name}
                               </span>
-                              <span className="font-mono text-xs text-muted-foreground">{token.ticker}</span>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {token.ticker}
+                              </span>
                             </span>
                           </span>
                         </TableCell>
@@ -371,21 +429,27 @@ function TokensRegistry() {
                           {token.chain ? (
                             <DataBadge type="chain" label={token.chain} />
                           ) : (
-                            <span className="text-xs text-faint-foreground">Not set</span>
+                            <span className="text-xs text-faint-foreground">
+                              Not set
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="py-2.5">
                           {token.category ? (
                             <DataBadge type="category" label={token.category} />
                           ) : (
-                            <span className="text-xs text-faint-foreground">Not set</span>
+                            <span className="text-xs text-faint-foreground">
+                              Not set
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="py-2.5">
                           <ClusterMeter
                             scores={token.cluster_scores}
                             percent={token.completeness || 0}
-                            identityComplete={Boolean(token.name && token.ticker)}
+                            identityComplete={Boolean(
+                              token.name && token.ticker,
+                            )}
                           />
                         </TableCell>
                         <TableCell className="py-2.5">
@@ -401,7 +465,9 @@ function TokensRegistry() {
                           >
                             <button
                               type="button"
-                              onClick={() => router.push(`/tokens/new?id=${token.id}`)}
+                              onClick={() =>
+                                router.push(`/tokens/new?id=${token.id}`)
+                              }
                               aria-label={`Edit ${token.name}`}
                               className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                             >
@@ -410,7 +476,9 @@ function TokensRegistry() {
                             <button
                               type="button"
                               onClick={() => toggleCompare(token.id)}
-                              disabled={!comparing && compareIds.length >= COMPARE_MAX}
+                              disabled={
+                                !comparing && compareIds.length >= COMPARE_MAX
+                              }
                               aria-pressed={comparing}
                               aria-label={
                                 comparing
@@ -452,8 +520,12 @@ function TokensRegistry() {
                     <span className="flex items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2">
                         <NodeGlyph type="token" size={12} aria-hidden />
-                        <span className="truncate font-medium">{token.name}</span>
-                        <span className="font-mono text-xs text-muted-foreground">{token.ticker}</span>
+                        <span className="truncate font-medium">
+                          {token.name}
+                        </span>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {token.ticker}
+                        </span>
                       </span>
                       <StatusPill status={token.status} />
                     </span>
@@ -475,11 +547,17 @@ function TokensRegistry() {
             {/* Footer strip: meta + paging */}
             <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="tabular text-xs text-muted-foreground">
-                {filteredTokens.length} token{filteredTokens.length === 1 ? '' : 's'}
+                {filteredTokens.length} token
+                {filteredTokens.length === 1 ? '' : 's'}
                 {totalPages > 1 && (
                   <>
                     {' · '}
-                    {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredTokens.length)} shown
+                    {startIndex + 1}-
+                    {Math.min(
+                      startIndex + ITEMS_PER_PAGE,
+                      filteredTokens.length,
+                    )}{' '}
+                    shown
                   </>
                 )}
               </p>

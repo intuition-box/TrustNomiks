@@ -41,7 +41,9 @@ export const NAV_ZONES: NavZone[] = [
   },
 ]
 
-const ALL_HREFS = NAV_ZONES.flatMap((zone) => zone.items.map((item) => item.href))
+const ALL_HREFS = NAV_ZONES.flatMap((zone) =>
+  zone.items.map((item) => item.href),
+)
 
 /**
  * Longest-prefix active matching so `/tokens/new` lights "Add token",
@@ -51,6 +53,8 @@ export function isNavItemActive(pathname: string, href: string): boolean {
   const matches = (candidate: string) =>
     pathname === candidate || pathname.startsWith(candidate + '/')
   if (!matches(href)) return false
-  const bestMatch = ALL_HREFS.filter(matches).sort((a, b) => b.length - a.length)[0]
+  const bestMatch = ALL_HREFS.filter(matches).sort(
+    (a, b) => b.length - a.length,
+  )[0]
   return bestMatch === href
 }

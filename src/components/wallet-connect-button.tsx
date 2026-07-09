@@ -100,7 +100,9 @@ function ConnectedWalletSummary({
   const { data: stake, isLoading: stakeLoading } = useQuery({
     queryKey: ['intuition', 'trustnomiks-stake', address],
     queryFn: async () => {
-      const res = await fetch(`/api/intuition/trustnomiks-stake?wallet=${address}`)
+      const res = await fetch(
+        `/api/intuition/trustnomiks-stake?wallet=${address}`,
+      )
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? `HTTP ${res.status}`)
@@ -118,17 +120,26 @@ function ConnectedWalletSummary({
       className="inline-flex min-h-10 max-w-full items-center gap-3 rounded-md border bg-background px-3 py-2 text-left text-sm hover:bg-accent"
     >
       <div className="hidden min-w-0 flex-col leading-tight sm:flex">
-        <span className="truncate font-mono text-xs font-medium">{displayName}</span>
+        <span className="truncate font-mono text-xs font-medium">
+          {displayName}
+        </span>
         <span className="tabular text-xs text-muted-foreground">
-          {balanceLoading ? 'TRUST …' : `${formatTrust(balance?.value ?? BigInt(0))} TRUST`}
+          {balanceLoading
+            ? 'TRUST …'
+            : `${formatTrust(balance?.value ?? BigInt(0))} TRUST`}
           <span className="mx-1">/</span>
-          {stakeLoading ? 'staked …' : `${formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))} staked`}
+          {stakeLoading
+            ? 'staked …'
+            : `${formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))} staked`}
         </span>
       </div>
       <div className="flex min-w-0 flex-col leading-tight sm:hidden">
-        <span className="truncate font-mono text-xs font-medium">{displayName}</span>
+        <span className="truncate font-mono text-xs font-medium">
+          {displayName}
+        </span>
         <span className="tabular text-xs text-muted-foreground">
-          {formatTrust(balance?.value ?? BigInt(0))} / {formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))}
+          {formatTrust(balance?.value ?? BigInt(0))} /{' '}
+          {formatTrust(BigInt(stake?.stakedTrustWei ?? '0'))}
         </span>
       </div>
       <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -141,7 +152,8 @@ function formatTrust(valueWei: bigint): string {
   if (!Number.isFinite(value) || value === 0) return '0'
   if (value < 0.001) return '<0.001'
   if (value < 1) return value.toFixed(3)
-  if (value < 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  if (value < 1000)
+    return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
   return compactNumber(value)
 }
 

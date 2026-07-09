@@ -4,7 +4,8 @@ import { createContext, useContext, type ReactNode } from 'react'
 import { useTokenFormState } from './use-token-form-state'
 import { useTokenSaveHandlers } from './use-token-save-handlers'
 
-type TokenFormContextValue = ReturnType<typeof useTokenFormState> & ReturnType<typeof useTokenSaveHandlers>
+type TokenFormContextValue = ReturnType<typeof useTokenFormState> &
+  ReturnType<typeof useTokenSaveHandlers>
 
 const TokenFormContext = createContext<TokenFormContextValue | null>(null)
 
@@ -27,5 +28,9 @@ export function TokenFormProvider({ children }: { children: ReactNode }) {
   const handlers = useTokenSaveHandlers(state)
   const value: TokenFormContextValue = { ...state, ...handlers }
 
-  return <TokenFormContext.Provider value={value}>{children}</TokenFormContext.Provider>
+  return (
+    <TokenFormContext.Provider value={value}>
+      {children}
+    </TokenFormContext.Provider>
+  )
 }

@@ -30,12 +30,15 @@ function getServerSidebarSnapshot() {
   return false
 }
 
-export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) {
+export function AuthenticatedShell({
+  user,
+  children,
+}: AuthenticatedShellProps) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const collapsed = useSyncExternalStore(
     subscribeToSidebar,
     getSidebarSnapshot,
-    getServerSidebarSnapshot
+    getServerSidebarSnapshot,
   )
 
   const toggleSidebar = () => {
@@ -43,7 +46,9 @@ export function AuthenticatedShell({ user, children }: AuthenticatedShellProps) 
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
     // Dispatch storage event to trigger useSyncExternalStore re-render
     // (native storage events only fire on other tabs)
-    window.dispatchEvent(new StorageEvent('storage', { key: SIDEBAR_STORAGE_KEY }))
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: SIDEBAR_STORAGE_KEY }),
+    )
   }
 
   return (

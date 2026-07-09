@@ -8,26 +8,26 @@ export interface NodeVisualConfig {
 
 export const NODE_CONFIG: Record<NodeType, NodeVisualConfig> = {
   // Hub
-  graph_root:  { color: '#6366f1', size: 18, label: 'TrustNomiks' },  // indigo, largest
+  graph_root: { color: '#6366f1', size: 18, label: 'TrustNomiks' }, // indigo, largest
 
   // Atom family — domain entities
-  token:       { color: '#8b5cf6', size: 12, label: 'Token'       },  // violet
-  allocation:  { color: '#f59e0b', size: 7,  label: 'Allocation'  },  // amber
-  vesting:     { color: '#10b981', size: 5,  label: 'Vesting'     },  // emerald
-  emission:    { color: '#ef4444', size: 7,  label: 'Emission'    },  // red
-  risk_flag:   { color: '#f97316', size: 6,  label: 'Risk Flag'   },  // orange
-  data_source: { color: '#3b82f6', size: 6,  label: 'Source'      },  // blue
-  export_run:  { color: '#14b8a6', size: 10, label: 'Export Run'  },  // teal
-  application: { color: '#0f766e', size: 9,  label: 'Application' },  // teal-700
-  wallet:      { color: '#475569', size: 6,  label: 'Wallet'      },  // slate
-  category:    { color: '#64748b', size: 8,  label: 'Category'    },  // slate
-  sector:      { color: '#a855f7', size: 6,  label: 'Sector'      },  // purple
-  chain:       { color: '#0ea5e9', size: 6,  label: 'Chain'       },  // sky
+  token: { color: '#8b5cf6', size: 12, label: 'Token' }, // violet
+  allocation: { color: '#f59e0b', size: 7, label: 'Allocation' }, // amber
+  vesting: { color: '#10b981', size: 5, label: 'Vesting' }, // emerald
+  emission: { color: '#ef4444', size: 7, label: 'Emission' }, // red
+  risk_flag: { color: '#f97316', size: 6, label: 'Risk Flag' }, // orange
+  data_source: { color: '#3b82f6', size: 6, label: 'Source' }, // blue
+  export_run: { color: '#14b8a6', size: 10, label: 'Export Run' }, // teal
+  application: { color: '#0f766e', size: 9, label: 'Application' }, // teal-700
+  wallet: { color: '#475569', size: 6, label: 'Wallet' }, // slate
+  category: { color: '#64748b', size: 8, label: 'Category' }, // slate
+  sector: { color: '#a855f7', size: 6, label: 'Sector' }, // purple
+  chain: { color: '#0ea5e9', size: 6, label: 'Chain' }, // sky
 
   // Triple family — reified relationships
-  triple:      { color: '#94a3b8', size: 3,  label: 'Triple'      },  // slate-400, small
+  triple: { color: '#94a3b8', size: 3, label: 'Triple' }, // slate-400, small
 
   // On-chain-only atom types — surfaced in the run drill-down when not confirmed
-  predicate:   { color: '#94a3b8', size: 4,  label: 'Predicate'   },  // slate-400, small
-  literal:     { color: '#94a3b8', size: 4,  label: 'Literal'     },  // slate-400, small
+  predicate: { color: '#94a3b8', size: 4, label: 'Predicate' }, // slate-400, small
+  literal: { color: '#94a3b8', size: 4, label: 'Literal' }, // slate-400, small
 }

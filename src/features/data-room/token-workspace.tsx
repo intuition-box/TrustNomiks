@@ -2,7 +2,14 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { BarChart2, ExternalLink, AlertCircle, Lock, Coins, PieChart } from 'lucide-react'
+import {
+  BarChart2,
+  ExternalLink,
+  AlertCircle,
+  Lock,
+  Coins,
+  PieChart,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +17,10 @@ import { AllocationBreakdownChart } from '@/components/charts/allocation-breakdo
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import { SupplyBarChart } from '@/components/charts/supply-bar-chart'
-import { computeAssetReadiness, isAssetReady } from '@/lib/utils/asset-readiness'
+import {
+  computeAssetReadiness,
+  isAssetReady,
+} from '@/lib/utils/asset-readiness'
 import {
   computeVestingTimeline,
   formatCompactNumber,
@@ -76,38 +86,60 @@ function formatNumber(value: string | number | null | undefined): string {
 }
 
 export function TokenWorkspace({ token }: TokenWorkspaceProps) {
-  const hasAllocation = isAssetReady('allocation_breakdown', token.cluster_scores, token.coingecko_id)
-  const hasSupplyComposition = isAssetReady('supply_composition', token.cluster_scores, token.coingecko_id)
-  const hasUnlockTimeline = isAssetReady('unlock_timeline', token.cluster_scores, token.coingecko_id)
-  const hasCirculatingVsMax = isAssetReady('circulating_vs_max', token.cluster_scores, token.coingecko_id)
+  const hasAllocation = isAssetReady(
+    'allocation_breakdown',
+    token.cluster_scores,
+    token.coingecko_id,
+  )
+  const hasSupplyComposition = isAssetReady(
+    'supply_composition',
+    token.cluster_scores,
+    token.coingecko_id,
+  )
+  const hasUnlockTimeline = isAssetReady(
+    'unlock_timeline',
+    token.cluster_scores,
+    token.coingecko_id,
+  )
+  const hasCirculatingVsMax = isAssetReady(
+    'circulating_vs_max',
+    token.cluster_scores,
+    token.coingecko_id,
+  )
 
   // Only show Phase 1 missing assets in the CTA
   const assets = computeAssetReadiness(token.cluster_scores, token.coingecko_id)
   const missingAssets = assets.filter((a) => !a.ready && a.phase === 1)
 
   const maxSupply = parseSupply(token.supply_metrics?.max_supply)
-  const circulatingSupply = parseSupply(token.supply_metrics?.circulating_supply)
-  const locked = maxSupply > 0 && circulatingSupply > 0 ? maxSupply - circulatingSupply : 0
+  const circulatingSupply = parseSupply(
+    token.supply_metrics?.circulating_supply,
+  )
+  const locked =
+    maxSupply > 0 && circulatingSupply > 0 ? maxSupply - circulatingSupply : 0
 
   const emissionLabel = token.emission_models
-    ? EMISSION_TYPE_OPTIONS.find((o) => o.value === token.emission_models!.type)?.label ??
-      token.emission_models.type
+    ? (EMISSION_TYPE_OPTIONS.find(
+        (o) => o.value === token.emission_models!.type,
+      )?.label ?? token.emission_models.type)
     : null
 
   // Build vesting timeline data (with deduplicated labels)
   const vestingResult = useMemo(() => {
     if (!hasUnlockTimeline) return null
 
-    const allocationsWithVesting: AllocationWithVesting[] = token.allocation_segments.map(
-      (alloc) => {
+    const allocationsWithVesting: AllocationWithVesting[] =
+      token.allocation_segments.map((alloc) => {
         const vesting = token.vesting_schedules.find(
-          (v) => v.allocation_id === alloc.id
+          (v) => v.allocation_id === alloc.id,
         )
         return {
           label: alloc.label,
           segment_type: alloc.segment_type,
           percentage: alloc.percentage,
-          token_amount: parseSupply(alloc.token_amount) || (alloc.percentage / 100) * maxSupply,
+          token_amount:
+            parseSupply(alloc.token_amount) ||
+            (alloc.percentage / 100) * maxSupply,
           vesting: vesting
             ? {
                 cliff_months: vesting.cliff_months,
@@ -118,15 +150,20 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
               }
             : null,
         }
-      }
-    )
+      })
 
     return computeVestingTimeline({
       allocations: allocationsWithVesting,
       maxSupply,
       tgeDate: token.tge_date,
     })
-  }, [hasUnlockTimeline, token.allocation_segments, token.vesting_schedules, maxSupply, token.tge_date])
+  }, [
+    hasUnlockTimeline,
+    token.allocation_segments,
+    token.vesting_schedules,
+    maxSupply,
+    token.tge_date,
+  ])
 
   // Segment info for the unlock chart — derived from the timeline's deduplicated keys
   const segmentInfos = useMemo(() => {
@@ -158,10 +195,14 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold">{token.name}</h2>
-              <span className="text-lg font-mono text-primary">{token.ticker}</span>
+              <span className="text-lg font-mono text-primary">
+                {token.ticker}
+              </span>
             </div>
             {token.chain && (
-              <span className="text-xs text-muted-foreground">{token.chain}</span>
+              <span className="text-xs text-muted-foreground">
+                {token.chain}
+              </span>
             )}
           </div>
         </div>
@@ -177,8 +218,14 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
       <Card>
         <CardContent className="py-4">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <KpiItem label="Max Supply" value={formatNumber(token.supply_metrics?.max_supply)} />
-            <KpiItem label="TGE Supply" value={formatNumber(token.supply_metrics?.tge_supply)} />
+            <KpiItem
+              label="Max Supply"
+              value={formatNumber(token.supply_metrics?.max_supply)}
+            />
+            <KpiItem
+              label="TGE Supply"
+              value={formatNumber(token.supply_metrics?.tge_supply)}
+            />
             <KpiItem
               label="Circulating"
               value={formatNumber(token.supply_metrics?.circulating_supply)}
@@ -243,16 +290,23 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
               {[...token.allocation_segments]
                 .sort((a, b) => b.percentage - a.percentage)
                 .map((seg) => (
-                  <div key={seg.id} className="flex items-center gap-1.5 text-xs">
+                  <div
+                    key={seg.id}
+                    className="flex items-center gap-1.5 text-xs"
+                  >
                     <span
                       className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: getSegmentChartColor(seg.segment_type) }}
+                      style={{
+                        backgroundColor: getSegmentChartColor(seg.segment_type),
+                      }}
                     />
                     <span className="text-muted-foreground">
                       {formatSegmentTypeLabel(seg.segment_type)}
                     </span>
                     <span className="font-medium">{seg.label}</span>
-                    <span className="tabular font-mono">{seg.percentage.toFixed(1)}%</span>
+                    <span className="tabular font-mono">
+                      {seg.percentage.toFixed(1)}%
+                    </span>
                     {/* Show token amount when supply composition is available */}
                     {hasSupplyComposition && seg.token_amount && (
                       <span className="tabular font-mono text-muted-foreground">
@@ -267,67 +321,82 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
       )}
 
       {/* Supply Composition — explicit stacked bar showing max supply by segment */}
-      {hasSupplyComposition && token.allocation_segments.length > 0 && maxSupply > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <PieChart className="h-4 w-4" />
-              Supply Allocation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {/* Single stacked bar showing supply distribution by segment */}
-              <div className="h-8 rounded-lg overflow-hidden flex">
-                {[...token.allocation_segments]
-                  .sort((a, b) => b.percentage - a.percentage)
-                  .map((seg) => (
-                    <div
-                      key={seg.id}
-                      className="h-full transition-all duration-300 flex items-center justify-center"
-                      style={{
-                        width: `${Math.max(seg.percentage, 1)}%`,
-                        backgroundColor: getSegmentChartColor(seg.segment_type),
-                      }}
-                    >
-                      {seg.percentage >= 8 && (
-                        <span className="text-[10px] font-medium text-white truncate px-1">
-                          {seg.label}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-              </div>
-              {/* Amount breakdown table */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                {[...token.allocation_segments]
-                  .sort((a, b) => b.percentage - a.percentage)
-                  .map((seg) => {
-                    const amount = parseSupply(seg.token_amount) || (seg.percentage / 100) * maxSupply
-                    return (
-                      <div key={seg.id} className="flex items-center justify-between text-xs py-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="inline-block h-2 w-2 rounded-full shrink-0"
-                            style={{ backgroundColor: getSegmentChartColor(seg.segment_type) }}
-                          />
-                          <span className="truncate">{seg.label}</span>
-                        </div>
-                        <span className="font-mono text-muted-foreground ml-2 shrink-0">
-                          {formatCompactNumber(amount)}
-                        </span>
+      {hasSupplyComposition &&
+        token.allocation_segments.length > 0 &&
+        maxSupply > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <PieChart className="h-4 w-4" />
+                Supply Allocation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {/* Single stacked bar showing supply distribution by segment */}
+                <div className="h-8 rounded-lg overflow-hidden flex">
+                  {[...token.allocation_segments]
+                    .sort((a, b) => b.percentage - a.percentage)
+                    .map((seg) => (
+                      <div
+                        key={seg.id}
+                        className="h-full transition-all duration-300 flex items-center justify-center"
+                        style={{
+                          width: `${Math.max(seg.percentage, 1)}%`,
+                          backgroundColor: getSegmentChartColor(
+                            seg.segment_type,
+                          ),
+                        }}
+                      >
+                        {seg.percentage >= 8 && (
+                          <span className="text-[10px] font-medium text-white truncate px-1">
+                            {seg.label}
+                          </span>
+                        )}
                       </div>
-                    )
-                  })}
+                    ))}
+                </div>
+                {/* Amount breakdown table */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                  {[...token.allocation_segments]
+                    .sort((a, b) => b.percentage - a.percentage)
+                    .map((seg) => {
+                      const amount =
+                        parseSupply(seg.token_amount) ||
+                        (seg.percentage / 100) * maxSupply
+                      return (
+                        <div
+                          key={seg.id}
+                          className="flex items-center justify-between text-xs py-0.5"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="inline-block h-2 w-2 rounded-full shrink-0"
+                              style={{
+                                backgroundColor: getSegmentChartColor(
+                                  seg.segment_type,
+                                ),
+                              }}
+                            />
+                            <span className="truncate">{seg.label}</span>
+                          </div>
+                          <span className="font-mono text-muted-foreground ml-2 shrink-0">
+                            {formatCompactNumber(amount)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                </div>
+                <div className="flex items-center justify-between text-xs pt-2 border-t font-medium">
+                  <span>Total (Max Supply)</span>
+                  <span className="font-mono">
+                    {formatCompactNumber(maxSupply)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs pt-2 border-t font-medium">
-                <span>Total (Max Supply)</span>
-                <span className="font-mono">{formatCompactNumber(maxSupply)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Unlock Timeline */}
       {hasUnlockTimeline && vestingResult && (
@@ -357,8 +426,8 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
               <AlertCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
               <div className="space-y-1.5">
                 <p className="text-sm text-muted-foreground">
-                  Some visualizations are not available yet. Complete the missing data to unlock
-                  them:
+                  Some visualizations are not available yet. Complete the
+                  missing data to unlock them:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {missingAssets.map((a) => (
@@ -400,7 +469,13 @@ function KpiItem({
         {icon}
         {label}
       </div>
-      <div className={small ? 'truncate text-sm font-medium' : 'tabular text-lg font-bold font-mono'}>
+      <div
+        className={
+          small
+            ? 'truncate text-sm font-medium'
+            : 'tabular text-lg font-bold font-mono'
+        }
+      >
         {value}
       </div>
     </div>
