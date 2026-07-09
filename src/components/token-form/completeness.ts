@@ -61,6 +61,52 @@ export function buildDefaultAttributions(
   })
 }
 
+// Aggregate selection state of one source across a family of attribution rows
+// (e.g. every allocation-segment row, or every vesting-schedule row). Powers
+// the bulk pill in Step6Sources: 'all' when every row in rowIdxs already has
+// the source, 'some' when at least one (but not all) does, 'none' otherwise.
+export type BulkPillState = 'all' | 'some' | 'none'
+
+export function getBulkPillState(
+  attributions: ClaimAttribution[],
+  rowIdxs: number[],
+  sourceIdx: string,
+): BulkPillState {
+  if (rowIdxs.length === 0) return 'none'
+  const selectedCount = rowIdxs.filter((i) =>
+    attributions[i]?.data_source_ids.includes(sourceIdx),
+  ).length
+  if (selectedCount === 0) return 'none'
+  if (selectedCount === rowIdxs.length) return 'all'
+  return 'some'
+}
+
+// Toggle one source across every row in rowIdxs in a single pass: if all rows
+// already carry it, remove it from all of them; otherwise add it to whichever
+// rows are missing it. Mirrors the single-pill handler in Step6Sources, just
+// applied over a mapped set of rows instead of one.
+export function toggleBulkAttribution(
+  attributions: ClaimAttribution[],
+  rowIdxs: number[],
+  sourceIdx: string,
+): ClaimAttribution[] {
+  const shouldRemove =
+    getBulkPillState(attributions, rowIdxs, sourceIdx) === 'all'
+  return attributions.map((a, i) => {
+    if (!rowIdxs.includes(i)) return a
+    const has = a.data_source_ids.includes(sourceIdx)
+    if (shouldRemove) {
+      if (!has) return a
+      return {
+        ...a,
+        data_source_ids: a.data_source_ids.filter((id) => id !== sourceIdx),
+      }
+    }
+    if (has) return a
+    return { ...a, data_source_ids: [...a.data_source_ids, sourceIdx] }
+  })
+}
+
 export function buildStep4Schedules(
   allocationData: Array<{
     id: string

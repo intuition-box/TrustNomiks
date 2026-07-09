@@ -10,6 +10,8 @@ import {
   BarChart2,
   PieChart,
   TrendingUp,
+  Check,
+  Minus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -41,6 +43,7 @@ import {
 import { SOURCE_TYPE_OPTIONS } from '@/types/form'
 import { useTokenForm } from '../token-form-context'
 import { SectionHeader, NotReadySection } from '../section-chrome'
+import { getBulkPillState, toggleBulkAttribution } from '../completeness'
 
 /** Section 6: Sources — data source table + a claim-attribution matrix (which sources back which claims). */
 export function Step6Sources() {
@@ -361,6 +364,68 @@ export function Step6Sources() {
                     )
                   }
 
+                  // Bulk row: one pill per source, aggregated across every row
+                  // in rowIdxs (e.g. all allocation-segment rows). Selected =
+                  // every row already has the source; partial (dashed ring,
+                  // paired with a minus glyph) = some but not all do. A click
+                  // adds the source to every row missing it, or removes it
+                  // from all rows if all already have it.
+                  const renderBulkPills = (rowIdxs: number[]) => {
+                    if (rowIdxs.length === 0) return null
+                    return (
+                      <div className="flex flex-wrap gap-1.5">
+                        {sourceFields.map((sf, srcIdx) => {
+                          const srcLabel =
+                            step6Form.watch(
+                              `sources.${srcIdx}.document_name`,
+                            ) || `Source ${srcIdx + 1}`
+                          const srcIdStr = srcIdx.toString()
+                          const state = getBulkPillState(
+                            attributions,
+                            rowIdxs,
+                            srcIdStr,
+                          )
+                          return (
+                            <button
+                              key={sf.id}
+                              type="button"
+                              aria-pressed={state === 'all'}
+                              onClick={() => {
+                                const current =
+                                  step6Form.getValues('attributions') ?? []
+                                step6Form.setValue(
+                                  'attributions',
+                                  toggleBulkAttribution(
+                                    current,
+                                    rowIdxs,
+                                    srcIdStr,
+                                  ),
+                                )
+                              }}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                                state === 'all' &&
+                                  'border-primary bg-primary text-primary-foreground',
+                                state === 'some' &&
+                                  'border-dashed border-primary/60 bg-primary/10 text-foreground',
+                                state === 'none' &&
+                                  'border-border text-muted-foreground hover:border-primary/50',
+                              )}
+                            >
+                              {state === 'all' && (
+                                <Check className="h-3 w-3" aria-hidden="true" />
+                              )}
+                              {state === 'some' && (
+                                <Minus className="h-3 w-3" aria-hidden="true" />
+                              )}
+                              {srcLabel}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  }
+
                   return (
                     <div className="rounded-lg border p-4 space-y-5">
                       {/* Header */}
@@ -419,6 +484,33 @@ export function Step6Sources() {
                                 Allocations & Vesting
                               </span>
                             </div>
+
+                            {/* Bulk attribution: apply one source to every
+                                allocation / vesting row at once. Only shown
+                                once there's more than one row to bulk-apply
+                                to; a single row makes this redundant with the
+                                per-claim pills directly below. */}
+                            {allocAttrs.length > 1 && (
+                              <div className="pl-5 space-y-2">
+                                <div className="rounded-md border border-border/40 bg-surface-2 p-3 space-y-2">
+                                  <p className="text-xs font-medium text-muted-foreground">
+                                    All allocations
+                                  </p>
+                                  {renderBulkPills(
+                                    allocAttrs.map(({ idx }) => idx),
+                                  )}
+                                </div>
+                                <div className="rounded-md border border-border/40 bg-surface-2 p-3 space-y-2">
+                                  <p className="text-xs font-medium text-muted-foreground">
+                                    All vesting schedules
+                                  </p>
+                                  {renderBulkPills(
+                                    vestingAttrs.map(({ idx }) => idx),
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
                             <div className="pl-5 space-y-3">
                               {allocAttrs.map(({ attr, idx }) => {
                                 const vestingEntry = vestingAttrs.find(
