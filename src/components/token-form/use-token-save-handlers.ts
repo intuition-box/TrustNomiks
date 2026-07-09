@@ -1032,21 +1032,29 @@ export function useTokenSaveHandlers(state: TokenFormState) {
   // One debounced autosave pipeline across all section forms. Only real user
   // edits (type === 'change') schedule a save; programmatic reset/setValue
   // (e.g. rebuilding vesting rows after an allocation save) do not.
+  // Arm (or re-arm) the debounced autosave of the active section. Keystroke
+  // subscriptions call this, and so do UI controls whose edits go through a
+  // programmatic setValue (e.g. the attribution pills), which react-hook-form
+  // never reports as type 'change'. Only closes over stable refs/setters, so
+  // the mount-time subscription closure below stays correct.
+  const queueAutosave = () => {
+    if (!tokenIdRef.current) return
+    setAutosave((a) =>
+      a.status === 'saving' ? a : { status: 'pending', at: a.at },
+    )
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+    autosaveTimerRef.current = window.setTimeout(() => {
+      void autosaveActiveRef.current()
+    }, 1800)
+  }
+
   useEffect(() => {
     const forms = Object.values(sectionFormsRef.current)
     const subs = forms.map((form) =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- union of 7 form value shapes
       (form as any).watch((_values: unknown, info: { type?: string }) => {
         if (info?.type !== 'change') return
-        if (!tokenIdRef.current) return
-        setAutosave((a) =>
-          a.status === 'saving' ? a : { status: 'pending', at: a.at },
-        )
-        if (autosaveTimerRef.current)
-          window.clearTimeout(autosaveTimerRef.current)
-        autosaveTimerRef.current = window.setTimeout(() => {
-          void autosaveActiveRef.current()
-        }, 1800)
+        queueAutosave()
       }),
     )
     return () => {
@@ -1312,6 +1320,7 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     nextSectionKey,
     handleContinue,
     handleFinish,
+    queueAutosave,
     autofillFromCoinGecko,
     normalizeAllocations,
   }

@@ -57,6 +57,7 @@ export function Step6Sources() {
     sourceFields,
     setPendingRemoval,
     addSource,
+    queueAutosave,
   } = useTokenForm()
 
   return (
@@ -348,7 +349,10 @@ export function Step6Sources() {
                                     : [...a.data_source_ids, srcIdx.toString()]
                                   return { ...a, data_source_ids: ids }
                                 })
-                                step6Form.setValue('attributions', updated)
+                                step6Form.setValue('attributions', updated, {
+                                  shouldDirty: true,
+                                })
+                                queueAutosave()
                               }}
                               className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
                                 isSelected
@@ -400,7 +404,9 @@ export function Step6Sources() {
                                     rowIdxs,
                                     srcIdStr,
                                   ),
+                                  { shouldDirty: true },
                                 )
+                                queueAutosave()
                               }}
                               className={cn(
                                 'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition-colors',
