@@ -159,7 +159,7 @@ function LoginPageInner() {
       email,
       password,
       options: {
-        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(destination)}`,
+        emailRedirectTo: `${getSiteUrl()}/auth/confirm?next=${encodeURIComponent(destination)}`,
       },
     })
     if (signUpError) throw signUpError
@@ -187,7 +187,7 @@ function LoginPageInner() {
         type: 'signup',
         email: pendingConfirmationEmail,
         options: {
-          emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(destination)}`,
+          emailRedirectTo: `${getSiteUrl()}/auth/confirm?next=${encodeURIComponent(destination)}`,
         },
       })
       if (resendErr) throw resendErr
@@ -212,7 +212,7 @@ function LoginPageInner() {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
         {
-          redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/reset-password`,
+          redirectTo: `${getSiteUrl()}/auth/confirm?next=${encodeURIComponent('/auth/reset-password')}`,
         },
       )
       if (resetError) throw resetError
