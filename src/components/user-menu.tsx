@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { LogOut, Moon, Sun, UserCircle } from 'lucide-react'
+import { LogOut, Moon, Sun, Trophy, UserCircle } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { createClient } from '@/lib/supabase/client'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -70,6 +70,12 @@ export function UserMenu({ user }: UserMenuProps) {
           <Link href="/profile">
             <UserCircle className="mr-2 h-4 w-4" />
             Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/progress">
+            <Trophy className="mr-2 h-4 w-4" />
+            Progress
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
