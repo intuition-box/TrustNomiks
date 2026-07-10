@@ -1,13 +1,11 @@
 'use client'
 
 import { useState, useSyncExternalStore } from 'react'
-import Link from 'next/link'
-import { Wallet } from 'lucide-react'
 import { SidebarNav } from '@/components/sidebar-nav'
 import { TopBar } from '@/components/top-bar'
 import { CmdkPalette } from '@/components/patterns/cmdk-palette'
-import { Button } from '@/components/ui/button'
 import { RoleProvider, type Role } from '@/components/role-context'
+import { ShellBanners } from '@/features/insights/shell-banners'
 import { cn } from '@/lib/utils'
 import type { User } from '@supabase/supabase-js'
 
@@ -77,24 +75,8 @@ export function AuthenticatedShell({
         >
           <TopBar user={user} onSearchOpen={() => setPaletteOpen(true)} />
 
-          {role === 'viewer' && (
-            <div
-              role="status"
-              className="flex flex-wrap items-center gap-3 border-b border-border bg-surface-2 px-4 py-2.5 sm:px-6 lg:px-8"
-            >
-              <Wallet
-                className="h-4 w-4 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <p className="flex-1 text-sm text-muted-foreground">
-                You are exploring in read-only mode. Link a wallet to
-                contribute.
-              </p>
-              <Button variant="brand" size="sm" asChild>
-                <Link href="/profile?linkWallet=1">Become a contributor</Link>
-              </Button>
-            </div>
-          )}
+          {/* Banner slot: moderator announcements + the read-only strip */}
+          <ShellBanners role={role} />
 
           <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
         </div>
