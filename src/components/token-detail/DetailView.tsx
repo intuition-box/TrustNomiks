@@ -67,6 +67,8 @@ function FieldChip({
   label: string
   value: unknown
 }) {
+  const { isContributor } = useRole()
+  if (!isContributor) return null
   const anchor: ChallengeAnchor = {
     claimType,
     claimId: null,
@@ -93,6 +95,8 @@ function RowChip({
   label: string
   currentValues: Record<string, unknown>
 }) {
+  const { isContributor } = useRole()
+  if (!isContributor) return null
   const anchor: ChallengeAnchor = {
     claimType,
     claimId,

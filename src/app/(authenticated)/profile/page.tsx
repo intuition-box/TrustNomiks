@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/composite/page-header'
 import { StatTile } from '@/components/composite/stat-tile'
 import { EmptyState } from '@/components/composite/empty-state'
@@ -14,7 +15,14 @@ import { ErrorState } from '@/components/composite/error-state'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { cn } from '@/lib/utils'
-import { CheckCircle2, Coins, Hexagon, Loader2, Percent } from 'lucide-react'
+import {
+  CheckCircle2,
+  Coins,
+  Eye,
+  Hexagon,
+  Loader2,
+  Percent,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 import { AccountActivityCard } from '@/components/intuition/account-activity-card'
@@ -125,13 +133,12 @@ function ProfileContent() {
 
   // Identity form
   const [displayName, setDisplayName] = useState('')
-  const [role, setRole] = useState('')
   const [organization, setOrganization] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileDirty, setProfileDirty] = useState(false)
 
   const supabase = createClient()
-  const { isViewer } = useRole()
+  const { isViewer, isContributor } = useRole()
 
   const fetchData = async () => {
     setLoading(true)
@@ -160,7 +167,6 @@ function ProfileContent() {
         ? map.get(userResult.data.user.id)
         : undefined
       setDisplayName(own?.display_name ?? '')
-      setRole(own?.role ?? '')
       setOrganization(own?.organization ?? '')
     } catch (error) {
       console.error('Error fetching profile data:', error)
@@ -203,7 +209,6 @@ function ProfileContent() {
             displayName.trim() ||
             currentUser.email?.split('@')[0] ||
             'Contributor',
-          role: role.trim() || null,
           organization: organization.trim() || null,
         },
         { onConflict: 'user_id' },
@@ -375,16 +380,25 @@ function ProfileContent() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="role">Role</Label>
-                <Input
-                  id="role"
-                  value={role}
-                  placeholder="e.g. analyst"
-                  onChange={(e) => {
-                    setRole(e.target.value)
-                    setProfileDirty(true)
-                  }}
-                />
+                <Label>Role</Label>
+                <div>
+                  <Badge
+                    variant="outline"
+                    className="gap-1.5 py-1 text-xs font-medium"
+                  >
+                    {isContributor ? (
+                      <>
+                        <CheckCircle2 className="h-3 w-3" aria-hidden />
+                        Contributor
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3 w-3" aria-hidden />
+                        Viewer
+                      </>
+                    )}
+                  </Badge>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="organization">Organization</Label>
