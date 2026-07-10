@@ -16,6 +16,8 @@ export interface NavItem {
 export interface NavZone {
   label: string
   items: NavItem[]
+  /** Viewers (no linked wallet) see these items greyed and locked. */
+  requiresContributor?: boolean
 }
 
 /**
@@ -34,6 +36,7 @@ export const NAV_ZONES: NavZone[] = [
   },
   {
     label: 'Contribute',
+    requiresContributor: true,
     items: [
       { href: '/tokens/new', label: 'Add token', icon: PlusCircle },
       { href: '/export', label: 'Publish & Export', icon: UploadCloud },
