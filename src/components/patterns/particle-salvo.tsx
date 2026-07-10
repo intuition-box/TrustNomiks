@@ -30,26 +30,26 @@ function prand(i: number, salt: number): number {
  * complete, validation). Under prefers-reduced-motion the global kill-switch
  * jumps particles to their final (invisible) state: no motion, no residue.
  */
-export function ParticleSalvo({ count = 26, className }: ParticleSalvoProps) {
+export function ParticleSalvo({ count = 32, className }: ParticleSalvoProps) {
   const particles = Array.from({ length: count }, (_, i) => {
     const angle = prand(i, 1) * Math.PI * 2
-    const dist = 60 + prand(i, 2) * 90
+    const dist = 80 + prand(i, 2) * 160
     return {
       dx: Math.cos(angle) * dist,
       dy: Math.sin(angle) * dist,
-      size: 3 + prand(i, 3) * 4,
-      delay: prand(i, 4) * 120,
+      size: 4 + prand(i, 3) * 5,
+      delay: prand(i, 4) * 150,
       cssVar: SALVO_VARS[i % SALVO_VARS.length],
     }
   })
 
   return (
+    // The PARENT must be `relative overflow-hidden` and large enough for the
+    // burst to breathe (a whole panel, not a one-line notice) — particles fly
+    // up to ~240px from its center.
     <div
       aria-hidden
-      className={cn(
-        'pointer-events-none absolute inset-0 overflow-hidden',
-        className,
-      )}
+      className={cn('pointer-events-none absolute inset-0 z-10', className)}
     >
       {particles.map((p, i) => (
         <span
@@ -59,9 +59,10 @@ export function ParticleSalvo({ count = 26, className }: ParticleSalvoProps) {
             width: p.size,
             height: p.size,
             backgroundColor: `hsl(var(${p.cssVar}))`,
+            boxShadow: `0 0 6px hsl(var(${p.cssVar}) / 0.8)`,
             ['--dx' as string]: `${p.dx}px`,
             ['--dy' as string]: `${p.dy}px`,
-            animation: 'particle-burst 700ms var(--ease-out) both',
+            animation: 'particle-burst 900ms var(--ease-out) both',
             animationDelay: `${p.delay}ms`,
           }}
         />

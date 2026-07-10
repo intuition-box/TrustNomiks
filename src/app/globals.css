@@ -481,13 +481,16 @@
   }
 }
 @keyframes particle-burst {
-  /* celebration salvo — particles fly out from center and fade */
+  /* celebration salvo — bright for most of the flight, extinguished at the end */
   0% {
     transform: translate(0, 0) scale(1);
     opacity: 1;
   }
+  60% {
+    opacity: 1;
+  }
   100% {
-    transform: translate(var(--dx, 0), var(--dy, 0)) scale(0.4);
+    transform: translate(var(--dx, 0), var(--dy, 0)) scale(0.5);
     opacity: 0;
   }
 }
