@@ -282,6 +282,16 @@
       "termId": "0x5f75cac1293a3edc2b10305e23642cb68e177f09f810ce502e7e9208fa7f1ce8",
       "pinnedAt": "2026-04-29T09:58:41.884Z",
       "description": "Relates a claim to its provenance data source."
+    },
+    "superseded_by": {
+      "internalKey": "superseded_by",
+      "canonicalLabel": "superseded by",
+      "source": "pinned",
+      "cid": "bafkreibnuuoxmzlkemmx2ws4uk6g4zotmcawsnjgfnsko3widmct3co7ja",
+      "uri": "ipfs://bafkreibnuuoxmzlkemmx2ws4uk6g4zotmcawsnjgfnsko3widmct3co7ja",
+      "termId": "0x07a5dfd63da85e71a72b0fe8f51652c7702d2b5787aca0fac069b904d3e8e7de",
+      "pinnedAt": "2026-07-09T20:09:59.149Z",
+      "description": "Links a superseded claim triple to the claim that replaces it."
     }
   }
 }
