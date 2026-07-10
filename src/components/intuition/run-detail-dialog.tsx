@@ -12,8 +12,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { GraphCanvas } from '@/components/knowledge-graph/graph-canvas'
 import { NODE_CONFIG } from '@/lib/knowledge-graph/node-config'
+import {
+  DATA_CSS_VAR,
+  STATUS_TONE_CSS_VAR,
+  getStatusToneColor,
+} from '@/lib/design/tokens'
 import {
   buildRunGraph,
   type OnChainMeta,
@@ -29,13 +35,8 @@ interface RunDetailDialogProps {
   onClose: () => void
 }
 
-// Status colors — used both as node overrides on the canvas and in the legend.
-const STATUS_COLOR: Record<PublishStatus, string> = {
-  confirmed: '#10b981', // emerald — matches existing success tone
-  failed: '#ef4444', // red
-  submitted: '#f59e0b', // amber — in-flight
-  pending: '#94a3b8', // slate — not yet touched
-}
+// Status tones resolve through the design-token bridge: DOM inlines the CSS
+// var (theme-aware), the canvas gets a memoized resolved palette (see below).
 
 const RUN_STATUS_VARIANT: Record<
   RunStatus,
@@ -151,11 +152,26 @@ function RunDetailInner({ runId }: { runId: string }) {
   }, [graphResult])
 
   // ── Status-based color override for canvas ──────────────────────────────
-  const nodeColor = useCallback((node: GraphNode): string | undefined => {
-    const meta = node.metadata?.onChain as OnChainMeta | undefined
-    if (!meta) return undefined
-    return STATUS_COLOR[meta.status]
-  }, [])
+  // Canvas can't resolve CSS vars: resolve once per theme, not per frame.
+  const { resolvedTheme } = useTheme()
+  const statusPalette = useMemo(() => {
+    void resolvedTheme
+    return {
+      confirmed: getStatusToneColor('confirmed'),
+      failed: getStatusToneColor('failed'),
+      submitted: getStatusToneColor('submitted'),
+      pending: getStatusToneColor('pending'),
+    } satisfies Record<PublishStatus, string>
+  }, [resolvedTheme])
+
+  const nodeColor = useCallback(
+    (node: GraphNode): string | undefined => {
+      const meta = node.metadata?.onChain as OnChainMeta | undefined
+      if (!meta) return undefined
+      return statusPalette[meta.status]
+    },
+    [statusPalette],
+  )
 
   // ── Resize observer for canvas container ────────────────────────────────
   useEffect(() => {
@@ -252,7 +268,6 @@ function RunDetailInner({ runId }: { runId: string }) {
                 activeFilters={activeFilters}
                 resetKey={resetKey}
                 nodeColor={nodeColor}
-                linkColor="rgba(148, 163, 184, 0.4)"
                 linkWidth={1}
                 pinnedNodeId={graphResult.pinnedNodeId}
               />
@@ -302,7 +317,7 @@ function StatusLegendItem({ status }: { status: PublishStatus }) {
     <span className="inline-flex items-center gap-1.5">
       <span
         className="h-2.5 w-2.5 rounded-full"
-        style={{ backgroundColor: STATUS_COLOR[status] }}
+        style={{ backgroundColor: `hsl(var(${STATUS_TONE_CSS_VAR[status]}))` }}
       />
       <span className="capitalize">{status}</span>
     </span>
@@ -443,7 +458,7 @@ function NodeDetails({
         <div className="flex items-center gap-2">
           <span
             className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: config.color }}
+            style={{ backgroundColor: `hsl(var(${DATA_CSS_VAR[node.type]}))` }}
           />
           <Badge variant="outline" className="text-[10px]">
             {config.label}
@@ -452,9 +467,9 @@ function NodeDetails({
             <Badge
               className="text-[10px] capitalize"
               style={{
-                backgroundColor: STATUS_COLOR[onChain.status],
-                color: 'white',
-                borderColor: STATUS_COLOR[onChain.status],
+                backgroundColor: `hsl(var(${STATUS_TONE_CSS_VAR[onChain.status]}) / 0.15)`,
+                color: `hsl(var(${STATUS_TONE_CSS_VAR[onChain.status]}))`,
+                borderColor: `hsl(var(${STATUS_TONE_CSS_VAR[onChain.status]}) / 0.3)`,
               }}
             >
               {onChain.status}

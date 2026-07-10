@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useTheme } from 'next-themes'
 import { forceCollide, forceRadial } from 'd3-force-3d'
 import { Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import type { KnowledgeGraphResponse } from '@/types/knowledge-graph'
 import type { GraphNode, NodeType } from '@/lib/knowledge-graph/graph-types'
 import { NODE_CONFIG } from '@/lib/knowledge-graph/node-config'
 import { HUB_NODE_ID } from '@/lib/knowledge-graph/build-graph'
+import { getDataColor, getGraphChrome, withAlpha } from '@/lib/design/tokens'
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
   ssr: false,
@@ -68,6 +70,16 @@ export function GraphCanvas({
     () => new Map(data.nodes.map((n) => [n.id, n])),
     [data.nodes],
   )
+  // Theme-aware canvas palette. getComputedStyle is not reactive, so re-resolve
+  // the CSS tokens whenever next-themes flips the class on <html>.
+  const { resolvedTheme } = useTheme()
+  const palette = useMemo(() => {
+    void resolvedTheme
+    const node = Object.fromEntries(
+      (Object.keys(NODE_CONFIG) as NodeType[]).map((t) => [t, getDataColor(t)]),
+    ) as Record<NodeType, string>
+    return { node, chrome: getGraphChrome() }
+  }, [resolvedTheme])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const graphRef = useRef<any>(undefined)
   const [showCenterBtn, setShowCenterBtn] = useState(false)
@@ -327,18 +339,29 @@ export function GraphCanvas({
       const x = node.x ?? 0
       const y = node.y ?? 0
 
-      // Resolve effective color: external override takes precedence over NODE_CONFIG
+      // Resolve effective color: external override takes precedence over the
+      // theme palette (graph space, resolved from --data-* tokens)
       const graphNode = graphNodesById.get(node.id)
       const overrideColor =
         nodeColor && graphNode ? nodeColor(graphNode) : undefined
-      const effectiveColor = overrideColor ?? config.color
+      const effectiveColor =
+        overrideColor ?? palette.node[node.type] ?? palette.node.token
 
       ctx.globalAlpha = visible ? 1 : 0.08
 
       if (isHub) {
         ctx.beginPath()
         ctx.arc(x, y, size + 4, 0, 2 * Math.PI)
-        ctx.fillStyle = 'rgba(99, 102, 241, 0.15)'
+        ctx.fillStyle = palette.chrome.hubHalo
+        ctx.fill()
+      }
+
+      // Selected: keep the family fill, add a soft halo + outer ring in the
+      // node's own color (doc 06 §2.4 — never a white fill)
+      if (isSelected) {
+        ctx.beginPath()
+        ctx.arc(x, y, size + 6, 0, 2 * Math.PI)
+        ctx.fillStyle = withAlpha(effectiveColor, 0.18)
         ctx.fill()
       }
 
@@ -349,18 +372,20 @@ export function GraphCanvas({
         ctx.lineTo(x, y + size)
         ctx.lineTo(x - size, y)
         ctx.closePath()
-        ctx.fillStyle = isSelected ? '#ffffff' : effectiveColor
+        ctx.fillStyle = effectiveColor
         ctx.fill()
       } else {
         ctx.beginPath()
         ctx.arc(x, y, size, 0, 2 * Math.PI)
-        ctx.fillStyle = isSelected ? '#ffffff' : effectiveColor
+        ctx.fillStyle = effectiveColor
         ctx.fill()
       }
 
       if (isSelected) {
+        ctx.beginPath()
+        ctx.arc(x, y, size + 2.5, 0, 2 * Math.PI)
         ctx.strokeStyle = effectiveColor
-        ctx.lineWidth = 2.5
+        ctx.lineWidth = 1.5
         ctx.stroke()
       }
 
@@ -373,16 +398,24 @@ export function GraphCanvas({
         const fontSize = isHub
           ? Math.max(14 / globalScale, 5)
           : Math.max(10 / globalScale, 3)
-        ctx.font = `${isHub ? 'bold ' : ''}${fontSize}px Inter, sans-serif`
+        ctx.font = `${isHub ? 'bold ' : ''}${fontSize}px ${palette.chrome.fontFamily}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = isHub || isPinned ? '#6366f1' : '#94a3b8'
+        ctx.fillStyle =
+          isHub || isPinned ? palette.chrome.labelAccent : palette.chrome.label
         ctx.fillText(node.label, x, y + size + 2)
       }
 
       ctx.globalAlpha = 1
     },
-    [selectedNodeId, isVisible, nodeColor, graphNodesById, pinnedNodeId],
+    [
+      selectedNodeId,
+      isVisible,
+      nodeColor,
+      graphNodesById,
+      pinnedNodeId,
+      palette,
+    ],
   )
 
   const handleNodeClick = useCallback(
@@ -426,8 +459,8 @@ export function GraphCanvas({
         onZoom={hideCenter}
         onEngineTick={handleEngineTick}
         onEngineStop={handleEngineStop}
-        linkColor={() => linkColor ?? 'rgba(148, 163, 184, 0.15)'}
-        linkWidth={linkWidth ?? 0.4}
+        linkColor={() => linkColor ?? palette.chrome.edge}
+        linkWidth={linkWidth ?? 0.8}
         linkDirectionalArrowLength={2.5}
         linkDirectionalArrowRelPos={1}
         warmupTicks={0}

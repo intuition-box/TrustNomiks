@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { NODE_CONFIG } from '@/lib/knowledge-graph/node-config'
+import { DATA_CSS_VAR } from '@/lib/design/tokens'
 import type { NodeType } from '@/lib/knowledge-graph/graph-types'
 import { cn } from '@/lib/utils'
 
@@ -48,12 +49,16 @@ export function GraphLegend() {
                   {type === 'triple' ? (
                     <span
                       className="w-2.5 h-2.5 shrink-0 rotate-45"
-                      style={{ backgroundColor: config.color }}
+                      style={{
+                        backgroundColor: `hsl(var(${DATA_CSS_VAR[type]}))`,
+                      }}
                     />
                   ) : (
                     <span
                       className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: config.color }}
+                      style={{
+                        backgroundColor: `hsl(var(${DATA_CSS_VAR[type]}))`,
+                      }}
                     />
                   )}
                   <span className="text-[10px] text-muted-foreground">

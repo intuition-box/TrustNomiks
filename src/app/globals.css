@@ -82,7 +82,7 @@
 
   /* Graph chrome */
   --graph-canvas: 240 20% 99%;
-  --graph-edge: 240 6% 78%;
+  --graph-edge: 240 6% 64%;
   --graph-edge-focus: 240 6% 45%;
 
   --radius: 0.625rem;

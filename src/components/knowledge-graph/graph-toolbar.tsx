@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RefreshCw, Maximize2, Search } from 'lucide-react'
 import { NODE_CONFIG } from '@/lib/knowledge-graph/node-config'
+import { DATA_CSS_VAR } from '@/lib/design/tokens'
 import type { NodeType } from '@/lib/knowledge-graph/graph-types'
 import { cn } from '@/lib/utils'
 
@@ -71,7 +72,7 @@ export function GraphToolbar({
               <span
                 className="w-2 h-2 rounded-full shrink-0"
                 style={{
-                  backgroundColor: config.color,
+                  backgroundColor: `hsl(var(${DATA_CSS_VAR[type]}))`,
                   opacity: active ? 1 : 0.3,
                 }}
               />
