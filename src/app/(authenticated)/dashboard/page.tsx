@@ -190,10 +190,10 @@ export default function DashboardPage() {
 
           {/* BAND 2, living graph + right column */}
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="lg:col-span-2">
+            <div className="min-w-0 lg:col-span-2">
               <DashboardKnowledgeGraphCard />
             </div>
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <NextBestAction
                 weakestLabel={
                   weakest && weakest.rate < 100

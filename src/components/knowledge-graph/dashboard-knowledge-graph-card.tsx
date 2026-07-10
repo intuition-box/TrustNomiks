@@ -105,12 +105,12 @@ export function DashboardKnowledgeGraphCard() {
 
   return (
     <>
-      <Card className="border border-indigo-500/30 overflow-hidden shadow-[0_0_20px_rgba(99,102,241,0.12)]">
-        <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-indigo-100 dark:from-indigo-500/5 to-transparent">
+      <Card className="border border-primary/25 overflow-hidden shadow-[0_0_20px_hsl(var(--primary)/0.12)]">
+        <CardHeader className="border-b border-border/50 pb-4 bg-gradient-to-r from-primary/10 dark:from-primary/5 to-transparent">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2.5 text-base">
-              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-100 dark:bg-indigo-500/10">
-                <GitBranch className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-primary/10">
+                <GitBranch className="h-4 w-4 text-primary" />
               </span>
               Tokenomics Graph
             </CardTitle>
@@ -159,20 +159,24 @@ export function DashboardKnowledgeGraphCard() {
 
               <div
                 ref={containerRef}
-                className="relative w-full"
+                className="relative w-full overflow-hidden"
                 style={{ height: graphHeight }}
               >
+                {/* Absolute wrapper keeps the fixed-width canvas out of layout,
+                    so it can never widen the grid track it is measured against. */}
                 {containerWidth > 0 && (
-                  <GraphCanvas
-                    data={data}
-                    width={containerWidth}
-                    height={graphHeight}
-                    onNodeSelect={setSelectedNode}
-                    selectedNodeId={selectedNode?.id ?? null}
-                    searchQuery={searchQuery}
-                    activeFilters={activeFilters}
-                    resetKey={resetKey}
-                  />
+                  <div className="absolute inset-0">
+                    <GraphCanvas
+                      data={data}
+                      width={containerWidth}
+                      height={graphHeight}
+                      onNodeSelect={setSelectedNode}
+                      selectedNodeId={selectedNode?.id ?? null}
+                      searchQuery={searchQuery}
+                      activeFilters={activeFilters}
+                      resetKey={resetKey}
+                    />
+                  </div>
                 )}
                 <GraphLegend />
               </div>
