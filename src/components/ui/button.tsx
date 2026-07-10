@@ -5,18 +5,20 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  // Focus ring comes from the global :focus-visible outline (globals.css) —
+  // never re-add a local focus-visible override here.
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
         default:
           'bg-primary text-primary-foreground shadow hover:bg-primary/90',
         brand:
-          'bg-gradient-brand text-white shadow-sm transition-[filter] hover:brightness-110',
+          'bg-gradient-brand text-primary-foreground shadow-sm transition-[filter] hover:brightness-110',
         destructive:
           'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
         success:
-          'bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] shadow-sm hover:opacity-90',
+          'bg-success text-success-foreground shadow-sm hover:opacity-90',
         outline:
           'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
         secondary:
