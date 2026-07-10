@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildRegistryPulse, type RegistryPulseToken } from './build-insights'
+import {
+  buildActivityItems,
+  buildRegistryPulse,
+  FEED_EVENT_TYPES,
+  type ActivityEvent,
+  type RegistryPulseToken,
+} from './build-insights'
 import { TARGET_TOKENS } from './constants'
 
 const NOW = new Date('2026-07-10T12:00:00Z')
@@ -95,5 +101,77 @@ describe('buildRegistryPulse', () => {
   it('returns no weakest cluster when every cluster is complete', () => {
     const pulse = buildRegistryPulse([token(), token()], NOW)
     expect(pulse.weakest).toBeNull()
+  })
+})
+
+describe('buildActivityItems', () => {
+  const NAMES = new Map([['t1', { name: 'ApeCoin', ticker: 'APE' }]])
+
+  function event(over: Partial<ActivityEvent> = {}): ActivityEvent {
+    return {
+      id: over.id ?? 'e1',
+      event_type: 'opened',
+      token_id: 't1',
+      created_at: '2026-07-09T10:00:00Z',
+      ...over,
+    }
+  }
+
+  const FULL_PULSE = buildRegistryPulse(
+    Array.from({ length: 6 }, (_, i) => ({
+      name: `T${i}`,
+      ticker: `T${i}`,
+      status: 'validated' as const,
+      created_at: '2026-07-01T00:00:00Z',
+      cluster_scores: null,
+    })),
+    NOW,
+  )
+
+  it('maps whitelisted events to anonymized copy with the token name', () => {
+    const items = buildActivityItems(
+      [event({ id: 'a', event_type: 'owner_accepted' })],
+      NAMES,
+      FULL_PULSE,
+    )
+    expect(items[0].message).toBe('The owner accepted an update on ApeCoin')
+    expect(items[0].kind).toBe('resolution')
+  })
+
+  it('drops event types outside the whitelist', () => {
+    const items = buildActivityItems(
+      [event({ id: 'a', event_type: 'stake_recorded' })],
+      NAMES,
+      FULL_PULSE,
+    )
+    expect(items.find((i) => i.id === 'a')).toBeUndefined()
+    expect(FEED_EVENT_TYPES).not.toContain('stake_recorded')
+  })
+
+  it('falls back to "a token" when the token name is unknown', () => {
+    const items = buildActivityItems(
+      [event({ id: 'a', token_id: 'unknown' })],
+      NAMES,
+      FULL_PULSE,
+    )
+    expect(items[0].message).toBe('A challenge was opened on a token')
+  })
+
+  it('fuses registry milestones in when fewer than 5 real events', () => {
+    const items = buildActivityItems([event({ id: 'a' })], NAMES, FULL_PULSE)
+    expect(items.some((i) => i.kind === 'registry')).toBe(true)
+    // The undated milestone carries no fake timestamp and sorts last
+    const milestone = items.find((i) => i.id === 'registry-milestone')
+    expect(milestone?.at).toBeNull()
+    expect(items[items.length - 1].id).toBe('registry-milestone')
+  })
+
+  it('keeps newest first and respects the limit', () => {
+    const events = Array.from({ length: 10 }, (_, i) =>
+      event({ id: `e${i}`, created_at: `2026-07-0${(i % 9) + 1}T10:00:00Z` }),
+    )
+    const items = buildActivityItems(events, NAMES, FULL_PULSE, 4)
+    expect(items).toHaveLength(4)
+    expect(items[0].at! >= items[1].at!).toBe(true)
   })
 })

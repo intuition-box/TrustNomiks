@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { StatTile } from '@/components/composite/stat-tile'
 import { StatusPill, type TokenStatus } from '@/components/composite/data-badge'
@@ -35,6 +34,9 @@ import { useChallengesOnMyTokens } from '@/features/claims/use-my-challenges'
 import { useRole } from '@/hooks/use-role'
 
 import { TARGET_TOKENS } from '@/lib/insights/constants'
+import { useRegistryTokens } from '@/features/insights/use-registry-tokens'
+import { InsightRail } from '@/features/insights/insight-rail'
+import { GraphActivity } from '@/features/insights/graph-activity'
 
 type DashboardToken = {
   id: string
@@ -52,35 +54,23 @@ type DashboardToken = {
 }
 
 export default function DashboardPage() {
-  const [tokens, setTokens] = useState<DashboardToken[]>([])
-  const [loading, setLoading] = useState(true)
+  // The shared registry read (TanStack cache): the KPI band, the insight rail
+  // and the activity feed all derive from this single fetch.
+  const {
+    data: registryTokens,
+    isPending: loading,
+    isError,
+  } = useRegistryTokens()
+  const tokens = useMemo(() => registryTokens ?? [], [registryTokens])
   const router = useRouter()
-  const supabase = createClient()
   const { openCount: openChallengeCount } = useChallengesOnMyTokens()
   const { isContributor } = useRole()
 
   useEffect(() => {
-    fetchData()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('tokens')
-        .select(
-          'id, name, ticker, coingecko_image, status, completeness, cluster_scores',
-        )
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      setTokens(data || [])
-    } catch (error) {
-      console.error('Error fetching data:', error)
+    if (isError) {
       toast.error('Failed to load dashboard data. Please refresh the page.')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [isError])
 
   const stats = {
     total: tokens.length,
@@ -192,6 +182,9 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* BAND 1.5, what the platform learned (Pulse rail) */}
+          <InsightRail />
+
           {/* BAND 2, living graph + right column */}
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="min-w-0 lg:col-span-2">
@@ -214,6 +207,7 @@ export default function DashboardPage() {
                 hasValidated={stats.validated > 0}
                 onPublish={() => router.push('/export')}
               />
+              <GraphActivity />
             </div>
           </div>
 
