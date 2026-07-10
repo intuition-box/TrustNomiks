@@ -40,6 +40,33 @@ jobs:
       - name: Scan git history for secrets
         run: ./gitleaks git --no-banner --redact --verbose .
 
+  # SQL-level regression tests for the challenge-domain RPCs (SECURITY DEFINER
+  # gates, RLS, state machine). Stands the functions up on a plain postgres:16
+  # via supabase/tests/_bootstrap.sql + the challenge migrations, then runs the
+  # PL/pgSQL assertions in supabase/tests/. No pgtap extension needed.
+  sql-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Run SQL RPC regression tests
+        run: bash scripts/test-db.sh
+
   e2e:
     needs: ci
     runs-on: ubuntu-latest
