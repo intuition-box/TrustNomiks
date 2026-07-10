@@ -104,6 +104,9 @@ export function LiveGraph({
   const fgRef = useRef<any>(undefined)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [reducedMotion, setReducedMotion] = useState(false)
+  // Local mode: labels on hover only (a dozen permanent tickers collide)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const isLocal = mode === 'local'
 
   const graph = useMemo(
     () => data ?? buildSynthetic(count, tokenLabels),
@@ -207,18 +210,30 @@ export function LiveGraph({
         ctx.fill()
       }
 
-      // labels: hub always; tokens when zoomed in enough
-      const showLabel = isHub || (node.type === 'token' && scale > 0.9)
+      const isHovered = isLocal && node.id === hoveredId
+      if (isHovered) {
+        ctx.beginPath()
+        ctx.arc(x, y, s + 2.5, 0, 2 * Math.PI)
+        ctx.lineWidth = 1.4
+        ctx.strokeStyle = color
+        ctx.stroke()
+      }
+
+      // labels: the center node always; in local mode, satellites only on
+      // hover (a dozen permanent tickers collide); elsewhere when zoomed in
+      const isCenter = isHub || node.id === 'hub'
+      const showLabel =
+        isCenter || (isLocal ? isHovered : node.type === 'token' && scale > 0.9)
       if (showLabel && node.label) {
-        const fontSize = Math.max((isHub ? 13 : 10) / scale, 3)
-        ctx.font = `${isHub ? '600 ' : ''}${fontSize}px var(--font-geist-sans, Inter), sans-serif`
+        const fontSize = Math.max((isCenter ? 13 : 10) / scale, 3)
+        ctx.font = `${isCenter ? '600 ' : ''}${fontSize}px var(--font-geist-sans, Inter), sans-serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.fillStyle = isHub ? color : withAlpha(color, 0.85)
+        ctx.fillStyle = isCenter ? color : withAlpha(color, 0.95)
         ctx.fillText(node.label, x, y + s + 2)
       }
     },
-    [colorMap],
+    [colorMap, isLocal, hoveredId],
   )
 
   const handleClick = useCallback(
@@ -234,7 +249,11 @@ export function LiveGraph({
   return (
     <div
       ref={wrapRef}
-      className={cn('relative h-full w-full overflow-hidden', className)}
+      className={cn(
+        'relative h-full w-full overflow-hidden',
+        isLocal && hoveredId && 'cursor-pointer',
+        className,
+      )}
     >
       {size.w > 0 && (
         <ForceGraph2D
@@ -258,6 +277,12 @@ export function LiveGraph({
             ctx.fill()
           }}
           onNodeClick={handleClick}
+          onNodeHover={
+            isLocal
+              ? (raw: object | null) =>
+                  setHoveredId(raw ? (raw as LiveNode).id : null)
+              : undefined
+          }
           linkColor={() => readEdgeColor()}
           linkWidth={mode === 'hero' ? 0.7 : 0.5}
           linkDirectionalParticles={particles}
