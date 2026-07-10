@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { WalletConnectButton } from '@/components/wallet-connect-button'
+import { useVerifiedWallet } from '@/features/wallet-linking/use-verified-wallet'
 import type {
   IntuitionAccountActivity,
   IntuitionPositionSummary,
@@ -33,6 +34,11 @@ export function AccountActivityCard({
   createdLimit = 5,
 }: AccountActivityCardProps) {
   const { address, isConnected } = useAccount()
+  // Only the wallet the user has PROVEN ownership of (an active wallet_links
+  // row) may surface its on-chain activity here: a merely-connected wallet can
+  // belong to another identity and would leak that identity's data onto this
+  // account's profile.
+  const { isVerified } = useVerifiedWallet()
   const [data, setData] = useState<IntuitionAccountActivity | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,13 +74,13 @@ export function AccountActivityCard({
   }, [address, createdLimit, limit])
 
   useEffect(() => {
-    if (isConnected && address) {
+    if (isConnected && address && isVerified) {
       fetchActivity()
     } else {
       setData(null)
       setError(null)
     }
-  }, [address, fetchActivity, isConnected])
+  }, [address, fetchActivity, isConnected, isVerified])
 
   const content = (
     <>
@@ -91,7 +97,7 @@ export function AccountActivityCard({
             wallet.
           </p>
         </div>
-        {isConnected && address && (
+        {isConnected && address && isVerified && (
           <Button
             variant="outline"
             size="sm"
@@ -115,6 +121,13 @@ export function AccountActivityCard({
             atoms/triples.
           </p>
           <WalletConnectButton />
+        </div>
+      ) : !isVerified ? (
+        <div className="mt-4 flex flex-col items-start gap-3 rounded-lg border border-dashed p-4">
+          <p className="text-sm text-muted-foreground">
+            This wallet is not linked to your account. Link it from your profile
+            to see its Intuition activity here.
+          </p>
         </div>
       ) : (
         <div className="mt-4 space-y-4">
