@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   ExternalLink,
   CheckCircle2,
   AlertCircle,
@@ -47,6 +49,7 @@ import {
   ClaimSourceBadges,
 } from './claim-sources'
 import { SectionRail, type SectionRailItem } from './section-rail'
+import { useTokenCompletenessDelta } from '@/features/insights/use-token-deltas'
 import { StatusManager } from './StatusManager'
 import type { TokenData } from './types'
 import { StakeChip } from '@/features/claims/stake-chip'
@@ -177,6 +180,8 @@ export function DetailView({
   >(null)
   // One color per segment, canonical list order (matches donut + breakdown)
   const segColors = allocationColors(token.allocation_segments)
+  // 7-day completeness movement from the stat-history ledger
+  const { data: completenessDelta = 0 } = useTokenCompletenessDelta(token.id)
   const [enrichOpen, setEnrichOpen] = useState(false)
 
   // Sticky anchor rail over the data sections (Vesting→Risk live behind the
@@ -277,8 +282,29 @@ export function DetailView({
                 <span className="font-medium text-muted-foreground">
                   Completeness
                 </span>
-                <span className="tabular font-semibold">
-                  {token.completeness}%
+                <span className="flex items-center gap-1.5">
+                  {completenessDelta !== 0 && (
+                    <span
+                      className={cn(
+                        'tabular inline-flex items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-semibold',
+                        completenessDelta > 0
+                          ? 'bg-success/15 text-success'
+                          : 'bg-destructive/15 text-destructive',
+                      )}
+                      title="Change over the last 7 days"
+                    >
+                      {completenessDelta > 0 ? (
+                        <ArrowUp className="h-2.5 w-2.5" aria-hidden />
+                      ) : (
+                        <ArrowDown className="h-2.5 w-2.5" aria-hidden />
+                      )}
+                      {completenessDelta > 0 ? '+' : ''}
+                      {completenessDelta} this week
+                    </span>
+                  )}
+                  <span className="tabular font-semibold">
+                    {token.completeness}%
+                  </span>
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">

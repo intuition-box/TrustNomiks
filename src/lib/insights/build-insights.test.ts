@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildActivityItems,
   buildRegistryPulse,
+  computeCompletenessDelta,
   FEED_EVENT_TYPES,
   type ActivityEvent,
   type RegistryPulseToken,
@@ -173,5 +174,47 @@ describe('buildActivityItems', () => {
     const items = buildActivityItems(events, NAMES, FULL_PULSE, 4)
     expect(items).toHaveLength(4)
     expect(items[0].at! >= items[1].at!).toBe(true)
+  })
+})
+
+describe('computeCompletenessDelta', () => {
+  const since = new Date('2026-07-03T12:00:00Z')
+
+  it('returns 0 with no snapshots', () => {
+    expect(computeCompletenessDelta([], since)).toBe(0)
+  })
+
+  it('measures latest minus the last snapshot at-or-before the window start', () => {
+    const delta = computeCompletenessDelta(
+      [
+        { completeness: 40, recorded_at: '2026-06-20T00:00:00Z' },
+        { completeness: 55, recorded_at: '2026-07-01T00:00:00Z' },
+        { completeness: 70, recorded_at: '2026-07-08T00:00:00Z' },
+      ],
+      since,
+    )
+    expect(delta).toBe(15) // 70 - 55 (the 07-01 row anchors the window)
+  })
+
+  it('anchors on the first row when history starts inside the window', () => {
+    const delta = computeCompletenessDelta(
+      [
+        { completeness: 45, recorded_at: '2026-07-09T00:00:00Z' },
+        { completeness: 60, recorded_at: '2026-07-10T00:00:00Z' },
+      ],
+      since,
+    )
+    expect(delta).toBe(15)
+  })
+
+  it('returns a negative delta when completeness dropped', () => {
+    const delta = computeCompletenessDelta(
+      [
+        { completeness: 80, recorded_at: '2026-07-01T00:00:00Z' },
+        { completeness: 70, recorded_at: '2026-07-09T00:00:00Z' },
+      ],
+      since,
+    )
+    expect(delta).toBe(-10)
   })
 })

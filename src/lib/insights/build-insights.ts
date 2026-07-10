@@ -86,6 +86,37 @@ export function buildRegistryPulse(
   }
 }
 
+/* ── Stat history deltas ──────────────────────────────────────────────────── */
+
+export interface StatSnapshot {
+  completeness: number
+  recorded_at: string
+}
+
+/**
+ * Completeness movement over a window: latest snapshot minus the anchor
+ * (the last snapshot at-or-before the window start; if history only begins
+ * inside the window, its first row is the honest anchor). 0 when there is
+ * nothing to compare.
+ */
+export function computeCompletenessDelta(
+  snapshots: readonly StatSnapshot[],
+  since: Date,
+): number {
+  if (snapshots.length === 0) return 0
+  const sorted = [...snapshots].sort((a, b) =>
+    a.recorded_at.localeCompare(b.recorded_at),
+  )
+  const latest = sorted[sorted.length - 1]
+  const sinceIso = since.toISOString()
+  let anchor = sorted[0]
+  for (const s of sorted) {
+    if (s.recorded_at <= sinceIso) anchor = s
+    else break
+  }
+  return latest.completeness - anchor.completeness
+}
+
 /* ── Activity feed ────────────────────────────────────────────────────────── */
 
 export interface ActivityEvent {
