@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service'
 import {
   assertWalletVerified,
   WalletNotVerifiedError,
@@ -130,6 +131,62 @@ async function handleInit(
       { error: 'Failed to create publish run' },
       { status: 500 },
     )
+  }
+
+  // Publish-under-challenge guard (plan §8) audit trail: if the caller
+  // explicitly opted in to publishing claims that have an open challenge,
+  // log one challenge_events row per open challenge so it's visible in each
+  // challenge's audit ledger. The write goes through the service-role client
+  // because challenge_events has no INSERT policy for `authenticated` (all
+  // writers are SECURITY DEFINER RPCs) — and this route is already a trust
+  // boundary (ownership + wallet verification asserted above), so it passes
+  // the verified actor id explicitly. Best-effort: never fail the publish.
+  const includeChallenged = (body as { includeChallenged?: boolean })
+    .includeChallenged
+  if (includeChallenged === true) {
+    try {
+      const svc = createServiceRoleClient()
+      const { data: openChallenges, error: openChallengesErr } = await svc
+        .from('challenges')
+        .select('id, claim_type, field_key')
+        .eq('token_id', tokenId)
+        .eq('status', 'open')
+
+      if (openChallengesErr) {
+        throw openChallengesErr
+      }
+
+      if (openChallenges && openChallenges.length > 0) {
+        const eventRows = openChallenges.map((c) => ({
+          challenge_id: c.id,
+          token_id: tokenId,
+          event_type: 'published_despite_challenge',
+          actor_id: userId,
+          note: 'published despite an open challenge',
+          metadata: {
+            runId: run.id,
+            claim_type: c.claim_type,
+            field_key: c.field_key,
+          },
+        }))
+
+        const { error: eventErr } = await svc
+          .from('challenge_events')
+          .insert(eventRows)
+
+        if (eventErr) {
+          console.warn(
+            'Failed to log published_despite_challenge audit events:',
+            eventErr,
+          )
+        }
+      }
+    } catch (err) {
+      console.warn(
+        'Failed to log published_despite_challenge audit events:',
+        err,
+      )
+    }
   }
 
   return NextResponse.json({ runId: run.id, status: 'running' })
