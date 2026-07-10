@@ -34,6 +34,9 @@ interface LiveGraphProps {
   data?: LiveGraphData
   /** token count for the synthetic graph */
   count?: number
+  /** real token names for the synthetic graph's satellites (index-aligned;
+   *  falls back to "Token N" beyond the provided list) */
+  tokenLabels?: string[]
   className?: string
   onNodeClick?: (node: LiveNode) => void
 }
@@ -56,14 +59,19 @@ const SIZE_BY_TYPE: Partial<Record<NodeType, number>> = {
 }
 
 /** Deterministic synthetic graph: hub → tokens → a couple of atom/triple children each. */
-function buildSynthetic(count: number): LiveGraphData {
+function buildSynthetic(count: number, tokenLabels?: string[]): LiveGraphData {
   const nodes: LiveNode[] = [
     { id: 'hub', type: 'graph_root', label: 'TrustNomiks', size: 9 },
   ]
   const links: LiveLink[] = []
   for (let t = 0; t < count; t++) {
     const tid = `t${t}`
-    nodes.push({ id: tid, type: 'token', label: `Token ${t + 1}`, size: 6 })
+    nodes.push({
+      id: tid,
+      type: 'token',
+      label: tokenLabels?.[t] ?? `Token ${t + 1}`,
+      size: 6,
+    })
     links.push({ source: 'hub', target: tid })
     const children = 2 + (t % 3)
     for (let c = 0; c < children; c++) {
@@ -86,6 +94,7 @@ export function LiveGraph({
   mode = 'hero',
   data,
   count = 12,
+  tokenLabels,
   className,
   onNodeClick,
 }: LiveGraphProps) {
@@ -96,7 +105,10 @@ export function LiveGraph({
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [reducedMotion, setReducedMotion] = useState(false)
 
-  const graph = useMemo(() => data ?? buildSynthetic(count), [data, count])
+  const graph = useMemo(
+    () => data ?? buildSynthetic(count, tokenLabels),
+    [data, count, tokenLabels],
+  )
 
   // Resolve taxonomy colors once per theme (re-read CSS vars on theme switch).
   const colorMap = useMemo(() => {

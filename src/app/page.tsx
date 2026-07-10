@@ -19,19 +19,27 @@ import { Button } from '@/components/ui/button'
 import { LiveGraph } from '@/components/brand/live-graph'
 import { Logo } from '@/components/brand/logo'
 import { createClient } from '@/lib/supabase/client'
-
-const TARGET = 300
+import { TARGET_TOKENS as TARGET } from '@/lib/insights/constants'
 
 export default function Landing() {
-  // The counter states a fact, so it counts the real registry: validated tokens
-  // via the public_token_count RPC (SECURITY DEFINER), readable anonymously so
-  // the number is real even before sign-in. Stays a goal statement if it fails.
+  // The counter states a fact, so it counts the real registry: every
+  // structured token (the unified "/300 structured" vocabulary) via the
+  // public_token_count RPC (SECURITY DEFINER), readable anonymously so the
+  // number is real even before sign-in. Stays a goal statement if it fails.
   const [total, setTotal] = useState<number | null>(null)
+  // Real validated token names orbit the hero graph (quality-gated public facts).
+  const [tokenNames, setTokenNames] = useState<string[] | undefined>(undefined)
   useEffect(() => {
-    createClient()
-      .rpc('public_token_count')
+    const supabase = createClient()
+    supabase.rpc('public_token_count').then(({ data, error }) => {
+      if (!error && typeof data === 'number') setTotal(data)
+    })
+    supabase
+      .rpc('public_token_names', { max_rows: 13 })
       .then(({ data, error }) => {
-        if (!error && typeof data === 'number') setTotal(data)
+        if (!error && Array.isArray(data) && data.length > 0) {
+          setTokenNames(data.map((r: { name: string }) => r.name))
+        }
       })
   }, [])
   const count = useCountUp(total ?? 0, 1600)
@@ -172,7 +180,11 @@ export default function Landing() {
             }}
             aria-hidden
           />
-          <LiveGraph mode="hero" count={13} />
+          <LiveGraph
+            mode="hero"
+            count={tokenNames?.length ?? 13}
+            tokenLabels={tokenNames}
+          />
         </div>
       </section>
 
