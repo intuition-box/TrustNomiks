@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { StatTile } from '@/components/composite/stat-tile'
 import { StatusPill, type TokenStatus } from '@/components/composite/data-badge'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { TokenFace } from '@/components/composite/token-face'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { EmptyState } from '@/components/composite/empty-state'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,7 @@ type DashboardToken = {
   id: string
   name: string
   ticker: string
+  coingecko_image: string | null
   status: TokenStatus
   completeness: number
   cluster_scores: {
@@ -66,7 +68,9 @@ export default function DashboardPage() {
       setLoading(true)
       const { data, error } = await supabase
         .from('tokens')
-        .select('id, name, ticker, status, completeness, cluster_scores')
+        .select(
+          'id, name, ticker, coingecko_image, status, completeness, cluster_scores',
+        )
         .order('created_at', { ascending: false })
       if (error) throw error
       setTokens(data || [])
@@ -471,7 +475,12 @@ function RecentTokens({
               onClick={() => onOpen(t.id)}
               className="flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-surface-2"
             >
-              <NodeGlyph type="token" size={14} />
+              <TokenFace
+                name={t.name}
+                ticker={t.ticker}
+                imageUrl={t.coingecko_image}
+                size={24}
+              />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">
                   {t.name}{' '}
