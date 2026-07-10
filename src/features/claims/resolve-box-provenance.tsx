@@ -30,6 +30,7 @@ import {
 import { useResolveChallenge } from '@/features/claims/use-resolve-challenge'
 import { useViewerRole } from '@/features/claims/use-viewer-role'
 import { usePublishSupersession } from '@/features/claims/use-publish-supersession'
+import { useReclaimStake } from '@/features/claims/use-reclaim-stake'
 import type { ChallengeAnchor } from '@/features/claims/challenge-target'
 import type {
   Challenge,
@@ -127,6 +128,8 @@ export function ResolveBoxProvenance({
   const { events, isLoading: eventsLoading } = useChallengeEvents(
     current?.id ?? null,
   )
+  const { hasReclaimableStake, reclaim, isReclaiming } =
+    useReclaimStake(current)
 
   const [decision, setDecision] = useState<'accept' | 'reject' | null>(null)
   const [decisionReason, setDecisionReason] = useState('')
@@ -173,6 +176,10 @@ export function ResolveBoxProvenance({
 
   const handlePublishSupersession = async () => {
     await publish(current)
+  }
+
+  const handleReclaim = async () => {
+    await reclaim()
   }
 
   return (
@@ -237,6 +244,24 @@ export function ResolveBoxProvenance({
           <span className="flex items-center gap-1">
             new <HashText value={current.new_claim_term_id} />
           </span>
+        </div>
+      )}
+
+      {hasReclaimableStake && current.status !== 'open' && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-surface-2 p-3">
+          <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <Coins className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            Your dispute stake is still locked in this claim&apos;s
+            counter-vault. Reclaim it to redeem your tTRUST.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleReclaim}
+            disabled={isReclaiming}
+          >
+            {isReclaiming ? 'Reclaiming…' : 'Reclaim stake'}
+          </Button>
         </div>
       )}
 

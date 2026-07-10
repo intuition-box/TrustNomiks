@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import type { Hex } from 'viem'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWalletClient, usePublicClient } from 'wagmi'
 import { toast } from 'sonner'
@@ -65,11 +66,31 @@ export function usePublishSupersession(tokenId: string) {
 
         const newValue = String(challenge.proposed_value)
 
+        // Best-effort based_on provenance (plan §J5 ③): if the challenge cites
+        // an evidence source that is already published on-chain as an atom,
+        // link the new claim to it. Skipped silently when the source has no
+        // confirmed atom (e.g. the evidence was only a URL) — executeOpenUpdate
+        // simply omits the provenance leg then.
+        let sourceAtomTermId: Hex | undefined
+        if (challenge.evidence_source_id) {
+          const { data: sourceAtom } = await supabase
+            .from('intuition_atom_mappings')
+            .select('term_id')
+            .eq('atom_id', `atom:source:${challenge.evidence_source_id}`)
+            .eq('status', 'confirmed')
+            .not('term_id', 'is', null)
+            .maybeSingle()
+          if (sourceAtom?.term_id) {
+            sourceAtomTermId = sourceAtom.term_id as Hex
+          }
+        }
+
         const result = await executeOpenUpdate(walletClient, publicClient, {
           subjectTermId: resolved.subjectTermId,
           predicateTermId: resolved.predicateTermId,
           oldTripleTermId: resolved.tripleTermId,
           newValue,
+          sourceAtomTermId,
         })
 
         const res = await fetch(

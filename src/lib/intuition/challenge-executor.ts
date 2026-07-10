@@ -236,6 +236,27 @@ export async function executeWithdrawContestation(
   }
 }
 
+/**
+ * Read the connected wallet's share balance on a dispute (counter-triple)
+ * vault. Used to surface a reclaimable "orphan" stake: once a dispute is
+ * resolved — or the claim it targeted is superseded on-chain — the staked
+ * tTRUST stays locked in the counter-vault until the staker redeems it. A
+ * non-zero result means there is something to reclaim via
+ * `executeWithdrawContestation`. Returns 0 when the wallet holds no position.
+ */
+export async function readContestationShares(
+  walletClient: WalletClient,
+  publicClient: PublicClient,
+  counterTermId: Hex,
+  curveId: bigint,
+): Promise<bigint> {
+  const account = requireAccount(walletClient, 'stake lookup')
+  const config = makeConfig(walletClient, publicClient)
+  return multiVaultGetShares(config, {
+    args: [account, counterTermId, curveId],
+  })
+}
+
 // ── Open an UPDATE challenge (J5) ────────────────────────────────────────────
 //
 // Executes the on-chain leg of an accepted UPDATE challenge: mints the
