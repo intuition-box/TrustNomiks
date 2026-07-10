@@ -1,11 +1,18 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Hexagon, Sparkles, TrendingUp, TriangleAlert } from 'lucide-react'
+import {
+  Hexagon,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  TriangleAlert,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { InsightCard } from '@/components/composite/insight-card'
 import { buildRegistryPulse } from '@/lib/insights/build-insights'
 import { useRegistryTokens } from '@/features/insights/use-registry-tokens'
+import { usePriceMovers } from '@/features/insights/use-price-movers'
 import { useOpenChallengeCountByToken } from '@/features/claims/use-my-challenges'
 import { buildLeaderboard } from '@/lib/contribution/leaderboard'
 import { CONTRIBUTION_TIERS, getTierIndex } from '@/lib/contribution/tiers'
@@ -27,6 +34,7 @@ const CLUSTER_CSS_VAR: Record<string, string> = {
 export function InsightRail({ className }: { className?: string }) {
   const { data: tokens } = useRegistryTokens()
   const { data: openChallengeCounts } = useOpenChallengeCountByToken()
+  const { topMover } = usePriceMovers()
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -76,6 +84,17 @@ export function InsightRail({ className }: { className?: string }) {
       })
     }
 
+    if (topMover) {
+      const up = topMover.change24h >= 0
+      list.push({
+        title: `${topMover.ticker} ${up ? '+' : ''}${topMover.change24h.toFixed(1)}% in 24h`,
+        body: `${topMover.name} is the registry's biggest market move`,
+        icon: up ? TrendingUp : TrendingDown,
+        accentVar: up ? '--success' : '--destructive',
+        href: `/tokens/${topMover.tokenId}`,
+      })
+    }
+
     if (userId) {
       const leaderboard = buildLeaderboard(tokens, userId)
       const rank = leaderboard.findIndex((e) => e.isCurrentUser) + 1
@@ -99,8 +118,8 @@ export function InsightRail({ className }: { className?: string }) {
       }
     }
 
-    return list
-  }, [tokens, openChallengeCounts, userId])
+    return list.slice(0, 4)
+  }, [tokens, openChallengeCounts, topMover, userId])
 
   if (cards.length === 0) return null
 
