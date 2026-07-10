@@ -10,6 +10,8 @@ interface SectionCardProps {
   title: string
   /** taxonomy accent: drives the left rule + glyph color (same color = same concept) */
   accent: NodeType
+  /** anchor id for in-page navigation (SectionRail); adds scroll offset */
+  id?: string
   description?: React.ReactNode
   action?: React.ReactNode
   children: React.ReactNode
@@ -25,6 +27,7 @@ interface SectionCardProps {
 export function SectionCard({
   title,
   accent,
+  id,
   description,
   action,
   children,
@@ -34,8 +37,9 @@ export function SectionCard({
   const accentColor = `hsl(var(${DATA_CSS_VAR[accent]}))`
   return (
     <section
+      id={id}
       className={cn(
-        'overflow-hidden rounded-xl border bg-surface-1',
+        'scroll-mt-28 overflow-hidden rounded-xl border bg-surface-1',
         className,
       )}
       style={{ borderLeft: `3px solid ${accentColor}` }}
