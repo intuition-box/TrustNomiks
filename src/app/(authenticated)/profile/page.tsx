@@ -12,8 +12,8 @@ import { PageHeader } from '@/components/composite/page-header'
 import { EmptyState } from '@/components/composite/empty-state'
 import { ErrorState } from '@/components/composite/error-state'
 import { UserMark } from '@/components/composite/user-mark'
+import { TokenFace } from '@/components/composite/token-face'
 import { GraphLoader } from '@/components/patterns/graph-loader'
-import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, Eye, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -114,25 +114,6 @@ function ProfileContent() {
       currentUser ? tokens.filter((t) => t.created_by === currentUser.id) : [],
     [tokens, currentUser],
   )
-
-  // — Constellation: the user's own tokens as a local graph
-  const constellation: LiveGraphData = useMemo(() => {
-    const label = displayName || currentUser?.email?.split('@')[0] || 'You'
-    const nodes: LiveGraphData['nodes'] = [
-      { id: 'hub', type: 'wallet', label, size: 8 },
-    ]
-    const links: LiveGraphData['links'] = []
-    userTokens.slice(0, 24).forEach((t) => {
-      nodes.push({
-        id: t.id,
-        type: 'token',
-        label: t.ticker,
-        size: 4 + (t.completeness || 0) / 40,
-      })
-      links.push({ source: 'hub', target: t.id })
-    })
-    return { nodes, links }
-  }, [userTokens, displayName, currentUser])
 
   if (loading) {
     return (
@@ -245,21 +226,27 @@ function ProfileContent() {
           </div>
         </section>
 
-        {/* Your constellation */}
+        {/* Your tokens: the contribution, face first */}
         <section className="flex flex-col overflow-hidden rounded-xl border bg-surface-1">
-          <div className="border-b px-5 py-4">
-            <h2 className="text-sm font-semibold">Your constellation</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Every token you structured, orbiting you. Size follows
-              completeness; hover for the name, click to open the token.
-            </p>
+          <div className="flex items-center justify-between gap-2 border-b px-5 py-4">
+            <div>
+              <h2 className="text-sm font-semibold">Your tokens</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Everything you structured in the graph.
+              </p>
+            </div>
+            {userTokens.length > 0 && (
+              <span className="tabular shrink-0 text-xs text-muted-foreground">
+                {userTokens.length} token{userTokens.length === 1 ? '' : 's'}
+              </span>
+            )}
           </div>
           {userTokens.length === 0 ? (
             isViewer ? (
               <EmptyState
                 className="m-4 flex-1 border-0"
-                title="Your constellation is waiting"
-                description="Link a wallet to start contributing tokens. Each one you structure orbits your node here."
+                title="No tokens yet"
+                description="Link a wallet to start contributing tokens. Each one you structure appears here."
                 actions={
                   <Button variant="brand" size="sm" asChild>
                     <Link href="/profile?linkWallet=1">Link a wallet</Link>
@@ -270,12 +257,12 @@ function ProfileContent() {
               <EmptyState
                 className="m-4 flex-1 border-0"
                 title="No tokens yet"
-                description="Structure your first token and it appears here, orbiting your node."
+                description="Structure your first token and it appears here."
                 actions={
                   <Button
                     variant="brand"
                     size="sm"
-                    onClick={() => (window.location.href = '/tokens/new')}
+                    onClick={() => router.push('/tokens/new')}
                   >
                     Add your first token
                   </Button>
@@ -283,15 +270,40 @@ function ProfileContent() {
               />
             )
           ) : (
-            <div className="min-h-[300px] flex-1">
-              <LiveGraph
-                mode="local"
-                data={constellation}
-                onNodeClick={(node) => {
-                  if (node.type === 'token') router.push(`/tokens/${node.id}`)
-                }}
-              />
-            </div>
+            <ul className="max-h-[320px] flex-1 divide-y overflow-y-auto">
+              {userTokens.map((t) => (
+                <li key={t.id}>
+                  <Link
+                    href={`/tokens/${t.id}`}
+                    className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-surface-2"
+                  >
+                    <TokenFace
+                      name={t.name}
+                      ticker={t.ticker}
+                      imageUrl={t.coingecko_image}
+                      size={24}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {t.name}{' '}
+                      <span className="font-mono text-xs font-normal text-muted-foreground">
+                        {t.ticker}
+                      </span>
+                    </span>
+                    <span className="hidden w-24 shrink-0 items-center gap-2 sm:flex">
+                      <span className="h-1 flex-1 overflow-hidden rounded-full bg-surface-2">
+                        <span
+                          className="block h-full rounded-full bg-gradient-brand"
+                          style={{ width: `${t.completeness ?? 0}%` }}
+                        />
+                      </span>
+                      <span className="tabular text-xs text-muted-foreground">
+                        {t.completeness ?? 0}%
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       </div>

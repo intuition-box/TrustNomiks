@@ -219,11 +219,15 @@ export function LiveGraph({
         ctx.stroke()
       }
 
-      // labels: the center node always; in local mode, satellites only on
-      // hover (a dozen permanent tickers collide); elsewhere when zoomed in
+      // labels: the center node always; local mode on hover only (a dozen
+      // permanent tickers collide); hero always (doc 06 §2.3: the label floor
+      // is lifted, real names ARE the credibility); ambient when zoomed in
       const isCenter = isHub || node.id === 'hub'
       const showLabel =
-        isCenter || (isLocal ? isHovered : node.type === 'token' && scale > 0.9)
+        isCenter ||
+        (isLocal
+          ? isHovered
+          : node.type === 'token' && (mode === 'hero' || scale > 0.9))
       if (showLabel && node.label) {
         const fontSize = Math.max((isCenter ? 13 : 10) / scale, 3)
         ctx.font = `${isCenter ? '600 ' : ''}${fontSize}px var(--font-geist-sans, Inter), sans-serif`
@@ -233,7 +237,7 @@ export function LiveGraph({
         ctx.fillText(node.label, x, y + s + 2)
       }
     },
-    [colorMap, isLocal, hoveredId],
+    [colorMap, isLocal, hoveredId, mode],
   )
 
   const handleClick = useCallback(
