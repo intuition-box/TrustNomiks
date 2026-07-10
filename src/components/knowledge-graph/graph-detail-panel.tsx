@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { ExternalLink } from 'lucide-react'
 import type { GraphNode, GraphEdge } from '@/lib/knowledge-graph/graph-types'
 import { NODE_CONFIG } from '@/lib/knowledge-graph/node-config'
+import { DATA_CSS_VAR } from '@/lib/design/tokens'
 
 interface GraphDetailPanelProps {
   node: GraphNode | null
@@ -46,7 +47,9 @@ export function GraphDetailPanel({
           <div className="flex items-center gap-2">
             <span
               className="w-3 h-3 rounded-full shrink-0"
-              style={{ backgroundColor: config.color }}
+              style={{
+                backgroundColor: `hsl(var(${DATA_CSS_VAR[node.type]}))`,
+              }}
             />
             <Badge variant="outline" className="text-[10px]">
               {config.label}
@@ -70,7 +73,6 @@ export function GraphDetailPanel({
             return (
               <div className="space-y-1 pb-1">
                 {parents.map(({ entity, predicate }) => {
-                  const pConfig = NODE_CONFIG[entity.type] ?? NODE_CONFIG.token
                   return (
                     <button
                       key={entity.id}
@@ -80,7 +82,9 @@ export function GraphDetailPanel({
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: pConfig.color }}
+                        style={{
+                          backgroundColor: `hsl(var(${DATA_CSS_VAR[entity.type]}))`,
+                        }}
                       />
                       <span className="text-muted-foreground shrink-0">
                         {predicate}
@@ -187,7 +191,7 @@ export function GraphDetailPanel({
             <Separator className="my-3" />
             <Link
               href={`/tokens/${node.tokenId}`}
-              className="inline-flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
             >
               View token detail
               <ExternalLink className="h-3 w-3" />
@@ -213,8 +217,6 @@ export function GraphDetailPanel({
                   </h4>
                   <div className="space-y-1">
                     {justifiers.map(({ node: srcNode, predicate: pLabel }) => {
-                      const srcConfig =
-                        NODE_CONFIG[srcNode.type] ?? NODE_CONFIG.token
                       return (
                         <button
                           key={srcNode.id}
@@ -224,7 +226,9 @@ export function GraphDetailPanel({
                         >
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: srcConfig.color }}
+                            style={{
+                              backgroundColor: `hsl(var(${DATA_CSS_VAR[srcNode.type]}))`,
+                            }}
                           />
                           <span className="truncate flex-1">
                             {srcNode.label}
@@ -251,8 +255,6 @@ export function GraphDetailPanel({
               </h4>
               <div className="space-y-1 max-h-[300px] overflow-y-auto">
                 {connected.map(({ node: connNode, predicate, direction }) => {
-                  const connConfig =
-                    NODE_CONFIG[connNode.type] ?? NODE_CONFIG.token
                   return (
                     <button
                       key={`${connNode.id}-${predicate}-${direction}`}
@@ -262,7 +264,9 @@ export function GraphDetailPanel({
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: connConfig.color }}
+                        style={{
+                          backgroundColor: `hsl(var(${DATA_CSS_VAR[connNode.type]}))`,
+                        }}
                       />
                       <span className="truncate flex-1">{connNode.label}</span>
                       <span className="text-[10px] text-muted-foreground shrink-0">

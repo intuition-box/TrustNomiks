@@ -83,6 +83,72 @@ export function getDataColor(type: NodeType): string {
   return v ? `hsl(${v})` : DATA_HEX[type]
 }
 
+/** Apply an alpha channel to a color returned by the resolvers above
+ *  (`hsl(H S% L%)` or `#rrggbb`). Canvas-safe output. */
+export function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith('hsl(')) {
+    return color.replace(/\)$/, ` / ${alpha})`)
+  }
+  if (color.startsWith('#') && color.length === 7) {
+    const a = Math.round(alpha * 255)
+      .toString(16)
+      .padStart(2, '0')
+    return `${color}${a}`
+  }
+  return color
+}
+
+/** On-chain publication status → tone token. DOM inlines
+ *  `hsl(var(STATUS_TONE_CSS_VAR[s]))`; canvas resolves via getStatusToneColor. */
+export const STATUS_TONE_CSS_VAR = {
+  confirmed: '--success',
+  failed: '--destructive',
+  submitted: '--warning',
+  pending: '--muted-foreground',
+} as const
+
+export type StatusTone = keyof typeof STATUS_TONE_CSS_VAR
+
+const STATUS_TONE_HEX: Record<StatusTone, string> = {
+  confirmed: '#10b981',
+  failed: '#ef4444',
+  submitted: '#f59e0b',
+  pending: '#94a3b8',
+}
+
+export function getStatusToneColor(tone: StatusTone): string {
+  const v = readVar(STATUS_TONE_CSS_VAR[tone])
+  return v ? `hsl(${v})` : STATUS_TONE_HEX[tone]
+}
+
+/** Canvas chrome for the force graph: edges, labels, hub halo, font.
+ *  Resolved from theme tokens so the canvas follows dark/light like the DOM.
+ *  Re-call when `resolvedTheme` changes (getComputedStyle is not reactive). */
+export interface GraphChrome {
+  edge: string
+  label: string
+  labelAccent: string
+  hubHalo: string
+  fontFamily: string
+}
+
+export function getGraphChrome(): GraphChrome {
+  const edge = readVar('--graph-edge')
+  const label = readVar('--muted-foreground')
+  const hub = readVar('--data-hub')
+  const fontFamily =
+    typeof document !== 'undefined'
+      ? getComputedStyle(document.body).fontFamily || 'sans-serif'
+      : 'sans-serif'
+  return {
+    edge: edge ? `hsl(${edge} / 0.55)` : 'rgba(148, 163, 184, 0.25)',
+    label: label ? `hsl(${label})` : '#94a3b8',
+    labelAccent: hub ? `hsl(${hub})` : '#6366f1',
+    hubHalo: hub ? `hsl(${hub} / 0.15)` : 'rgba(99, 102, 241, 0.15)',
+    fontFamily,
+  }
+}
+
 /** CHART SPACE — allocation segment → color. Kept distinct from graph space. */
 const SEGMENT_HEX: Record<SegmentType, string> = {
   'funding-private': '#3b82f6',

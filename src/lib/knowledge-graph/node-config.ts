@@ -1,33 +1,37 @@
 import type { NodeType } from './graph-types'
 
+/**
+ * Geometry and labels only. Colors live in the design-token bridge
+ * (`src/lib/design/tokens.ts`): canvas resolves via `getDataColor(type)`,
+ * DOM inlines `hsl(var(DATA_CSS_VAR[type]))` — both theme-aware.
+ */
 export interface NodeVisualConfig {
-  color: string
   size: number
   label: string
 }
 
 export const NODE_CONFIG: Record<NodeType, NodeVisualConfig> = {
   // Hub
-  graph_root: { color: '#6366f1', size: 18, label: 'TrustNomiks' }, // indigo, largest
+  graph_root: { size: 18, label: 'TrustNomiks' }, // largest
 
   // Atom family — domain entities
-  token: { color: '#8b5cf6', size: 12, label: 'Token' }, // violet
-  allocation: { color: '#f59e0b', size: 7, label: 'Allocation' }, // amber
-  vesting: { color: '#10b981', size: 5, label: 'Vesting' }, // emerald
-  emission: { color: '#ef4444', size: 7, label: 'Emission' }, // red
-  risk_flag: { color: '#f97316', size: 6, label: 'Risk Flag' }, // orange
-  data_source: { color: '#3b82f6', size: 6, label: 'Source' }, // blue
-  export_run: { color: '#14b8a6', size: 10, label: 'Export Run' }, // teal
-  application: { color: '#0f766e', size: 9, label: 'Application' }, // teal-700
-  wallet: { color: '#475569', size: 6, label: 'Wallet' }, // slate
-  category: { color: '#64748b', size: 8, label: 'Category' }, // slate
-  sector: { color: '#a855f7', size: 6, label: 'Sector' }, // purple
-  chain: { color: '#0ea5e9', size: 6, label: 'Chain' }, // sky
+  token: { size: 12, label: 'Token' },
+  allocation: { size: 7, label: 'Allocation' },
+  vesting: { size: 5, label: 'Vesting' },
+  emission: { size: 7, label: 'Emission' },
+  risk_flag: { size: 6, label: 'Risk Flag' },
+  data_source: { size: 6, label: 'Source' },
+  export_run: { size: 10, label: 'Export Run' },
+  application: { size: 9, label: 'Application' },
+  wallet: { size: 6, label: 'Wallet' },
+  category: { size: 8, label: 'Category' },
+  sector: { size: 6, label: 'Sector' },
+  chain: { size: 6, label: 'Chain' },
 
   // Triple family — reified relationships
-  triple: { color: '#94a3b8', size: 3, label: 'Triple' }, // slate-400, small
+  triple: { size: 3, label: 'Triple' }, // small, recessive
 
   // On-chain-only atom types — surfaced in the run drill-down when not confirmed
-  predicate: { color: '#94a3b8', size: 4, label: 'Predicate' }, // slate-400, small
-  literal: { color: '#94a3b8', size: 4, label: 'Literal' }, // slate-400, small
+  predicate: { size: 4, label: 'Predicate' },
+  literal: { size: 4, label: 'Literal' },
 }
