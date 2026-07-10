@@ -13,6 +13,7 @@ import { RoleGate } from '@/components/composite/role-gate'
 import { DataBadge } from '@/components/composite/data-badge'
 import { ClusterMeter } from '@/components/patterns/cluster-meter'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { TokenFace } from '@/components/composite/token-face'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { ArrowRight, Download, FileJson, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -32,6 +33,7 @@ interface TokenSummary {
   name: string
   ticker: string
   chain?: string
+  coingecko_image?: string | null
   status: string
   completeness: number
   cluster_scores: ClusterScores | null
@@ -378,7 +380,12 @@ export default function ExportPage() {
                       className="flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1"
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <NodeGlyph type="token" size={11} aria-hidden />
+                        <TokenFace
+                          name={token.name}
+                          ticker={token.ticker}
+                          imageUrl={token.coingecko_image}
+                          size={22}
+                        />
                         <span className="truncate font-medium">
                           {token.name}
                         </span>
@@ -550,7 +557,12 @@ export default function ExportPage() {
                             className="group flex items-center justify-between gap-2 rounded-md border bg-surface-2/60 px-3 py-2 text-sm transition-colors hover:bg-surface-2"
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <NodeGlyph type="token" size={11} aria-hidden />
+                              <TokenFace
+                                name={token.name}
+                                ticker={token.ticker}
+                                imageUrl={token.coingecko_image}
+                                size={20}
+                              />
                               <span className="truncate">{token.name}</span>
                               <span className="font-mono text-xs text-muted-foreground">
                                 {token.ticker}
