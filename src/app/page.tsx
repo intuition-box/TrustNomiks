@@ -18,6 +18,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LiveGraph } from '@/components/brand/live-graph'
 import { Logo } from '@/components/brand/logo'
+import { useCountUp } from '@/components/patterns/count-up'
 import { createClient } from '@/lib/supabase/client'
 import { TARGET_TOKENS as TARGET } from '@/lib/insights/constants'
 
@@ -274,23 +275,4 @@ function ValueCard({
       </p>
     </div>
   )
-}
-
-function useCountUp(target: number, duration: number) {
-  const [value, setValue] = useState(0)
-  const raf = useRef<number>(0)
-  useEffect(() => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const dur = reduce ? 0 : duration
-    const start = performance.now()
-    const tick = (now: number) => {
-      const p = dur === 0 ? 1 : Math.min(1, (now - start) / dur)
-      const eased = 1 - Math.pow(1 - p, 3)
-      setValue(Math.round(eased * target))
-      if (p < 1) raf.current = requestAnimationFrame(tick)
-    }
-    raf.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf.current)
-  }, [target, duration])
-  return value
 }
