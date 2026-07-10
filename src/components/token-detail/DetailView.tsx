@@ -49,6 +49,7 @@ import {
   ClaimSourceBadges,
 } from './claim-sources'
 import { SectionRail, type SectionRailItem } from './section-rail'
+import { TokenFace } from '@/components/composite/token-face'
 import { useTokenCompletenessDelta } from '@/features/insights/use-token-deltas'
 import { StatusManager } from './StatusManager'
 import type { TokenData } from './types'
@@ -240,13 +241,11 @@ export function DetailView({
           <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
               {token.coingecko_image ? (
-                <img
-                  src={token.coingecko_image}
-                  alt={token.name}
-                  className="h-9 w-9 rounded-full"
-                  onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = 'none'
-                  }}
+                <TokenFace
+                  name={token.name}
+                  ticker={token.ticker}
+                  imageUrl={token.coingecko_image}
+                  size={36}
                 />
               ) : (
                 <NodeGlyph type="token" size={20} withGlow />

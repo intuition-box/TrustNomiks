@@ -27,6 +27,7 @@ import {
   type AllocationWithVesting,
 } from '@/lib/utils/vesting-timeline'
 import { chartColorsFor } from '@/lib/design/tokens'
+import { TokenFace } from '@/components/composite/token-face'
 import { formatSegmentTypeLabel, EMISSION_TYPE_OPTIONS } from '@/types/form'
 import type { ClusterScores } from '@/lib/utils/completeness'
 
@@ -188,13 +189,11 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {token.coingecko_image ? (
-            <img
-              src={token.coingecko_image}
-              alt={token.name}
-              className="h-10 w-10 rounded-full"
-              onError={(e) => {
-                ;(e.target as HTMLImageElement).style.display = 'none'
-              }}
+            <TokenFace
+              name={token.name}
+              ticker={token.ticker}
+              imageUrl={token.coingecko_image}
+              size={40}
             />
           ) : (
             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
