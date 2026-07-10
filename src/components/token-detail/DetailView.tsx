@@ -38,7 +38,7 @@ import type { VestingTimelineResult } from '@/lib/utils/vesting-timeline'
 import {
   formatNumber,
   formatDate,
-  segmentColor,
+  allocationColors,
   riskSeverity,
 } from './detail-helpers'
 import {
@@ -174,6 +174,8 @@ export function DetailView({
   const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<
     number | null
   >(null)
+  // One color per segment, canonical list order (matches donut + breakdown)
+  const segColors = allocationColors(token.allocation_segments)
   const [enrichOpen, setEnrichOpen] = useState(false)
   const router = useRouter()
   const { isContributor } = useRole()
@@ -542,7 +544,7 @@ export function DetailView({
                           )}
                           style={{
                             width: `${segment.percentage}%`,
-                            backgroundColor: segmentColor(segment, index),
+                            backgroundColor: segColors[index],
                           }}
                           onMouseEnter={() => setHoveredAllocationIndex(index)}
                           onMouseLeave={() => setHoveredAllocationIndex(null)}
@@ -569,7 +571,7 @@ export function DetailView({
                           {segment.percentage >= 4 && (
                             <span
                               className="tabular text-xs font-semibold"
-                              style={{ color: segmentColor(segment, index) }}
+                              style={{ color: segColors[index] }}
                             >
                               {segment.percentage}%
                             </span>
@@ -585,12 +587,8 @@ export function DetailView({
                           <div
                             className="h-2 w-2 shrink-0 rounded-full"
                             style={{
-                              backgroundColor: segmentColor(
-                                token.allocation_segments[
-                                  hoveredAllocationIndex
-                                ],
-                                hoveredAllocationIndex,
-                              ),
+                              backgroundColor:
+                                segColors[hoveredAllocationIndex],
                             }}
                           />
                           <span className="text-sm font-medium">
@@ -633,7 +631,7 @@ export function DetailView({
                         <div
                           className="h-3 w-3 shrink-0 rounded-full"
                           style={{
-                            backgroundColor: segmentColor(segment, index),
+                            backgroundColor: segColors[index],
                           }}
                         />
                         <div>

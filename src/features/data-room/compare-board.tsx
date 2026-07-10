@@ -5,7 +5,7 @@ import { ExternalLink, X } from 'lucide-react'
 import { StatusPill } from '@/components/composite/data-badge'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
+import { chartColorsFor } from '@/lib/design/tokens'
 import { formatSegmentTypeLabel } from '@/types/form'
 import { cn } from '@/lib/utils'
 import type { TokenStatus } from '@/types/token'
@@ -45,9 +45,12 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
           maxSupply > 0 && circulating > 0
             ? (circulating / maxSupply) * 100
             : null
-        const segments = [...token.allocation_segments].sort(
-          (a, b) => b.percentage - a.percentage,
+        const segmentColors = chartColorsFor(
+          token.allocation_segments.map((s) => s.segment_type),
         )
+        const segments = token.allocation_segments
+          .map((seg, i) => ({ ...seg, chartColor: segmentColors[i] }))
+          .sort((a, b) => b.percentage - a.percentage)
 
         return (
           <section
@@ -122,11 +125,7 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
                       <span
                         aria-hidden
                         className="h-2 w-2 shrink-0 rounded-full"
-                        style={{
-                          backgroundColor: getSegmentChartColor(
-                            seg.segment_type,
-                          ),
-                        }}
+                        style={{ backgroundColor: seg.chartColor }}
                       />
                       <span className="truncate text-muted-foreground">
                         {formatSegmentTypeLabel(seg.segment_type)}

@@ -45,10 +45,11 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 - **Two color spaces, never mixed:**
   - **Graph space** = entity *type* → the `--data-*` tokens (token=violet, allocation=amber, vesting=emerald,
     emission=red, risk=orange, source=blue, chain=sky, sector=purple, hub=indigo, ...).
-  - **Chart space** = allocation *segment* → the segment palette in `src/lib/utils/chart-colors.ts` (`getChartColor`).
+  - **Chart space** = allocation *segment* → the `--chart-*` tokens via `getSegmentChartColor` / `chartColorsFor`
+    in `src/lib/design/tokens.ts` (same-type repeats get a lightness ramp).
     These are different ontologies; do not color a chart segment with a `--data-*` token, or a node with a segment color.
 - **JS ↔ CSS bridge is `src/lib/design/tokens.ts` only.** Canvas (react-force-graph) and SVG (recharts) resolve colors
-  via `getDataColor(nodeType)` / `getChartColor(segment)`. DOM should prefer Tailwind classes (`bg-data-token`,
+  via `getDataColor(nodeType)` / `getSegmentChartColor(segment)`. DOM should prefer Tailwind classes (`bg-data-token`,
   `text-data-vesting`) or inline `hsl(var(--data-x))` via `DATA_CSS_VAR`. No fourth color source may appear.
 - **Color is never alone (AA).** Every data category pairs its color with a **shape**: `◎` hub (ring), `●` atom (circle),
   `◆` triple (diamond), `▪` source (square), via `<NodeGlyph>`. Status/risk pills pair color with an icon. Meaning must

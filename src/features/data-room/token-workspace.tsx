@@ -26,7 +26,7 @@ import {
   formatCompactNumber,
   type AllocationWithVesting,
 } from '@/lib/utils/vesting-timeline'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
+import { chartColorsFor } from '@/lib/design/tokens'
 import { formatSegmentTypeLabel, EMISSION_TYPE_OPTIONS } from '@/types/form'
 import type { ClusterScores } from '@/lib/utils/completeness'
 
@@ -117,6 +117,15 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
   )
   const locked =
     maxSupply > 0 && circulatingSupply > 0 ? maxSupply - circulatingSupply : 0
+
+  // Chart-space colors assigned in canonical list order, then carried through
+  // the percentage sort so swatches, bar and amounts always match the charts.
+  const allocationColors = chartColorsFor(
+    token.allocation_segments.map((s) => s.segment_type),
+  )
+  const sortedSegments = token.allocation_segments
+    .map((seg, i) => ({ ...seg, chartColor: allocationColors[i] }))
+    .sort((a, b) => b.percentage - a.percentage)
 
   const emissionLabel = token.emission_models
     ? (EMISSION_TYPE_OPTIONS.find(
@@ -287,34 +296,29 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
             </div>
             {/* Legend */}
             <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-4 pt-4 border-t">
-              {[...token.allocation_segments]
-                .sort((a, b) => b.percentage - a.percentage)
-                .map((seg) => (
-                  <div
-                    key={seg.id}
-                    className="flex items-center gap-1.5 text-xs"
-                  >
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-                      style={{
-                        backgroundColor: getSegmentChartColor(seg.segment_type),
-                      }}
-                    />
-                    <span className="text-muted-foreground">
-                      {formatSegmentTypeLabel(seg.segment_type)}
+              {sortedSegments.map((seg) => (
+                <div key={seg.id} className="flex items-center gap-1.5 text-xs">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{
+                      backgroundColor: seg.chartColor,
+                    }}
+                  />
+                  <span className="text-muted-foreground">
+                    {formatSegmentTypeLabel(seg.segment_type)}
+                  </span>
+                  <span className="font-medium">{seg.label}</span>
+                  <span className="tabular font-mono">
+                    {seg.percentage.toFixed(1)}%
+                  </span>
+                  {/* Show token amount when supply composition is available */}
+                  {hasSupplyComposition && seg.token_amount && (
+                    <span className="tabular font-mono text-muted-foreground">
+                      ({formatCompactNumber(parseSupply(seg.token_amount))})
                     </span>
-                    <span className="font-medium">{seg.label}</span>
-                    <span className="tabular font-mono">
-                      {seg.percentage.toFixed(1)}%
-                    </span>
-                    {/* Show token amount when supply composition is available */}
-                    {hasSupplyComposition && seg.token_amount && (
-                      <span className="tabular font-mono text-muted-foreground">
-                        ({formatCompactNumber(parseSupply(seg.token_amount))})
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  )}
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -335,57 +339,49 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
               <div className="space-y-3">
                 {/* Single stacked bar showing supply distribution by segment */}
                 <div className="h-8 rounded-lg overflow-hidden flex">
-                  {[...token.allocation_segments]
-                    .sort((a, b) => b.percentage - a.percentage)
-                    .map((seg) => (
-                      <div
-                        key={seg.id}
-                        className="h-full transition-all duration-300 flex items-center justify-center"
-                        style={{
-                          width: `${Math.max(seg.percentage, 1)}%`,
-                          backgroundColor: getSegmentChartColor(
-                            seg.segment_type,
-                          ),
-                        }}
-                      >
-                        {seg.percentage >= 8 && (
-                          <span className="text-[10px] font-medium text-white truncate px-1">
-                            {seg.label}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                  {sortedSegments.map((seg) => (
+                    <div
+                      key={seg.id}
+                      className="h-full transition-all duration-300 flex items-center justify-center"
+                      style={{
+                        width: `${Math.max(seg.percentage, 1)}%`,
+                        backgroundColor: seg.chartColor,
+                      }}
+                    >
+                      {seg.percentage >= 8 && (
+                        <span className="text-[10px] font-medium text-white truncate px-1">
+                          {seg.label}
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
                 {/* Amount breakdown table */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                  {[...token.allocation_segments]
-                    .sort((a, b) => b.percentage - a.percentage)
-                    .map((seg) => {
-                      const amount =
-                        parseSupply(seg.token_amount) ||
-                        (seg.percentage / 100) * maxSupply
-                      return (
-                        <div
-                          key={seg.id}
-                          className="flex items-center justify-between text-xs py-0.5"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className="inline-block h-2 w-2 rounded-full shrink-0"
-                              style={{
-                                backgroundColor: getSegmentChartColor(
-                                  seg.segment_type,
-                                ),
-                              }}
-                            />
-                            <span className="truncate">{seg.label}</span>
-                          </div>
-                          <span className="font-mono text-muted-foreground ml-2 shrink-0">
-                            {formatCompactNumber(amount)}
-                          </span>
+                  {sortedSegments.map((seg) => {
+                    const amount =
+                      parseSupply(seg.token_amount) ||
+                      (seg.percentage / 100) * maxSupply
+                    return (
+                      <div
+                        key={seg.id}
+                        className="flex items-center justify-between text-xs py-0.5"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2 w-2 rounded-full shrink-0"
+                            style={{
+                              backgroundColor: seg.chartColor,
+                            }}
+                          />
+                          <span className="truncate">{seg.label}</span>
                         </div>
-                      )
-                    })}
+                        <span className="font-mono text-muted-foreground ml-2 shrink-0">
+                          {formatCompactNumber(amount)}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
                 <div className="flex items-center justify-between text-xs pt-2 border-t font-medium">
                   <span>Total (Max Supply)</span>
