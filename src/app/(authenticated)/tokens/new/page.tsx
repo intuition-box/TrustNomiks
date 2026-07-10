@@ -330,7 +330,7 @@ function NewTokenPageInner() {
         </aside>
 
         {/* ── Active section ──────────────────────────────────────────────────── */}
-        <div className="min-w-0 flex-1 space-y-5">
+        <div className="action-bar-clearance min-w-0 flex-1 space-y-5">
           {/* ── Section 1: Identity ───────────────────────────────────────────── */}
           <Step1Identity />
 

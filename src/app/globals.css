@@ -343,6 +343,12 @@
       0 0 0 1px var(--glow, hsl(var(--primary))),
       0 0 20px -6px var(--glow, hsl(var(--primary)));
   }
+  /* Studio: focused controls scroll clear of the floating .glass action bar
+     (scroll-margin only affects scroll-into-view, never layout) */
+  .action-bar-clearance
+    :is(input, select, textarea, button, [role='combobox']) {
+    scroll-margin-bottom: 7rem;
+  }
   /* Glass / refraction — interactive controls only (stake slider, palette, publish) */
   .glass {
     background: color-mix(in oklab, hsl(var(--surface-2)) 70%, transparent);
