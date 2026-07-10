@@ -46,6 +46,7 @@ import {
   getClaimLabel,
   ClaimSourceBadges,
 } from './claim-sources'
+import { SectionRail, type SectionRailItem } from './section-rail'
 import { StatusManager } from './StatusManager'
 import type { TokenData } from './types'
 import { StakeChip } from '@/features/claims/stake-chip'
@@ -177,6 +178,41 @@ export function DetailView({
   // One color per segment, canonical list order (matches donut + breakdown)
   const segColors = allocationColors(token.allocation_segments)
   const [enrichOpen, setEnrichOpen] = useState(false)
+
+  // Sticky anchor rail over the data sections (Vesting→Risk live behind the
+  // Enrich toggle, so navigation may need to expand it first)
+  const railSections: SectionRailItem[] = [
+    { id: 'sec-identity', label: 'Identity', accent: 'token' },
+    { id: 'sec-supply', label: 'Supply', accent: 'token' },
+    { id: 'sec-allocation', label: 'Allocation', accent: 'allocation' },
+    { id: 'sec-vesting', label: 'Vesting', accent: 'vesting' },
+    { id: 'sec-emission', label: 'Emission', accent: 'emission' },
+    { id: 'sec-sources', label: 'Sources', accent: 'data_source' },
+    { id: 'sec-risk', label: 'Risk', accent: 'risk_flag' },
+  ]
+  const ENRICH_SECTION_IDS = new Set([
+    'sec-vesting',
+    'sec-emission',
+    'sec-sources',
+    'sec-risk',
+  ])
+  const navigateToSection = (id: string) => {
+    const go = () => {
+      const reduced = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches
+      document.getElementById(id)?.scrollIntoView({
+        behavior: reduced ? 'auto' : 'smooth',
+        block: 'start',
+      })
+    }
+    if (ENRICH_SECTION_IDS.has(id) && !enrichOpen) {
+      setEnrichOpen(true)
+      window.setTimeout(go, 80)
+    } else {
+      go()
+    }
+  }
   const router = useRouter()
   const { isContributor } = useRole()
   const canContribute = isContributor && isOwner
@@ -314,11 +350,18 @@ export function DetailView({
 
         {/* RIGHT, data sections */}
         <div className="space-y-6">
+          <SectionRail
+            items={railSections}
+            onNavigate={navigateToSection}
+            watchKey={enrichOpen}
+          />
+
           {/* Market data */}
           <TokenPriceCard coingeckoId={token.coingecko_id} tokenId={token.id} />
 
           {/* Identity details */}
           <SectionCard
+            id="sec-identity"
             title="Identity"
             accent="token"
             description="Core token information"
@@ -414,6 +457,7 @@ export function DetailView({
 
           {/* Supply, core */}
           <SectionCard
+            id="sec-supply"
             title="Supply"
             accent="token"
             description="Token supply and circulation data"
@@ -513,6 +557,7 @@ export function DetailView({
 
           {/* Allocation, core */}
           <SectionCard
+            id="sec-allocation"
             title="Allocation"
             accent="allocation"
             description="Distribution breakdown across segments"
@@ -710,6 +755,7 @@ export function DetailView({
             <div className="space-y-6">
               {/* Vesting */}
               <SectionCard
+                id="sec-vesting"
                 title="Vesting"
                 accent="vesting"
                 description="Unlock schedules for each allocation"
@@ -797,6 +843,7 @@ export function DetailView({
 
               {/* Emission */}
               <SectionCard
+                id="sec-emission"
                 title="Emission"
                 accent="emission"
                 description="Token economics and inflation mechanics"
@@ -900,6 +947,7 @@ export function DetailView({
 
               {/* Sources / Provenance */}
               <SectionCard
+                id="sec-sources"
                 title="Sources"
                 accent="data_source"
                 description="References and provenance"
@@ -988,6 +1036,7 @@ export function DetailView({
 
               {/* Risk flags */}
               <SectionCard
+                id="sec-risk"
                 title="Risk flags"
                 accent="risk_flag"
                 description="Risk signals identified for this token"
