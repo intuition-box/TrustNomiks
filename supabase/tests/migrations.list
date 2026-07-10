@@ -23,3 +23,4 @@
 20260711_revoke_anon_on_stale_trigger_functions.sql
 20260711_vesting_reconcile_and_stale.sql
 20260712_neutral_profile_role_defaults.sql
+20260714_add_token_stat_history.sql

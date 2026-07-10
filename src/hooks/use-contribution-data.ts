@@ -12,6 +12,7 @@ export interface ContributionToken {
   status: string
   completeness: number
   created_by: string
+  created_at: string
 }
 
 export interface ContributionProfile {
@@ -56,7 +57,7 @@ export function useContributionData(): UseContributionDataResult {
         supabase
           .from('tokens')
           .select(
-            'id, name, ticker, coingecko_image, status, completeness, created_by',
+            'id, name, ticker, coingecko_image, status, completeness, created_by, created_at',
           )
           .order('created_at', { ascending: false }),
         supabase.auth.getUser(),

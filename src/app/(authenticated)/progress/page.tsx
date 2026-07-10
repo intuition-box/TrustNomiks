@@ -13,6 +13,7 @@ import { Coins, Hexagon, Percent } from 'lucide-react'
 import { useContributionData } from '@/hooks/use-contribution-data'
 import { CONTRIBUTION_TIERS, getTierIndex } from '@/lib/contribution/tiers'
 import { buildLeaderboard } from '@/lib/contribution/leaderboard'
+import { useTierMoment } from '@/features/insights/use-pulse-moments'
 
 export default function ProgressPage() {
   const { tokens, currentUser, profiles, loading, fetchFailed, refetch } =
@@ -40,6 +41,15 @@ export default function ProgressPage() {
     tierIndex < CONTRIBUTION_TIERS.length - 1
       ? CONTRIBUTION_TIERS[tierIndex + 1]
       : null
+
+  const myAdditions7d = useMemo(() => {
+    const weekAgo = new Date().getTime() - 7 * 24 * 60 * 60 * 1000
+    return userTokens.filter((t) => new Date(t.created_at).getTime() >= weekAgo)
+      .length
+  }, [userTokens])
+
+  // Tier-up moment: one toast max per session, watermarked per browser
+  useTierMoment(tierIndex, tier.label, !loading && !fetchFailed)
 
   const leaderboard = useMemo(
     () => buildLeaderboard(tokens, currentUser?.id),
@@ -186,6 +196,7 @@ export default function ProgressPage() {
           hint={`${tier.label}, tier ${tierIndex + 1} of ${CONTRIBUTION_TIERS.length}`}
           icon={Coins}
           accentVar="--data-token"
+          delta={myAdditions7d > 0 ? `+${myAdditions7d} this week` : undefined}
         />
         <StatTile
           label="Share of the registry"
