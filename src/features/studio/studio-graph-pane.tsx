@@ -55,6 +55,13 @@ export function StudioGraphPane({
       nodes.push({ id, type, label: nodeLabel, size: 4 })
       links.push({ source: 'hub', target: id })
     }
+    const addGhost = (
+      id: string,
+      type: LiveGraphData['nodes'][number]['type'],
+    ) => {
+      nodes.push({ id, type, size: 4, ghost: true })
+      links.push({ source: 'hub', target: id, ghost: true })
+    }
     segmentLabels.forEach((seg, i) =>
       add(`alloc-${i}`, 'allocation', seg || undefined),
     )
@@ -62,11 +69,21 @@ export function StudioGraphPane({
     if (hasEmission) add('emission', 'emission')
     for (let i = 0; i < sourceCount; i++) add(`src-${i}`, 'data_source')
     for (let i = 0; i < riskCount; i++) add(`risk-${i}`, 'risk_flag')
+
+    // Ghost constellation: every cluster still missing shows where its nodes
+    // WILL land, so the empty pane reads as a destination, not a void.
+    if (segmentLabels.length === 0)
+      for (let i = 0; i < 3; i++) addGhost(`ghost-alloc-${i}`, 'allocation')
+    if (vestingCount === 0)
+      for (let i = 0; i < 2; i++) addGhost(`ghost-vest-${i}`, 'vesting')
+    if (!hasEmission) addGhost('ghost-emission', 'emission')
+    if (sourceCount === 0) addGhost('ghost-src', 'data_source')
+    if (riskCount === 0) addGhost('ghost-risk', 'risk_flag')
     return { nodes, links }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature])
 
-  const nodeCount = data.nodes.length
+  const nodeCount = data.nodes.filter((n) => !n.ghost).length
 
   return (
     <div
@@ -85,7 +102,8 @@ export function StudioGraphPane({
         <LiveGraph mode="local" data={data} />
       </div>
       <p className="border-t px-4 py-2.5 text-xs text-faint-foreground">
-        Nodes spawn as your data lands. Publishing puts them on-chain.
+        Dashed nodes are waiting for data. Fill a section and watch them
+        materialize; publishing puts them on-chain.
       </p>
     </div>
   )
