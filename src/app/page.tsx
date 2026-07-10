@@ -17,6 +17,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LiveGraph } from '@/components/brand/live-graph'
+import { Logo } from '@/components/brand/logo'
 import { createClient } from '@/lib/supabase/client'
 
 const TARGET = 300
@@ -50,12 +51,7 @@ export default function Landing() {
 
       {/* top bar */}
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-        <div className="flex items-center gap-2">
-          <HubMark />
-          <span className="text-sm font-semibold tracking-tight">
-            TrustNomiks
-          </span>
-        </div>
+        <Logo size={24} wordmarkClassName="text-sm" />
         <nav className="flex items-center gap-2">
           <Link href="/login">
             <Button variant="outline" size="sm">
@@ -233,24 +229,6 @@ function CapabilityPill({
     <span className="inline-flex items-center gap-1.5 rounded-full border bg-surface-1/70 px-2.5 py-1 text-xs text-muted-foreground backdrop-blur">
       <Icon className="h-3.5 w-3.5 text-data-chain" />
       {label}
-    </span>
-  )
-}
-
-function HubMark() {
-  return (
-    <span className="flex h-7 w-7 items-center justify-center">
-      <svg width={24} height={24} viewBox="0 0 24 24" aria-hidden>
-        <circle
-          cx={12}
-          cy={12}
-          r={7}
-          fill="none"
-          stroke="hsl(var(--data-hub))"
-          strokeWidth={2.4}
-        />
-        <circle cx={12} cy={12} r={2.4} fill="hsl(var(--data-hub))" />
-      </svg>
     </span>
   )
 }

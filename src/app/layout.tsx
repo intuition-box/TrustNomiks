@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+  ),
   title: 'TrustNomiks · The Tokenomics Intelligence Graph',
   description:
     'Turn fragmented tokenomics into verifiable, on-chain claims. A living knowledge graph of Atoms & Triples, curated by $TRUST.',

@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import Image from 'next/image'
+import { Logo } from '@/components/brand/logo'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -271,15 +271,7 @@ function LoginPageInner() {
       {/* Auth panel */}
       <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:w-[480px] lg:shrink-0 lg:border-r lg:bg-surface-1">
         <div className="mx-auto w-full max-w-sm space-y-8">
-          <Image
-            src="/trustnomiks_logo_final.png"
-            alt="TrustNomiks"
-            width={0}
-            height={0}
-            sizes="180px"
-            className="h-11 w-auto max-w-[170px] object-contain"
-            priority
-          />
+          <Logo size={32} wordmarkClassName="text-2xl" />
 
           {pendingConfirmationEmail ? (
             <div className="space-y-6">
