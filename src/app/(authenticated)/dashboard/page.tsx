@@ -33,7 +33,7 @@ import { ChallengesPanel } from '@/features/claims/challenges-panel'
 import { useChallengesOnMyTokens } from '@/features/claims/use-my-challenges'
 import { useRole } from '@/hooks/use-role'
 
-const TARGET_TOKENS = 300
+import { TARGET_TOKENS } from '@/lib/insights/constants'
 
 type DashboardToken = {
   id: string
