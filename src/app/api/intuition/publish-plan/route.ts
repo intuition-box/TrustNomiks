@@ -6,6 +6,12 @@ import { createPublicClient, http } from 'viem'
 import { INTUITION_CHAIN } from '@/lib/intuition/config'
 import type { PublishPlanSerialized } from '@/types/intuition'
 import { normalizeWalletAddress } from '@/lib/intuition/utils'
+import {
+  buildChallengeMatchContext,
+  isTripleChallenged,
+  vestingAllocationIdsOf,
+  type OpenChallengeRow,
+} from '@/lib/claims/publish-challenge-guard'
 
 export async function GET(request: NextRequest) {
   const tokenId = request.nextUrl.searchParams.get('tokenId')
@@ -77,7 +83,102 @@ export async function GET(request: NextRequest) {
     })
 
     // Resolve existence to produce the final plan
-    const plan = await resolveExistence(bundle, publicClient)
+    let plan = await resolveExistence(bundle, publicClient)
+
+    // ── Publish-under-challenge guard (plan §8) ───────────────────────────
+    const includeChallenged =
+      request.nextUrl.searchParams.get('includeChallenged') === 'true'
+
+    const { data: openChallengesData, error: challengesErr } = await supabase
+      .from('challenges')
+      .select('claim_type, claim_id, field_key')
+      .eq('token_id', tokenId)
+      .eq('status', 'open')
+
+    if (challengesErr) {
+      throw challengesErr
+    }
+    const openChallenges = (openChallengesData ?? []) as OpenChallengeRow[]
+
+    // Resolve vesting challenges (claim_id = allocation_id) to the vesting row
+    // ids the plan's triples are keyed by (origin_row_id = vesting_schedules.id).
+    const vestingAllocationIds = vestingAllocationIdsOf(openChallenges)
+    let vestingRows: { id: string; allocation_id: string }[] = []
+    if (vestingAllocationIds.length > 0) {
+      const { data: vestRows, error: vestErr } = await supabase
+        .from('vesting_schedules')
+        .select('id, allocation_id')
+        .in('allocation_id', vestingAllocationIds)
+      if (vestErr) {
+        throw vestErr
+      }
+      vestingRows = (vestRows ?? []).map((r) => ({
+        id: String(r.id),
+        allocation_id: String(r.allocation_id),
+      }))
+    }
+
+    const ctx = buildChallengeMatchContext(openChallenges, vestingRows)
+
+    const challengedTripleIds = new Set(
+      plan.triples.toCreate
+        .filter((t) => isTripleChallenged(t, ctx))
+        .map((t) => t.tripleId),
+    )
+
+    const challengedClaims = openChallenges.map((c) => ({
+      claim_type: c.claim_type,
+      claim_id: c.claim_id,
+      field_key: c.field_key,
+    }))
+
+    if (!includeChallenged && challengedTripleIds.size > 0) {
+      const filteredTriplesToCreate = plan.triples.toCreate.filter(
+        (t) => !challengedTripleIds.has(t.tripleId),
+      )
+      const filteredProvenanceToCreate = plan.provenance.toCreate.filter(
+        (p) => !challengedTripleIds.has(p.claimTripleId),
+      )
+      const removedTriples =
+        plan.triples.toCreate.length - filteredTriplesToCreate.length
+      const removedProvenance =
+        plan.provenance.toCreate.length - filteredProvenanceToCreate.length
+
+      // Provenance items share the same per-unit cost as triples (see
+      // resolveExistence's tripleUnit) — cheap to keep the estimate accurate.
+      const tripleUnit =
+        plan.estimatedCost.tripleCostPerUnit +
+        plan.estimatedCost.extraDepositPerUnit
+      const totalTriplesCost =
+        plan.estimatedCost.totalTriplesCost -
+        tripleUnit * BigInt(removedTriples)
+      const totalProvenanceCost =
+        plan.estimatedCost.totalProvenanceCost -
+        tripleUnit * BigInt(removedProvenance)
+
+      plan = {
+        ...plan,
+        triples: { ...plan.triples, toCreate: filteredTriplesToCreate },
+        provenance: {
+          ...plan.provenance,
+          toCreate: filteredProvenanceToCreate,
+        },
+        summary: {
+          ...plan.summary,
+          triplesToCreate: filteredTriplesToCreate.length,
+          provenanceToCreate: filteredProvenanceToCreate.length,
+        },
+        estimatedCost: {
+          ...plan.estimatedCost,
+          totalTriplesCost,
+          totalProvenanceCost,
+          totalCost:
+            plan.estimatedCost.totalAtomsCost +
+            totalTriplesCost +
+            totalProvenanceCost,
+        },
+      }
+    }
 
     // Serialize bigints to strings for JSON transport
     const serialized: PublishPlanSerialized = {
@@ -93,7 +194,17 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    return NextResponse.json({ plan: serialized })
+    return NextResponse.json({
+      plan: serialized,
+      challenge: {
+        hasOpenChallenges: challengedClaims.length > 0,
+        challengedClaims,
+        excludedTripleIds: includeChallenged
+          ? []
+          : Array.from(challengedTripleIds),
+        includeChallenged,
+      },
+    })
   } catch (err) {
     console.error('Publish plan error:', err)
     return NextResponse.json(
