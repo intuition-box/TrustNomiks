@@ -18,10 +18,14 @@ export interface LiveNode {
   type: NodeType
   label?: string
   size?: number
+  /** ghost = a placeholder for data not yet contributed: dashed outline,
+   *  taxonomy color faded, never labeled (studio "what's missing" preview) */
+  ghost?: boolean
 }
 export interface LiveLink {
   source: string
   target: string
+  ghost?: boolean
 }
 export interface LiveGraphData {
   nodes: LiveNode[]
@@ -181,6 +185,18 @@ export function LiveGraph({
       const isHub = node.type === 'graph_root'
       const isTriple = node.type === 'triple'
 
+      if (node.ghost) {
+        // placeholder awaiting data: dashed hollow node, no label
+        ctx.beginPath()
+        ctx.setLineDash([2.5, 2.5])
+        ctx.arc(x, y, s, 0, 2 * Math.PI)
+        ctx.lineWidth = 1.1
+        ctx.strokeStyle = withAlpha(color, 0.5)
+        ctx.stroke()
+        ctx.setLineDash([])
+        return
+      }
+
       if (isHub) {
         // luminous halo + ring
         ctx.beginPath()
@@ -287,7 +303,10 @@ export function LiveGraph({
                   setHoveredId(raw ? (raw as LiveNode).id : null)
               : undefined
           }
-          linkColor={() => readEdgeColor()}
+          linkColor={(l: object) =>
+            (l as LiveLink).ghost ? readEdgeColor(0.22) : readEdgeColor()
+          }
+          linkLineDash={(l: object) => ((l as LiveLink).ghost ? [2, 3] : null)}
           linkWidth={mode === 'hero' ? 0.7 : 0.5}
           linkDirectionalParticles={particles}
           linkDirectionalParticleWidth={1.8}
