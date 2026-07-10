@@ -3,6 +3,7 @@ import {
   Coins,
   ChartArea,
   PlusCircle,
+  TrendingUp,
   UploadCloud,
   type LucideIcon,
 } from 'lucide-react'
@@ -32,6 +33,7 @@ export const NAV_ZONES: NavZone[] = [
       { href: '/dashboard', label: 'Home', icon: Home },
       { href: '/tokens', label: 'Tokens', icon: Coins },
       { href: '/data-room', label: 'Data Room', icon: ChartArea },
+      { href: '/progress', label: 'Progress', icon: TrendingUp },
     ],
   },
   {

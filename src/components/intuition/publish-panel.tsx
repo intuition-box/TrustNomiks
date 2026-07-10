@@ -536,7 +536,9 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
         title="Link a wallet to publish"
         reason="Publishing writes atoms and triples on-chain from your wallet. Link a wallet you have proven ownership of to continue."
       >
-        <section className="glass space-y-4 rounded-xl border p-5">
+        <section className="glass relative space-y-4 overflow-hidden rounded-xl border p-5">
+          {/* the graph celebrates: one panel-wide salvo, reduced-motion safe */}
+          {state === 'complete' && !aborted && <ParticleSalvo />}
           <div>
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <NodeGlyph type="graph_root" size={16} aria-hidden />
@@ -691,17 +693,13 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
             {/* Completion */}
             {state === 'complete' && !aborted && (
-              <div className="relative">
-                {/* the graph celebrates: one salvo, reduced-motion safe */}
-                <ParticleSalvo />
-                <Notice tone="success" icon={CheckCircle2}>
-                  <span className="tabular">
-                    Publication complete: {counters.atomsCreated} atoms,{' '}
-                    {counters.triplesCreated} triples,{' '}
-                    {counters.provenanceCreated} provenance.
-                  </span>
-                </Notice>
-              </div>
+              <Notice tone="success" icon={CheckCircle2}>
+                <span className="tabular">
+                  Publication complete: {counters.atomsCreated} atoms,{' '}
+                  {counters.triplesCreated} triples,{' '}
+                  {counters.provenanceCreated} provenance.
+                </span>
+              </Notice>
             )}
 
             {state === 'complete' && aborted && (
