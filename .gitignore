@@ -53,3 +53,4 @@ skills-lock.json
 # playwright
 /test-results/
 /playwright-report/
+/.playwright-mcp/
