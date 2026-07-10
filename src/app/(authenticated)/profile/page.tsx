@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/composite/page-header'
 import { EmptyState } from '@/components/composite/empty-state'
 import { ErrorState } from '@/components/composite/error-state'
+import { UserMark } from '@/components/composite/user-mark'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { cn } from '@/lib/utils'
@@ -37,6 +38,7 @@ export default function ProfilePage() {
 }
 
 function ProfileContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const linkWalletParam = searchParams.get('linkWallet') === '1'
   const [highlightWalletCard, setHighlightWalletCard] = useState(false)
@@ -167,11 +169,15 @@ function ProfileContent() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Identity, finally editable */}
         <section className="space-y-4 rounded-xl border bg-surface-1 p-5">
-          <div>
-            <h2 className="text-sm font-semibold">Identity</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              How you appear to other contributors.
-            </p>
+          <div className="flex items-center gap-3">
+            {currentUser && <UserMark seed={currentUser.id} size={40} />}
+            <div>
+              <h2 className="text-sm font-semibold">Identity</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                How you appear to other contributors. The mark is your
+                constellation, unique to your account.
+              </p>
+            </div>
           </div>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -244,8 +250,8 @@ function ProfileContent() {
           <div className="border-b px-5 py-4">
             <h2 className="text-sm font-semibold">Your constellation</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Every token you structured, orbiting you. Node size follows
-              completeness.
+              Every token you structured, orbiting you. Size follows
+              completeness; hover for the name, click to open the token.
             </p>
           </div>
           {userTokens.length === 0 ? (
@@ -278,7 +284,13 @@ function ProfileContent() {
             )
           ) : (
             <div className="min-h-[300px] flex-1">
-              <LiveGraph mode="local" data={constellation} />
+              <LiveGraph
+                mode="local"
+                data={constellation}
+                onNodeClick={(node) => {
+                  if (node.type === 'token') router.push(`/tokens/${node.id}`)
+                }}
+              />
             </div>
           )}
         </section>
