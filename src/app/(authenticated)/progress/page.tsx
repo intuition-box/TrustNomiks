@@ -5,59 +5,14 @@ import { PageHeader } from '@/components/composite/page-header'
 import { StatTile } from '@/components/composite/stat-tile'
 import { EmptyState } from '@/components/composite/empty-state'
 import { ErrorState } from '@/components/composite/error-state'
+import { UserMark } from '@/components/composite/user-mark'
 import { GraphLoader } from '@/components/patterns/graph-loader'
+import { TierEmblem } from '@/components/patterns/tier-emblem'
 import { cn } from '@/lib/utils'
 import { Coins, Hexagon, Percent } from 'lucide-react'
 import { useContributionData } from '@/hooks/use-contribution-data'
 import { CONTRIBUTION_TIERS, getTierIndex } from '@/lib/contribution/tiers'
 import { buildLeaderboard } from '@/lib/contribution/leaderboard'
-
-/** A node filling up: ○ → ◔ → ◑ → ◕ → ● in the primary color. */
-function TierGlyph({
-  level,
-  size = 14,
-  className,
-}: {
-  level: number
-  size?: number
-  className?: string
-}) {
-  const fraction = level / (CONTRIBUTION_TIERS.length - 1)
-  const r = size * 0.36
-  const c = size / 2
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      aria-hidden
-      className={cn('shrink-0 text-primary', className)}
-    >
-      <circle
-        cx={c}
-        cy={c}
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={size * 0.12}
-      />
-      {fraction > 0 && (
-        <path d={pieSlice(c, c, r * 0.82, fraction)} fill="currentColor" />
-      )}
-    </svg>
-  )
-}
-
-function pieSlice(cx: number, cy: number, r: number, fraction: number): string {
-  if (fraction >= 1) {
-    return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0`
-  }
-  const angle = fraction * Math.PI * 2 - Math.PI / 2
-  const x = cx + r * Math.cos(angle)
-  const y = cy + r * Math.sin(angle)
-  const largeArc = fraction > 0.5 ? 1 : 0
-  return `M ${cx} ${cy} L ${cx} ${cy - r} A ${r} ${r} 0 ${largeArc} 1 ${x} ${y} Z`
-}
 
 export default function ProgressPage() {
   const { tokens, currentUser, profiles, loading, fetchFailed, refetch } =
@@ -132,6 +87,97 @@ export default function ProgressPage() {
         description="Your contribution tier, and how you rank in the graph."
       />
 
+      {/* The ascension hero: your emblem, your tier, the next summit */}
+      <section className="relative overflow-hidden rounded-xl border bg-surface-1">
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-brand-soft opacity-30"
+          aria-hidden
+        />
+        <div className="relative flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
+          <TierEmblem
+            level={tierIndex}
+            size={96}
+            progress={
+              nextTier
+                ? (userTokens.length - tier.min) / (nextTier.min - tier.min)
+                : 1
+            }
+          />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-faint-foreground">
+              Your tier · {tierIndex + 1} of {CONTRIBUTION_TIERS.length}
+            </p>
+            <h2 className="text-3xl font-semibold tracking-tight">
+              {tier.label}
+            </h2>
+            <p className="tabular text-sm text-muted-foreground">
+              {userTokens.length} token{userTokens.length === 1 ? '' : 's'}{' '}
+              structured
+              {nextTier ? (
+                <>
+                  {' · '}
+                  <span className="text-foreground">
+                    {nextTier.min - userTokens.length} more
+                  </span>{' '}
+                  to reach {nextTier.label}
+                </>
+              ) : (
+                ' · the summit of the ladder'
+              )}
+            </p>
+          </div>
+
+          {/* The ladder as a path: past lit, present ringed, future faint */}
+          <div className="overflow-x-auto">
+            <ol className="flex items-start gap-0" aria-label="Tier ladder">
+              {CONTRIBUTION_TIERS.map((t, i) => (
+                <li key={t.label} className="flex items-start">
+                  {i > 0 && (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'mt-5 block h-px w-5 sm:w-7',
+                        i <= tierIndex ? 'bg-primary/60' : 'bg-border-strong',
+                      )}
+                    />
+                  )}
+                  <span
+                    className={cn(
+                      'flex w-16 flex-col items-center gap-1 text-center',
+                      i > tierIndex && 'opacity-40',
+                    )}
+                    aria-current={i === tierIndex ? 'step' : undefined}
+                  >
+                    <span
+                      className={cn(
+                        'rounded-full',
+                        i === tierIndex &&
+                          'bg-primary/10 ring-1 ring-primary/40',
+                      )}
+                    >
+                      <TierEmblem level={i} size={40} />
+                    </span>
+                    <span
+                      className={cn(
+                        'text-[10px] leading-tight',
+                        i === tierIndex
+                          ? 'font-semibold text-foreground'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {t.label}
+                    </span>
+                    <span className="tabular text-[9px] text-faint-foreground">
+                      {t.max === Infinity ? `${t.min}+` : `${t.min}-${t.max}`}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </section>
+
       {/* Stats rail */}
       <div className="grid gap-3 sm:grid-cols-3">
         <StatTile
@@ -157,51 +203,6 @@ export default function ProgressPage() {
           accentVar="--primary"
         />
       </div>
-
-      {/* Tier ladder, in the product's own glyphs */}
-      <section className="overflow-hidden rounded-xl border bg-surface-1">
-        <div className="border-b px-5 py-4">
-          <h2 className="text-sm font-semibold">Contribution tier</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Climb the ladder by structuring more tokens.
-          </p>
-        </div>
-        <div className="p-5">
-          <ul className="space-y-1">
-            {CONTRIBUTION_TIERS.map((t, i) => (
-              <li
-                key={t.label}
-                className={cn(
-                  'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm',
-                  i === tierIndex
-                    ? 'bg-surface-2 font-medium text-foreground'
-                    : i < tierIndex
-                      ? 'text-muted-foreground'
-                      : 'text-faint-foreground',
-                )}
-                aria-current={i === tierIndex ? 'true' : undefined}
-              >
-                <TierGlyph
-                  level={i}
-                  className={cn(i > tierIndex && 'opacity-40')}
-                />
-                <span className="flex-1">{t.label}</span>
-                <span className="tabular text-xs">
-                  {t.max === Infinity ? `${t.min}+` : `${t.min}-${t.max}`}{' '}
-                  tokens
-                </span>
-              </li>
-            ))}
-          </ul>
-          {nextTier && userTokens.length > 0 && (
-            <p className="tabular mt-2 text-xs text-muted-foreground">
-              {nextTier.min - userTokens.length} more token
-              {nextTier.min - userTokens.length === 1 ? '' : 's'} to reach{' '}
-              {nextTier.label}.
-            </p>
-          )}
-        </div>
-      </section>
 
       {/* Leaderboard */}
       <section className="overflow-hidden rounded-xl border bg-surface-1">
@@ -239,6 +240,7 @@ export default function ProgressPage() {
                   >
                     #{index + 1}
                   </span>
+                  <UserMark seed={entry.userId} size={30} />
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <p className="truncate text-sm font-medium">
