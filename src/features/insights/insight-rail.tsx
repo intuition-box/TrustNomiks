@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { InsightCard } from '@/components/composite/insight-card'
+import { StaggerReveal } from '@/components/patterns/stagger-reveal'
 import { buildRegistryPulse } from '@/lib/insights/build-insights'
 import { useRegistryTokens } from '@/features/insights/use-registry-tokens'
 import { usePriceMovers } from '@/features/insights/use-price-movers'
@@ -128,9 +129,11 @@ export function InsightRail({ className }: { className?: string }) {
       aria-label="Registry insights"
       className={cn('grid gap-3 sm:grid-cols-2 xl:grid-cols-4', className)}
     >
-      {cards.map((card) => (
-        <InsightCard key={card.title} {...card} />
-      ))}
+      <StaggerReveal itemClassName="min-w-0">
+        {cards.map((card) => (
+          <InsightCard key={card.title} {...card} className="h-full" />
+        ))}
+      </StaggerReveal>
     </section>
   )
 }

@@ -13,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { ParticleSalvo } from '@/components/patterns/particle-salvo'
 import { RoleGate } from '@/components/composite/role-gate'
 import { useVerifiedWallet } from '@/features/wallet-linking/use-verified-wallet'
 import { cn } from '@/lib/utils'
@@ -690,13 +691,17 @@ export function PublishPanel({ tokenId, tokenStatus }: PublishPanelProps) {
 
             {/* Completion */}
             {state === 'complete' && !aborted && (
-              <Notice tone="success" icon={CheckCircle2}>
-                <span className="tabular">
-                  Publication complete: {counters.atomsCreated} atoms,{' '}
-                  {counters.triplesCreated} triples,{' '}
-                  {counters.provenanceCreated} provenance.
-                </span>
-              </Notice>
+              <div className="relative">
+                {/* the graph celebrates: one salvo, reduced-motion safe */}
+                <ParticleSalvo />
+                <Notice tone="success" icon={CheckCircle2}>
+                  <span className="tabular">
+                    Publication complete: {counters.atomsCreated} atoms,{' '}
+                    {counters.triplesCreated} triples,{' '}
+                    {counters.provenanceCreated} provenance.
+                  </span>
+                </Notice>
+              </div>
             )}
 
             {state === 'complete' && aborted && (
