@@ -14,33 +14,29 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeader } from '@/components/composite/page-header'
-import { StatTile } from '@/components/composite/stat-tile'
 import { EmptyState } from '@/components/composite/empty-state'
 import { ErrorState } from '@/components/composite/error-state'
 import { DataBadge, StatusPill } from '@/components/composite/data-badge'
-import { NodeGlyph } from '@/components/patterns/node-glyph'
+import { TokenFace } from '@/components/composite/token-face'
 import { ClusterMeter } from '@/components/patterns/cluster-meter'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { CompareTray, COMPARE_MAX } from '@/components/patterns/compare-tray'
+import { RegistryPulseBand } from '@/features/insights/registry-pulse'
+import { buildRegistryPulse } from '@/lib/insights/build-insights'
 import { useOpenChallengeCountByToken } from '@/features/claims/use-my-challenges'
 import { cn } from '@/lib/utils'
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  FileText,
-  Hexagon,
   Pencil,
   Plus,
   Search,
 } from 'lucide-react'
 import type {
   Token,
-  TokenStats,
   TokenStatus,
   SortField,
   SortDirection,
@@ -48,7 +44,6 @@ import type {
 import { useRole } from '@/hooks/use-role'
 
 const ITEMS_PER_PAGE = 20
-const TARGET_TOKENS = 300
 
 type StatusFilter = TokenStatus | 'all'
 
@@ -156,15 +151,14 @@ function TokensRegistry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const stats: TokenStats = useMemo(
-    () => ({
-      total: tokens.length,
-      validated: tokens.filter((t) => t.status === 'validated').length,
-      in_review: tokens.filter((t) => t.status === 'in_review').length,
-      draft: tokens.filter((t) => t.status === 'draft').length,
-    }),
-    [tokens],
-  )
+  const pulse = useMemo(() => buildRegistryPulse(tokens, new Date()), [tokens])
+  const totalOpenChallenges = useMemo(() => {
+    let sum = 0
+    openChallengeCounts.forEach((n) => {
+      sum += n
+    })
+    return sum
+  }, [openChallengeCounts])
 
   const filteredTokens = useMemo(() => {
     let result = [...tokens]
@@ -281,57 +275,13 @@ function TokensRegistry() {
         }
       />
 
-      {/* KPI rail: each tile is also a status filter */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Total tokens"
-          value={stats.total}
-          hint={`${Math.round((stats.total / TARGET_TOKENS) * 100)}% of the ${TARGET_TOKENS} goal`}
-          icon={Hexagon}
-          accentVar="--data-hub"
-          progress={(stats.total / TARGET_TOKENS) * 100}
-          brandProgress
-          onClick={() => setStatus('all')}
-          className={cn(
-            status === 'all' && 'border-border-strong ring-1 ring-primary/40',
-          )}
-        />
-        <StatTile
-          label="Validated"
-          value={stats.validated}
-          hint="ready to explore & publish"
-          icon={CheckCircle2}
-          accentVar="--status-validated"
-          onClick={() => setStatus('validated')}
-          className={cn(
-            status === 'validated' &&
-              'border-border-strong ring-1 ring-primary/40',
-          )}
-        />
-        <StatTile
-          label="In review"
-          value={stats.in_review}
-          hint="under validation"
-          icon={Clock}
-          accentVar="--status-review"
-          onClick={() => setStatus('in_review')}
-          className={cn(
-            status === 'in_review' &&
-              'border-border-strong ring-1 ring-primary/40',
-          )}
-        />
-        <StatTile
-          label="Drafts"
-          value={stats.draft}
-          hint="resume to complete"
-          icon={FileText}
-          accentVar="--status-draft"
-          onClick={() => setStatus('draft')}
-          className={cn(
-            status === 'draft' && 'border-border-strong ring-1 ring-primary/40',
-          )}
-        />
-      </div>
+      {/* Registry pulse: what the graph knows, how it moved, where it is weak.
+          Status filtering lives in the table's segmented control below. */}
+      <RegistryPulseBand
+        pulse={pulse}
+        openChallenges={totalOpenChallenges}
+        isContributor={isContributor}
+      />
 
       {/* The registry */}
       <section className="overflow-hidden rounded-xl border bg-surface-1">
@@ -450,7 +400,12 @@ function TokensRegistry() {
                       >
                         <TableCell className="py-2.5">
                           <span className="flex items-center gap-2.5">
-                            <NodeGlyph type="token" size={12} aria-hidden />
+                            <TokenFace
+                              name={token.name}
+                              ticker={token.ticker}
+                              imageUrl={token.coingecko_image}
+                              size={28}
+                            />
                             <span className="min-w-0">
                               <span className="block max-w-[220px] truncate font-medium leading-tight">
                                 {token.name}
@@ -561,7 +516,12 @@ function TokensRegistry() {
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-2">
-                        <NodeGlyph type="token" size={12} aria-hidden />
+                        <TokenFace
+                          name={token.name}
+                          ticker={token.ticker}
+                          imageUrl={token.coingecko_image}
+                          size={24}
+                        />
                         <span className="truncate font-medium">
                           {token.name}
                         </span>
