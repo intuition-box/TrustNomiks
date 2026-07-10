@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Lock } from 'lucide-react'
 import {
   CommandDialog,
   CommandEmpty,
@@ -15,6 +16,8 @@ import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { StatusPill } from '@/components/composite/data-badge'
 import { NAV_ZONES } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useRole } from '@/hooks/use-role'
+import { cn } from '@/lib/utils'
 import type { TokenStatus } from '@/types/token'
 
 interface PaletteToken {
@@ -36,6 +39,7 @@ interface CmdkPaletteProps {
  */
 export function CmdkPalette({ open, onOpenChange }: CmdkPaletteProps) {
   const router = useRouter()
+  const { isViewer } = useRole()
   const [tokens, setTokens] = useState<PaletteToken[] | null>(null)
 
   // Global shortcut: ⌘K / Ctrl+K toggles, from anywhere in the app.
@@ -80,24 +84,51 @@ export function CmdkPalette({ open, onOpenChange }: CmdkPaletteProps) {
       <CommandList>
         <CommandEmpty>No results. Try a token name or ticker.</CommandEmpty>
         <CommandGroup heading="Actions">
-          <CommandItem onSelect={() => go('/tokens/new')}>
+          <CommandItem
+            disabled={isViewer}
+            onSelect={() => go('/tokens/new')}
+            className={cn(isViewer && 'text-muted-foreground')}
+          >
             <NodeGlyph type="token" size={12} aria-hidden />
             <span>Add a token</span>
+            {isViewer && (
+              <Lock className="ml-auto h-3.5 w-3.5 shrink-0" aria-hidden />
+            )}
           </CommandItem>
-          <CommandItem onSelect={() => go('/export')}>
+          <CommandItem
+            disabled={isViewer}
+            onSelect={() => go('/export')}
+            className={cn(isViewer && 'text-muted-foreground')}
+          >
             <NodeGlyph type="export_run" size={12} aria-hidden />
             <span>Publish or export tokens</span>
+            {isViewer && (
+              <Lock className="ml-auto h-3.5 w-3.5 shrink-0" aria-hidden />
+            )}
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Go to">
-          {NAV_ZONES.flatMap((zone) => zone.items).map((item) => (
-            <CommandItem key={item.href} onSelect={() => go(item.href)}>
+          {NAV_ZONES.flatMap((zone) =>
+            zone.items.map((item) => ({
+              ...item,
+              locked: Boolean(zone.requiresContributor) && isViewer,
+            })),
+          ).map((item) => (
+            <CommandItem
+              key={item.href}
+              disabled={item.locked}
+              onSelect={() => go(item.href)}
+              className={cn(item.locked && 'text-muted-foreground')}
+            >
               <item.icon
                 className="h-4 w-4 text-muted-foreground"
                 aria-hidden
               />
               <span>{item.label}</span>
+              {item.locked && (
+                <Lock className="ml-auto h-3.5 w-3.5 shrink-0" aria-hidden />
+              )}
             </CommandItem>
           ))}
           <CommandItem onSelect={() => go('/profile')}>
