@@ -18,6 +18,7 @@ import { EmptyState } from '@/components/composite/empty-state'
 import { ErrorState } from '@/components/composite/error-state'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import { TokenSelectorCard } from '@/features/data-room/token-selector-card'
+import { RegistryOverview } from '@/features/data-room/registry-overview'
 import {
   TokenWorkspace,
   type TokenWorkspaceData,
@@ -374,12 +375,20 @@ function DataRoom() {
           {/* Workspace */}
           <div className="min-h-[500px]">
             {!selectedId ? (
-              <EmptyState
-                className="h-full"
-                title="Pick a token to explore"
-                description="Its allocation breakdown, supply composition and unlock timeline render instantly from the structured data."
-                onboardingHint="Compare tokens from the registry: select 2 to 4 with the + buttons"
-              />
+              tokens.length === 0 ? (
+                <EmptyState
+                  className="h-full"
+                  title="Pick a token to explore"
+                  description="Its allocation breakdown, supply composition and unlock timeline render instantly from the structured data."
+                  onboardingHint="Compare tokens from the registry: select 2 to 4 with the + buttons"
+                />
+              ) : (
+                <RegistryOverview
+                  tokens={tokens}
+                  onSelect={handleSelectToken}
+                  onCompare={updateCompare}
+                />
+              )
             ) : workspaceLoading ? (
               <div className="space-y-4">
                 <div className="h-12 animate-pulse rounded-lg bg-surface-2" />
