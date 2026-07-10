@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
+import { chartColorsFor } from '@/lib/design/tokens'
 import { formatSegmentTypeLabel } from '@/types/form'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 
@@ -87,14 +87,21 @@ export function AllocationBreakdownChart({
   segments,
   height = 300,
 }: AllocationBreakdownChartProps) {
-  const sorted = [...segments].sort((a, b) => b.percentage - a.percentage)
+  // Colors are assigned in the ORIGINAL list order (canonical), so the same
+  // segment keeps the same color across every chart, whatever each chart's sort.
+  const segmentColors = chartColorsFor(segments.map((s) => s.segment_type))
+  const sorted = segments
+    .map((seg, i) => ({ ...seg, color: segmentColors[i] }))
+    .sort((a, b) => b.percentage - a.percentage)
 
   const data = sorted.map((seg) => ({
     name: seg.label,
     segment_type: seg.segment_type,
     percentage: seg.percentage,
     token_amount: seg.token_amount,
+    color: seg.color,
   }))
+  const colors = data.map((d) => d.color)
 
   const longestLabel = Math.max(
     ...data.map((d) => Math.min(d.name.length, MAX_LABEL_CHARS)),
@@ -168,10 +175,7 @@ export function AllocationBreakdownChart({
           />
           <Bar dataKey="percentage" radius={[0, 4, 4, 0]} barSize={20}>
             {data.map((entry, index) => (
-              <Cell
-                key={entry.name}
-                fill={getSegmentChartColor(entry.segment_type, index)}
-              />
+              <Cell key={entry.name} fill={colors[index]} />
             ))}
           </Bar>
         </BarChart>

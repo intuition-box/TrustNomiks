@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Label,
 } from 'recharts'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
+import { chartColorsFor } from '@/lib/design/tokens'
 import { formatSegmentTypeLabel } from '@/types/form'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 
@@ -43,6 +43,7 @@ export function AllocationDonutChart({
     value: seg.percentage,
     token_amount: seg.token_amount,
   }))
+  const colors = chartColorsFor(data.map((d) => d.segment_type))
 
   const formattedSupply = maxSupply
     ? formatCompactNumber(Number(maxSupply.toString().replace(/,/g, '')))
@@ -62,10 +63,7 @@ export function AllocationDonutChart({
           stroke="hsl(var(--background))"
         >
           {data.map((entry, index) => (
-            <Cell
-              key={entry.name}
-              fill={getSegmentChartColor(entry.segment_type, index)}
-            />
+            <Cell key={entry.name} fill={colors[index]} />
           ))}
           {formattedSupply && (
             <Label

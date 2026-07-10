@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { normalizeRiskSeverity } from '@/types/form'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
+import { chartColorsFor } from '@/lib/design/tokens'
 import type { TokenData } from './types'
 
 export const formatNumber = (value: string | number | null) => {
@@ -22,10 +22,10 @@ export const STATUS_RANK: Record<string, number> = {
 
 // Chart space: the stacked bar shares the donut's segment-type palette, so
 // the same segment reads as the same color in every chart (DESIGN-RULES §2).
-export const segmentColor = (
-  segment: { segment_type: string },
-  index: number,
-) => getSegmentChartColor(segment.segment_type, index)
+// One color list per segments array (canonical order) so repeated types get
+// the same lightness ramp everywhere on the page.
+export const allocationColors = (segments: { segment_type: string }[]) =>
+  chartColorsFor(segments.map((s) => s.segment_type))
 
 export const riskSeverity = (s: string): 'low' | 'med' | 'high' => {
   const sev = normalizeRiskSeverity(s)

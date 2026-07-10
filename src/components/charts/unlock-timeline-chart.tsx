@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { getSegmentChartColor } from '@/lib/utils/chart-colors'
+import { chartColorsFor } from '@/lib/design/tokens'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 import type { VestingTimelinePoint } from '@/lib/utils/vesting-timeline'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,7 @@ export function UnlockTimelineChart({
   customSegments = [],
   height = 350,
 }: UnlockTimelineChartProps) {
+  const areaColors = chartColorsFor(segments.map((s) => s.segment_type))
   return (
     <div className="space-y-3">
       <ResponsiveContainer width="100%" height={height}>
@@ -129,14 +130,14 @@ export function UnlockTimelineChart({
               fontSize: 10,
             }}
           />
-          {segments.map((seg) => (
+          {segments.map((seg, i) => (
             <Area
               key={seg.label}
               type="stepAfter"
               dataKey={seg.label}
               stackId="1"
-              fill={getSegmentChartColor(seg.segment_type)}
-              stroke={getSegmentChartColor(seg.segment_type)}
+              fill={areaColors[i]}
+              stroke={areaColors[i]}
               fillOpacity={0.6}
               strokeWidth={1.5}
             />
