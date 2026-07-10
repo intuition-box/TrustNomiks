@@ -373,7 +373,7 @@ function DataRoom() {
           </div>
 
           {/* Workspace */}
-          <div className="min-h-[500px]">
+          <div className="min-h-[500px] min-w-0">
             {!selectedId ? (
               tokens.length === 0 ? (
                 <EmptyState
