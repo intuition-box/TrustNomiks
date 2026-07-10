@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, startTransition } from 'react'
 import { Search, X, Loader2, ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { TokenFace } from '@/components/composite/token-face'
 import { cn } from '@/lib/utils'
 import { useCoinGeckoSearch } from '@/hooks/use-coingecko-search'
 import type { CoinGeckoSearchResult } from '@/types/coingecko'
@@ -211,13 +212,11 @@ function CoinOption({
         )}
         onClick={onSelect}
       >
-        <img
-          src={coin.thumb}
-          alt=""
-          className="h-6 w-6 rounded-full"
-          onError={(e) => {
-            ;(e.target as HTMLImageElement).style.display = 'none'
-          }}
+        <TokenFace
+          name={coin.name}
+          ticker={coin.symbol}
+          imageUrl={coin.thumb}
+          size={24}
         />
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{coin.name}</div>

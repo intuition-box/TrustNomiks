@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Logo } from '@/components/brand/logo'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -96,6 +96,19 @@ function LoginPageInner() {
     useState<AsyncStatus>('idle')
   const router = useRouter()
   const supabase = createClient()
+
+  // Real validated token names for the ambient graph (anon-callable RPC)
+  const [tokenNames, setTokenNames] = useState<string[] | undefined>(undefined)
+  useEffect(() => {
+    supabase
+      .rpc('public_token_names', { max_rows: 14 })
+      .then(({ data, error: rpcError }) => {
+        if (!rpcError && Array.isArray(data) && data.length > 0) {
+          setTokenNames(data.map((r: { name: string }) => r.name))
+        }
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const destination =
     intent === 'contribute' ? '/profile?linkWallet=1' : '/dashboard'
@@ -507,8 +520,21 @@ function LoginPageInner() {
 
       {/* The graph greets you */}
       <div className="relative hidden flex-1 lg:block" aria-hidden>
+        {/* Atmospheric backdrop (generated, committed asset; see
+            scripts/generate-atmosphere.ts). Decorative only: the ambient
+            graph carries the panel if the image is absent. Dark-native
+            texture, so it dims further in light mode instead of glaring. */}
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-70 dark:opacity-90"
+          style={{ backgroundImage: "url('/backdrops/login-atmosphere.jpg')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-transparent" />
         <div className="absolute inset-0">
-          <LiveGraph mode="ambient" count={14} />
+          <LiveGraph
+            mode="ambient"
+            count={tokenNames?.length ?? 14}
+            tokenLabels={tokenNames}
+          />
         </div>
         <div className="absolute bottom-12 left-12 max-w-md space-y-4">
           <p className="text-lg font-medium text-foreground">
