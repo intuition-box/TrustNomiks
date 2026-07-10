@@ -8,6 +8,8 @@ export interface ContributionToken {
   id: string
   name: string
   ticker: string
+  coingecko_image: string | null
+  status: string
   completeness: number
   created_by: string
 }
@@ -53,7 +55,9 @@ export function useContributionData(): UseContributionDataResult {
       const [tokensResult, userResult, profilesResult] = await Promise.all([
         supabase
           .from('tokens')
-          .select('id, name, ticker, completeness, created_by')
+          .select(
+            'id, name, ticker, coingecko_image, status, completeness, created_by',
+          )
           .order('created_at', { ascending: false }),
         supabase.auth.getUser(),
         // Leaderboard names; RLS may narrow this to the own row, we degrade gracefully.
