@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { Logo } from '@/components/brand/logo'
 import { usePathname } from 'next/navigation'
 import { Lock, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -39,16 +39,12 @@ export function MobileNav() {
         <TooltipProvider delayDuration={200}>
           <div className="flex h-full flex-col">
             <div className="px-4 py-5">
-              <Link href="/dashboard" onClick={() => setOpen(false)}>
-                <Image
-                  src="/trustnomiks_logo_final.png"
-                  alt="TrustNomiks"
-                  width={0}
-                  height={0}
-                  sizes="180px"
-                  className="h-10 w-auto max-w-[170px] object-contain"
-                  priority
-                />
+              <Link
+                href="/dashboard"
+                onClick={() => setOpen(false)}
+                aria-label="TrustNomiks home"
+              >
+                <Logo size={26} />
               </Link>
             </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import { Logo } from '@/components/brand/logo'
 import { usePathname } from 'next/navigation'
 import { Lock, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
@@ -40,16 +40,12 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
           )}
         >
           {!collapsed && (
-            <Link href="/dashboard" className="flex items-center px-2">
-              <Image
-                src="/trustnomiks_logo_final.png"
-                alt="TrustNomiks"
-                width={0}
-                height={0}
-                sizes="160px"
-                className="h-10 w-auto max-w-[160px] object-contain"
-                priority
-              />
+            <Link
+              href="/dashboard"
+              className="flex items-center px-2"
+              aria-label="TrustNomiks home"
+            >
+              <Logo size={26} />
             </Link>
           )}
           <Button

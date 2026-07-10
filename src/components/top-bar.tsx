@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import { Logo } from '@/components/brand/logo'
 import { Search } from 'lucide-react'
 import { MobileNav } from '@/components/mobile-nav'
 import { UserMenu } from '@/components/user-menu'
@@ -22,16 +22,12 @@ export function TopBar({ user, onSearchOpen }: TopBarProps) {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur sm:px-6">
       <div className="flex items-center lg:hidden">
         <MobileNav />
-        <Link href="/dashboard" className="ml-1 flex items-center">
-          <Image
-            src="/trustnomiks_logo_final.png"
-            alt="TrustNomiks"
-            width={0}
-            height={0}
-            sizes="120px"
-            className="h-7 w-auto max-w-[110px] object-contain"
-            priority
-          />
+        <Link
+          href="/dashboard"
+          className="ml-1 flex items-center"
+          aria-label="TrustNomiks home"
+        >
+          <Logo size={22} wordmarkClassName="text-base" />
         </Link>
       </div>
 
