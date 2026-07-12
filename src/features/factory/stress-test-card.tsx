@@ -271,6 +271,7 @@ export function StressTestCard({
           <PriceEnvelopeChart
             envelope={result.envelope}
             initialPriceUsd={refPriceUsd as number}
+            height={380}
           />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

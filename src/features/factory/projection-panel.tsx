@@ -369,7 +369,7 @@ export function ProjectionPanel() {
           maxSupply={supply.maxSupply}
           customSegments={supply.customSegments}
           emissionSeriesKey={supply.emissionActive ? EMISSION_KEY : undefined}
-          height={280}
+          height={400}
         />
       </div>
 
@@ -385,7 +385,7 @@ export function ProjectionPanel() {
           points={pressure.points}
           hasPrice={pressure.hasPrice}
           marketDepthUsd={scenario.marketDepthUsd}
-          height={240}
+          height={320}
         />
       </div>
 
