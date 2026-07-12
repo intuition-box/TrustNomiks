@@ -133,7 +133,11 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           ? normalizedSector
           : null
 
-      if (isEditMode && tokenId) {
+      // Once a token row exists (edit mode OR the auto-draft insert), every
+      // identity save must go through the update RPC. Branching on isEditMode
+      // here would re-run the INSERT on each post-draft autosave and mint a
+      // duplicate token per keystroke burst.
+      if (tokenId) {
         // Update existing token via the RPC: it does the ownership (owner OR
         // moderator) and optimistic-lock checks server-side, atomically, and
         // returns the new updated_at (mirrors the other save_*_tx handlers).
@@ -999,7 +1003,15 @@ export function useTokenSaveHandlers(state: TokenFormState) {
     const key = activeSectionRef.current
     if (!tokenIdRef.current) return
     const form = sectionFormsRef.current[key]
-    if (!form.formState.isDirty) return
+    if (!form.formState.isDirty) {
+      // A queued autosave can outlive its edits (a save that resets its own
+      // form to server truth leaves nothing unsaved): do not strand the chip
+      // on "Unsaved changes" when the form is pristine.
+      setAutosave((a) =>
+        a.status === 'pending' ? { status: 'idle', at: a.at } : a,
+      )
+      return
+    }
     if (key === 'vesting' && allocationsRef.current.length === 0) return
     // Emission with no type picked yet: the only required field is untouched
     if (key === 'emission' && !step5Form.getValues('type')) return

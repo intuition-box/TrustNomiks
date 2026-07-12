@@ -2,6 +2,7 @@ import {
   Home,
   Coins,
   ChartArea,
+  FlaskConical,
   PlusCircle,
   TrendingUp,
   UploadCloud,
@@ -43,6 +44,11 @@ export const NAV_ZONES: NavZone[] = [
       { href: '/tokens/new', label: 'Add token', icon: PlusCircle },
       { href: '/export', label: 'Publish & Export', icon: UploadCloud },
     ],
+  },
+  {
+    label: 'Factory',
+    requiresContributor: true,
+    items: [{ href: '/factory', label: 'Factory', icon: FlaskConical }],
   },
 ]
 

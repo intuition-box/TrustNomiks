@@ -5,44 +5,63 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createClient } from '@/lib/supabase/client'
-import { type StudioSectionKey } from '@/features/studio/studio-spine'
 import {
   tokenIdentitySchema,
   supplyMetricsSchema,
   allocationsSchema,
   vestingSchedulesSchema,
   emissionModelSchema,
-  dataSourcesSchema,
-  riskFlagsSchema,
-  BLOCKCHAIN_OPTIONS,
+  fundingRoundsSchema,
   getCategoryOption,
   getSectorOptionsByCategory,
   toSupportedCategory,
   toSupportedSector,
   isSectorCompatibleWithCategory,
   toSupportedSegmentType,
-  normalizeRiskSeverity,
+  buildStep4Schedules,
+  computeFactoryScore,
+  createSaveQueue,
+  formatNumber,
+  parseDecimal,
+  type AllocationWithId,
+  type AutosaveStatus,
   type TokenIdentityFormData,
   type SupplyMetricsFormData,
   type AllocationsFormData,
   type VestingSchedulesFormData,
   type EmissionModelFormData,
-  type DataSourcesFormData,
-  type RiskFlagsFormData,
-} from '@/types/form'
+  type FundingRoundsFormData,
+  type FactoryBenchmarkSnapshot,
+  type VestingSeed,
+} from '@/lib/tokenomics'
 import { toast } from 'sonner'
-import {
-  type AllocationWithId,
-  type AutosaveStatus,
-  SECTION_ORDER,
-  createSaveQueue,
-  formatNumber,
-  parseDecimal,
-} from './form-helpers'
-import { buildDefaultAttributions, buildStep4Schedules } from './completeness'
+import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
 
-// Sentinel for the post-save "Token created" screen. Kept distinct from the
-// real step ids (1..7, Risk Flags is the 7th) so adding steps never collides.
+/*
+ * ── DRIFT LEDGER ─────────────────────────────────────────────────────────────
+ * This hook and use-factory-save-handlers.ts are derive-and-strip twins of
+ * src/components/token-form/{use-token-form-state,use-token-save-handlers}.ts
+ * (clone-not-adapter, per tasks/factory-plan.md). The following wiring blocks
+ * MUST track the screener originals; if one changes there, mirror it here
+ * (autosave-parity.test.ts trips on the load-bearing ones):
+ *   1. createSaveQueue wiring (single-sourced from @/lib/tokenomics) + the
+ *      onTimeout reset of the shared `loading` flag.
+ *   2. The `info?.type !== 'change'` watch filter: only real user edits arm
+ *      the debounced autosave, never programmatic reset/setValue.
+ *   3. The AUTOSAVE_DEBOUNCE_MS (1800) debounce in queueAutosave, and the
+ *      auto-draft timer (1200).
+ *   4. The saveSectionRef / autosaveActiveRef latest-ref pattern: the watch
+ *      subscription mounts once, each save closes over fresh optimistic-lock
+ *      state.
+ *   5. The autosave skip guards: no project id yet; vesting with zero
+ *      allocations; emission with no type picked.
+ * Stripped relative to the screener (do NOT re-add): sources/risk forms,
+ * challenge pre-fill, CoinGecko autofill, claim attributions.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+// Sentinel for the post-save "Design saved" screen. Kept distinct from the
+// real step ids (1..5) so adding steps never collides.
 export const COMPLETION_STEP = 99
 
 type SectionForm =
@@ -51,30 +70,28 @@ type SectionForm =
   | ReturnType<typeof useForm<AllocationsFormData>>
   | ReturnType<typeof useForm<VestingSchedulesFormData>>
   | ReturnType<typeof useForm<EmissionModelFormData>>
-  | ReturnType<typeof useForm<DataSourcesFormData>>
-  | ReturnType<typeof useForm<RiskFlagsFormData>>
+  | ReturnType<typeof useForm<FundingRoundsFormData>>
 
 /**
- * The keystone hook for the token structuring studio: owns every RHF instance,
- * the optimistic-lock timestamp, allocations, completedSteps, the studio's
- * navigation/autosave state, and the load functions. See
- * docs/refactor-plan-token-routes-20260620.md — highest-risk parts 1, 2 and 5
- * (optimistic locking, destructive delete→insert reseeding, and the live-score
- * .watch() block) all live here so they stay a single source of truth.
+ * The keystone hook for the Factory builder: owns every RHF instance, the
+ * optimistic-lock timestamp, allocations, completedSteps, the studio's
+ * navigation/autosave state, and the load functions. Twin of
+ * useTokenFormState (see the drift ledger above).
  */
-export function useTokenFormState() {
+export function useFactoryFormState() {
   const searchParams = useSearchParams()
-  const editTokenId = searchParams.get('id')
-  const isEditMode = !!editTokenId
+  const editProjectId = searchParams.get('id')
+  const isEditMode = !!editProjectId
 
   const [currentStep, setCurrentStep] = useState(1)
-  const [tokenId, setTokenId] = useState<string | null>(editTokenId)
+  const [projectId, setProjectId] = useState<string | null>(editProjectId)
   const [maxSupply, setMaxSupply] = useState<string>('')
-  const [, setTgeDate] = useState<string | undefined>(undefined)
   const [allocations, setAllocations] = useState<AllocationWithId[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingTokenData, setLoadingTokenData] = useState(isEditMode)
+  const [loadingProjectData, setLoadingProjectData] = useState(isEditMode)
   const [finalScore, setFinalScore] = useState<number | null>(null)
+  const [benchmarkSnapshot, setBenchmarkSnapshot] =
+    useState<FactoryBenchmarkSnapshot | null>(null)
   const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
   const [ownershipDenied, setOwnershipDenied] = useState(false)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
@@ -85,7 +102,7 @@ export function useTokenFormState() {
     number | null
   >(null)
   const [pendingRemoval, setPendingRemoval] = useState<{
-    type: 'allocation' | 'source' | 'risk'
+    type: 'allocation' | 'funding'
     index: number
   } | null>(null)
   const prevScoreRef = useRef(0)
@@ -97,9 +114,9 @@ export function useTokenFormState() {
 
   // ── Studio orchestration state (docs/redesign/08 §6) ────────────────────────
   const sectionParam = searchParams.get('section')
-  const [activeSection, setActiveSection] = useState<StudioSectionKey>(
-    SECTION_ORDER.includes(sectionParam as StudioSectionKey)
-      ? (sectionParam as StudioSectionKey)
+  const [activeSection, setActiveSection] = useState<FactorySectionKey>(
+    FACTORY_SECTION_ORDER.includes(sectionParam as FactorySectionKey)
+      ? (sectionParam as FactorySectionKey)
       : 'identity',
   )
   const [autosave, setAutosave] = useState<{
@@ -111,7 +128,7 @@ export function useTokenFormState() {
   })
   const [, setChipTick] = useState(0)
   const activeSectionRef = useRef(activeSection)
-  const tokenIdRef = useRef<string | null>(editTokenId)
+  const projectIdRef = useRef<string | null>(editProjectId)
   const autosaveTimerRef = useRef<number | null>(null)
   const autoDraftBusyRef = useRef(false)
 
@@ -119,8 +136,8 @@ export function useTokenFormState() {
     activeSectionRef.current = activeSection
   }, [activeSection])
   useEffect(() => {
-    tokenIdRef.current = tokenId
-  }, [tokenId])
+    projectIdRef.current = projectId
+  }, [projectId])
 
   // Refresh the "Saved Xs ago" chip label periodically.
   useEffect(() => {
@@ -143,38 +160,29 @@ export function useTokenFormState() {
   )
   const enqueueSave = enqueueSaveRef.current
 
-  // Step 1 Form
+  // Section 1 Form - Identity (shared identity schema; Factory simply never
+  // renders the contract_address / coingecko fields a design cannot have)
   const step1Form = useForm<TokenIdentityFormData>({
     resolver: zodResolver(tokenIdentitySchema),
     defaultValues: {
       name: '',
       ticker: '',
-      chain: undefined,
-      contract_address: '',
-      coingecko_id: undefined,
-      coingecko_image: undefined,
-      tge_date: undefined,
       category: undefined,
       sector: undefined,
       notes: '',
     },
   })
 
-  // Step 2 Form
+  // Section 2 Form - Supply
   const step2Form = useForm<SupplyMetricsFormData>({
     resolver: zodResolver(supplyMetricsSchema),
     defaultValues: {
       max_supply: '',
-      initial_supply: '',
-      tge_supply: '',
-      circulating_supply: '',
-      circulating_date: undefined,
-      source_url: '',
       notes: '',
     },
   })
 
-  // Step 3 Form
+  // Section 3 Form - Allocation
   const step3Form = useForm<AllocationsFormData>({
     resolver: zodResolver(allocationsSchema),
     defaultValues: {
@@ -196,7 +204,7 @@ export function useTokenFormState() {
     name: 'segments',
   })
 
-  // Step 4 Form - Vesting Schedules
+  // Section 4 Form - Vesting Schedules
   const step4Form = useForm<VestingSchedulesFormData>({
     resolver: zodResolver(vestingSchedulesSchema),
     defaultValues: {
@@ -204,7 +212,7 @@ export function useTokenFormState() {
     },
   })
 
-  // Step 5 Form - Emission Model
+  // Section 5 Form - Emission Model
   const step5Form = useForm<EmissionModelFormData>({
     resolver: zodResolver(emissionModelSchema),
     defaultValues: {
@@ -219,69 +227,22 @@ export function useTokenFormState() {
     },
   })
 
-  // Step 6 Form - Data Sources
-  const step6Form = useForm<DataSourcesFormData>({
-    resolver: zodResolver(dataSourcesSchema),
+  // Section 6 Form - Funding rounds (factory-only, optional, unscored)
+  const step6Form = useForm<FundingRoundsFormData>({
+    resolver: zodResolver(fundingRoundsSchema),
     defaultValues: {
-      sources: [],
+      rounds: [],
     },
   })
 
   const {
-    fields: sourceFields,
-    append: appendSource,
-    remove: removeSource,
+    fields: roundFields,
+    append: appendRound,
+    remove: removeRound,
   } = useFieldArray({
     control: step6Form.control,
-    name: 'sources',
+    name: 'rounds',
   })
-
-  // Step 7 Form - Risk Flags
-  const step7Form = useForm<RiskFlagsFormData>({
-    resolver: zodResolver(riskFlagsSchema),
-    defaultValues: {
-      flags: [],
-    },
-  })
-
-  const {
-    fields: riskFields,
-    append: appendRisk,
-    remove: removeRisk,
-  } = useFieldArray({
-    control: step7Form.control,
-    name: 'flags',
-  })
-
-  // Reconcile attribution rows whenever the allocation *id set* changes: adds
-  // rows for newly-created allocations and drops rows for deleted ones, while
-  // preserving existing data_source_ids selections (buildDefaultAttributions
-  // merges by claim_type:claim_id key). Depends on the id set, not just the
-  // count, because a delete followed by a re-insert autosave can keep the
-  // length the same while swapping every id. loadTokenData (edit mode) already
-  // rebuilds attributions from freshly-fetched data on load; this effect must
-  // treat that as a no-op rather than clobber it, so it skips the setValue
-  // when the reconciled rows are equivalent to what's already there.
-  const allocationIdKey = allocations.map((a) => a.id).join(',')
-  useEffect(() => {
-    if (!tokenId || allocations.length === 0) return
-    const current = step6Form.getValues('attributions')
-    const reconciled = buildDefaultAttributions(allocations, current)
-    const isNoOp =
-      !!current &&
-      current.length === reconciled.length &&
-      current.every(
-        (row, i) =>
-          row.claim_type === reconciled[i].claim_type &&
-          row.claim_id === reconciled[i].claim_id &&
-          row.data_source_ids.length === reconciled[i].data_source_ids.length &&
-          row.data_source_ids.every(
-            (id, j) => id === reconciled[i].data_source_ids[j],
-          ),
-      )
-    if (isNoOp) return
-    step6Form.setValue('attributions', reconciled)
-  }, [tokenId, allocationIdKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // RHF's formState is a lazy proxy: isDirty is only computed once it has
   // been read during a render. handleContinue and the autosave read it inside
@@ -295,25 +256,24 @@ export function useTokenFormState() {
     step4Form.formState.isDirty,
     step5Form.formState.isDirty,
     step6Form.formState.isDirty,
-    step7Form.formState.isDirty,
   ]
 
   const selectedCategory = step1Form.watch('category')
   const selectedCategoryOption = getCategoryOption(selectedCategory)
   const sectorOptions = getSectorOptionsByCategory(selectedCategory)
 
-  // Load allocations when entering Step 4
+  // Load allocations when entering the Vesting section
   const loadAllocationsForVesting = async () => {
-    if (!tokenId) return
+    if (!projectId) return
 
     try {
       setLoading(true)
 
       // Fetch allocations from database
       const { data: allocationData, error } = await supabase
-        .from('allocation_segments')
+        .from('factory_allocation_segments')
         .select('*')
-        .eq('token_id', tokenId)
+        .eq('project_id', projectId)
         .order('percentage', { ascending: false })
 
       if (error) throw error
@@ -331,7 +291,7 @@ export function useTokenFormState() {
 
       const allocationIds = (allocationData || []).map((alloc) => alloc.id)
       const { data: vestingData } = await supabase
-        .from('vesting_schedules')
+        .from('factory_vesting_schedules')
         .select('*')
         .in('allocation_id', allocationIds.length > 0 ? allocationIds : [''])
 
@@ -352,65 +312,65 @@ export function useTokenFormState() {
     }
   }
 
-  // Load existing token data for editing
-  const loadTokenData = async (id: string) => {
+  // Load existing design data for editing
+  const loadProjectData = async (id: string) => {
     try {
-      setLoadingTokenData(true)
+      setLoadingProjectData(true)
 
-      // Fetch token with all related data
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('tokens')
+      // Fetch the design row
+      const { data: projectData, error: projectError } = await supabase
+        .from('factory_projects')
         .select('*')
         .eq('id', id)
         .single()
 
-      if (tokenError) throw tokenError
-      if (!tokenData) {
-        toast.error('Token not found')
-        router.push('/dashboard')
+      if (projectError) throw projectError
+      if (!projectData) {
+        toast.error('Design not found')
+        router.push('/factory')
         return
       }
 
-      // Ownership guard: only the token's creator may edit it here. RLS
+      // Ownership guard: only the design's creator may edit it here. RLS
       // already blocks the save server-side; this stops the editable form
       // from mounting at all so the UX matches that restriction.
       const { data: authData } = await supabase.auth.getUser()
-      if (!authData.user || tokenData.created_by !== authData.user.id) {
+      if (!authData.user || projectData.created_by !== authData.user.id) {
         setOwnershipDenied(true)
         return
       }
 
       // Store initial updated_at for optimistic locking
-      setInitialUpdatedAt(tokenData.updated_at)
+      setInitialUpdatedAt(projectData.updated_at)
 
-      // Pre-fill Step 1 - Token Identity
+      // Hydrate the persisted benchmark snapshot (the design renders from it)
+      setBenchmarkSnapshot(
+        (projectData.benchmark_snapshot as FactoryBenchmarkSnapshot | null) ??
+          null,
+      )
+
+      // Pre-fill Section 1 - Identity
       step1Form.reset({
-        name: tokenData.name,
-        ticker: tokenData.ticker,
-        chain: tokenData.chain || undefined,
-        contract_address: tokenData.contract_address || '',
-        coingecko_id: tokenData.coingecko_id || undefined,
-        coingecko_image: tokenData.coingecko_image || undefined,
-        tge_date: tokenData.tge_date || undefined,
-        category: toSupportedCategory(tokenData.category) || undefined,
+        name: projectData.name,
+        ticker: projectData.ticker,
+        category: toSupportedCategory(projectData.category) || undefined,
         sector:
-          toSupportedCategory(tokenData.category) &&
-          toSupportedSector(tokenData.sector) &&
-          isSectorCompatibleWithCategory(tokenData.category, tokenData.sector)
-            ? toSupportedSector(tokenData.sector) || undefined
+          toSupportedCategory(projectData.category) &&
+          toSupportedSector(projectData.sector) &&
+          isSectorCompatibleWithCategory(
+            projectData.category,
+            projectData.sector,
+          )
+            ? toSupportedSector(projectData.sector) || undefined
             : undefined,
-        notes: tokenData.notes || '',
+        notes: projectData.notes || '',
       })
 
-      if (tokenData.tge_date) {
-        setTgeDate(tokenData.tge_date)
-      }
-
-      // Fetch and pre-fill Step 2 - Supply Metrics (row may legitimately not exist yet)
+      // Fetch and pre-fill Section 2 - Supply (row may legitimately not exist yet)
       const { data: supplyData } = await supabase
-        .from('supply_metrics')
+        .from('factory_supply_metrics')
         .select('*')
-        .eq('token_id', id)
+        .eq('project_id', id)
         .maybeSingle()
 
       if (supplyData) {
@@ -418,17 +378,6 @@ export function useTokenFormState() {
           max_supply: supplyData.max_supply
             ? formatNumber(String(supplyData.max_supply))
             : '',
-          initial_supply: supplyData.initial_supply
-            ? formatNumber(String(supplyData.initial_supply))
-            : '',
-          tge_supply: supplyData.tge_supply
-            ? formatNumber(String(supplyData.tge_supply))
-            : '',
-          circulating_supply: supplyData.circulating_supply
-            ? formatNumber(String(supplyData.circulating_supply))
-            : '',
-          circulating_date: supplyData.circulating_date || undefined,
-          source_url: supplyData.source_url || '',
           notes: supplyData.notes || '',
         })
         if (supplyData.max_supply) {
@@ -436,11 +385,11 @@ export function useTokenFormState() {
         }
       }
 
-      // Fetch and pre-fill Step 3 - Allocations
+      // Fetch and pre-fill Section 3 - Allocations
       const { data: allocData } = await supabase
-        .from('allocation_segments')
+        .from('factory_allocation_segments')
         .select('*')
-        .eq('token_id', id)
+        .eq('project_id', id)
         .order('percentage', { ascending: false })
 
       const allocationsWithIds: AllocationWithId[] =
@@ -458,11 +407,11 @@ export function useTokenFormState() {
         step3Form.reset({ segments: allocationsWithIds })
       }
 
-      // Fetch and pre-fill Step 4 - Vesting Schedules
+      // Fetch and pre-fill Section 4 - Vesting Schedules
       if (allocData && allocData.length > 0) {
         const allocationIds = allocData.map((a) => a.id)
         const { data: vestingData } = await supabase
-          .from('vesting_schedules')
+          .from('factory_vesting_schedules')
           .select('*')
           .in('allocation_id', allocationIds)
 
@@ -477,11 +426,11 @@ export function useTokenFormState() {
         })
       }
 
-      // Fetch and pre-fill Step 5 - Emission Model (row may legitimately not exist yet)
+      // Fetch and pre-fill Section 5 - Emission Model (row may legitimately not exist yet)
       const { data: emissionData } = await supabase
-        .from('emission_models')
+        .from('factory_emission_models')
         .select('*')
-        .eq('token_id', id)
+        .eq('project_id', id)
         .maybeSingle()
 
       if (emissionData) {
@@ -497,80 +446,46 @@ export function useTokenFormState() {
         })
       }
 
-      // Fetch and pre-fill Step 6 - Data Sources
-      const { data: sourcesData } = await supabase
-        .from('data_sources')
+      // Fetch and pre-fill Section 6 - Funding rounds (factory-only)
+      const { data: fundingData } = await supabase
+        .from('factory_funding_rounds')
         .select('*')
-        .eq('token_id', id)
+        .eq('project_id', id)
+        .order('round_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
 
-      if (sourcesData && sourcesData.length > 0) {
-        // Also fetch existing claim_sources to pre-fill attributions
-        const { data: claimSourcesData } = await supabase
-          .from('claim_sources')
-          .select('claim_type, claim_id, data_source_id')
-          .eq('token_id', id)
-
-        // Build attribution index map: key → list of source indices (as strings)
-        const attrMap = new Map<string, string[]>()
-        claimSourcesData?.forEach((cs) => {
-          const key = `${cs.claim_type}:${cs.claim_id ?? 'null'}`
-          const srcIdx = sourcesData.findIndex(
-            (s) => s.id === cs.data_source_id,
-          )
-          if (srcIdx < 0) return
-          if (!attrMap.has(key)) attrMap.set(key, [])
-          attrMap.get(key)!.push(srcIdx.toString())
-        })
-
-        // Build attribution rows from the locally-loaded allocations (not stale state)
-        const prefilledAttributions = buildDefaultAttributions(
-          allocationsWithIds,
-        ).map((row) => {
-          const key = `${row.claim_type}:${row.claim_id ?? 'null'}`
-          return { ...row, data_source_ids: attrMap.get(key) ?? [] }
-        })
-
+      if (fundingData && fundingData.length > 0) {
         step6Form.reset({
-          sources: sourcesData.map((source) => ({
-            id: source.id,
-            source_type: source.source_type,
-            document_name: source.document_name,
-            url: source.url,
-            version: source.version || '',
-            verified_at: source.verified_at || undefined,
-          })),
-          attributions: prefilledAttributions,
-        })
-      }
-
-      // Fetch and pre-fill Step 7 - Risk Flags
-      const { data: riskFlagsData } = await supabase
-        .from('risk_flags')
-        .select('*')
-        .eq('token_id', id)
-
-      if (riskFlagsData && riskFlagsData.length > 0) {
-        step7Form.reset({
-          flags: riskFlagsData.map((flag) => ({
-            id: flag.id,
-            flag_type: flag.flag_type,
-            severity: normalizeRiskSeverity(flag.severity),
-            is_flagged: flag.is_flagged ?? true,
-            justification: flag.justification || '',
+          rounds: fundingData.map((round) => ({
+            id: round.id,
+            round_type: round.round_type,
+            label: round.label || '',
+            round_date: round.round_date || undefined,
+            token_price_usd:
+              round.token_price_usd != null
+                ? String(round.token_price_usd)
+                : '',
+            tokens_sold:
+              round.tokens_sold != null
+                ? formatNumber(String(round.tokens_sold))
+                : '',
+            amount_usd:
+              round.amount_usd != null ? String(round.amount_usd) : '',
+            notes: round.notes || '',
           })),
         })
       }
 
-      toast.success('Token data loaded successfully')
+      toast.success('Design loaded successfully')
 
       // Calculate completed steps after loading
       calculateCompletedSteps()
     } catch (error: unknown) {
-      console.error('Error loading token data:', error)
-      toast.error('Failed to load token data')
-      router.push('/dashboard')
+      console.error('Error loading design data:', error)
+      toast.error('Failed to load design data')
+      router.push('/factory')
     } finally {
-      setLoadingTokenData(false)
+      setLoadingProjectData(false)
     }
   }
 
@@ -578,8 +493,8 @@ export function useTokenFormState() {
   const calculateCompletedSteps = () => {
     const completed: number[] = []
 
-    // Step 1: Always completed if we have a token
-    if (tokenId) completed.push(1)
+    // Step 1: Always completed if we have a design
+    if (projectId) completed.push(1)
 
     // Step 2: Check if supply metrics exist
     const step2Data = step2Form.getValues()
@@ -597,33 +512,26 @@ export function useTokenFormState() {
     const step5Data = step5Form.getValues()
     if (step5Data.type) completed.push(5)
 
-    // Step 6: Check if data sources exist
+    // Step 6: Check if funding rounds exist
     const step6Data = step6Form.getValues()
-    if (step6Data.sources.length > 0) completed.push(6)
-
-    // Step 7: Check if risk flags exist
-    const step7Data = step7Form.getValues()
-    if (step7Data.flags.length > 0) completed.push(7)
+    if (step6Data.rounds.length > 0) completed.push(6)
 
     setCompletedSteps(completed)
   }
 
-  // Load token data on mount if editing. Chain the challenge pre-fill (if
-  // any) strictly after loadTokenData settles -- see prefillFromChallengeRef.
+  // Load design data on mount if editing.
   useEffect(() => {
-    if (isEditMode && editTokenId) {
-      loadTokenData(editTokenId).then(() => {
-        void prefillFromChallengeRef.current()
-      })
+    if (isEditMode && editProjectId) {
+      void loadProjectData(editProjectId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load allocations for vesting once step 3 is completed
+  // Load allocations for vesting once the allocation section is completed
   useEffect(() => {
-    if (completedSteps.includes(3) && tokenId && allocations.length === 0) {
+    if (completedSteps.includes(3) && projectId && allocations.length === 0) {
       loadAllocationsForVesting()
     }
-  }, [completedSteps, tokenId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [completedSteps, projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate total percentage
   const calculateTotalPercentage = (): number => {
@@ -647,22 +555,21 @@ export function useTokenFormState() {
     prevSealRef.current = isComplete
   }, [isComplete])
 
-  // ── Studio orchestration: shared refs used by use-token-save-handlers ──────
-  const sectionFormsRef = useRef<Record<StudioSectionKey, SectionForm>>({
+  // ── Studio orchestration: shared refs used by use-factory-save-handlers ────
+  const sectionFormsRef = useRef<Record<FactorySectionKey, SectionForm>>({
     identity: step1Form,
     supply: step2Form,
     allocation: step3Form,
     vesting: step4Form,
     emission: step5Form,
-    sources: step6Form,
-    risk: step7Form,
+    funding: step6Form,
   })
 
   // Latest-ref pattern: the watch subscription mounts once, but each save
   // closes over fresh state (initialUpdatedAt for the optimistic lock). The
-  // real implementation is assigned in use-token-save-handlers.ts, which is
-  // the only place with access to onSubmitStep1..7.
-  const saveSectionRef = useRef<(key: StudioSectionKey) => Promise<boolean>>(
+  // real implementation is assigned in use-factory-save-handlers.ts, which is
+  // the only place with access to onSubmitStep1..5.
+  const saveSectionRef = useRef<(key: FactorySectionKey) => Promise<boolean>>(
     async () => false,
   )
 
@@ -672,72 +579,71 @@ export function useTokenFormState() {
   }, [allocations])
 
   /** Persist the active section if it is dirty and valid. Powers autosave.
-   * Assigned in use-token-save-handlers.ts (needs saveSectionRef to be wired). */
+   * Assigned in use-factory-save-handlers.ts (needs saveSectionRef to be wired). */
   const autosaveActiveRef = useRef<() => Promise<void>>(async () => {})
 
   /**
-   * Pre-fills the just-loaded form from an accepted challenge's
-   * proposed_value (the "Correct in studio" CTA's `?challengeId=`, see
-   * resolve-box-provenance.tsx). Assigned in use-token-save-handlers.ts,
-   * since it needs queueAutosave (only in scope there). Invoked below, after
-   * loadTokenData(editTokenId) resolves -- loadTokenData's reset() calls
-   * replace each form's whole value object, so pre-filling before it
-   * finishes would be silently clobbered.
+   * Benchmark vesting seeds queued by the BenchmarkPanel's Apply, keyed by
+   * segment_type. Consumed by onSubmitStep3 IMMEDIATELY AFTER its
+   * step4Form.reset: the reset is the single place the vesting form is
+   * rebuilt from saved rows, so overlaying there is race-free. (An
+   * allocations-watching effect is NOT: onSubmitStep3 awaits a vesting fetch
+   * between setAllocations and the reset, so such an effect fires mid-save
+   * and its seeds get wiped by the reset that follows.)
    */
-  const prefillFromChallengeRef = useRef<() => Promise<void>>(async () => {})
+  const pendingVestingSeedsRef = useRef<Record<string, VestingSeed> | null>(
+    null,
+  )
 
-  // Live token identity values for the page header
+  // Live design identity values for the page header
   const liveTokenName = step1Form.watch('name')
   const liveTokenTicker = step1Form.watch('ticker')
-  const liveChain = step1Form.watch('chain')
   const liveCategory = step1Form.watch('category')
   const liveSector = step1Form.watch('sector')
-  const chainLabel =
-    BLOCKCHAIN_OPTIONS.find((b) => b.value === liveChain)?.label ?? liveChain
 
-  // ── Live score (client-side, mirrors computeScores logic) ──────────────────
+  // ── Live score: THE Factory scoring contract, never a hand-rolled sum ──────
   const _lw1name = step1Form.watch('name')
   const _lw1ticker = step1Form.watch('ticker')
-  const _lw1chain = step1Form.watch('chain')
-  const _lw1addr = step1Form.watch('contract_address')
-  const _lw1tge = step1Form.watch('tge_date')
   const _lw2max = step2Form.watch('max_supply')
-  const _lw2init = step2Form.watch('initial_supply')
-  const _lw2tge = step2Form.watch('tge_supply')
   const _lw3segs = step3Form.watch('segments') || []
   const _lw5type = step5Form.watch('type')
   const _lw5infl = step5Form.watch('annual_inflation_rate')
   const _lw5burn = step5Form.watch('has_burn')
   const _lw5buy = step5Form.watch('has_buyback')
-  const _lw6srcs = step6Form.watch('sources') || []
-  const _lw7flags = step7Form.watch('flags') || []
+  const _lw6rounds = step6Form.watch('rounds') || []
 
-  const liveIdentityScore =
-    (_lw1name && _lw1ticker && _lw1chain ? 10 : 0) +
-    (_lw1addr ? 5 : 0) +
-    (_lw1tge ? 5 : 0)
-  const liveSupplyScore = _lw2max ? 10 + (_lw2init || _lw2tge ? 5 : 0) : 0
-  const _lw3total = _lw3segs.reduce(
-    (t, s) => t + (parseDecimal(s.percentage) || 0),
-    0,
-  )
-  const liveAllocationScore =
-    (_lw3segs.length >= 3 ? 10 : 0) +
-    (Math.abs(_lw3total - 100) < 0.01 ? 10 : 0)
-  const liveVestingScore = completedSteps.includes(4) ? 20 : 0
-  const liveEmissionScore = _lw5type
-    ? 5 + (_lw5infl || _lw5burn || _lw5buy ? 5 : 0)
-    : 0
-  const liveSourcesScore = _lw6srcs.length >= 1 ? 10 : 0
-  const liveTotalScore = Math.min(
-    100,
-    liveIdentityScore +
-      liveSupplyScore +
-      liveAllocationScore +
-      liveVestingScore +
-      liveEmissionScore +
-      liveSourcesScore,
-  )
+  // computeFactoryScore only reads truthiness off supply/emission numerics, so
+  // the formatted form strings are mapped to 1/null sentinels rather than
+  // parsed. Allocation percentages DO feed real math (the 100% seal).
+  const { clusterScores: liveClusters, totalScore: liveTotalScore } =
+    computeFactoryScore({
+      project: {
+        name: _lw1name || null,
+        ticker: _lw1ticker || null,
+        category: liveCategory || null,
+        sector: liveSector || null,
+      },
+      supply: _lw2max ? { max_supply: 1 } : null,
+      allocations: _lw3segs.map((s) => ({
+        id: s.id ?? '',
+        percentage: parseDecimal(s.percentage) || 0,
+      })),
+      vestingCount: completedSteps.includes(4) ? 1 : 0,
+      emission: _lw5type
+        ? {
+            type: _lw5type,
+            annual_inflation_rate: _lw5infl ? 1 : null,
+            has_burn: _lw5burn,
+            has_buyback: _lw5buy,
+          }
+        : null,
+    })
+
+  const liveIdentityScore = liveClusters.identity
+  const liveSupplyScore = liveClusters.supply
+  const liveAllocationScore = liveClusters.allocation
+  const liveVestingScore = liveClusters.vesting
+  const liveEmissionScore = liveClusters.emission
 
   // Flash animation when score increases
   useEffect(() => {
@@ -756,25 +662,26 @@ export function useTokenFormState() {
   return {
     router,
     searchParams,
-    editTokenId,
+    editProjectId,
     isEditMode,
     supabase,
 
     currentStep,
     setCurrentStep,
-    tokenId,
-    setTokenId,
+    projectId,
+    setProjectId,
     maxSupply,
     setMaxSupply,
-    setTgeDate,
     allocations,
     setAllocations,
     loading,
     setLoading,
-    loadingTokenData,
-    setLoadingTokenData,
+    loadingProjectData,
+    setLoadingProjectData,
     finalScore,
     setFinalScore,
+    benchmarkSnapshot,
+    setBenchmarkSnapshot,
     initialUpdatedAt,
     setInitialUpdatedAt,
     ownershipDenied,
@@ -801,7 +708,7 @@ export function useTokenFormState() {
     autosave,
     setAutosave,
     activeSectionRef,
-    tokenIdRef,
+    projectIdRef,
     autosaveTimerRef,
     autoDraftBusyRef,
     enqueueSave,
@@ -812,24 +719,20 @@ export function useTokenFormState() {
     step4Form,
     step5Form,
     step6Form,
-    step7Form,
     sectionDirty,
     fields,
     append,
     remove,
-    sourceFields,
-    appendSource,
-    removeSource,
-    riskFields,
-    appendRisk,
-    removeRisk,
+    roundFields,
+    appendRound,
+    removeRound,
 
     selectedCategory,
     selectedCategoryOption,
     sectorOptions,
 
     loadAllocationsForVesting,
-    loadTokenData,
+    loadProjectData,
     calculateCompletedSteps,
 
     totalPercentage,
@@ -843,28 +746,24 @@ export function useTokenFormState() {
     saveSectionRef,
     allocationsRef,
     autosaveActiveRef,
-    prefillFromChallengeRef,
+    pendingVestingSeedsRef,
 
     liveTokenName,
     liveTokenTicker,
-    liveChain,
     liveCategory,
     liveSector,
-    chainLabel,
 
     _lw3segs,
     _lw5type,
-    _lw6srcs,
-    _lw7flags,
+    _lw6rounds,
 
     liveIdentityScore,
     liveSupplyScore,
     liveAllocationScore,
     liveVestingScore,
     liveEmissionScore,
-    liveSourcesScore,
     liveTotalScore,
   }
 }
 
-export type TokenFormState = ReturnType<typeof useTokenFormState>
+export type FactoryFormState = ReturnType<typeof useFactoryFormState>

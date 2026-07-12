@@ -11,8 +11,13 @@ export type StudioSectionKey =
   | 'sources'
   | 'risk'
 
-export interface StudioSectionMeta {
-  key: StudioSectionKey
+// Generic over the section-key union so other studio-shaped surfaces (e.g.
+// Factory's five-section builder) can reuse the spine with their own keys.
+// The default MUST stay StudioSectionKey (not string): a bare
+// StudioSectionMeta[] must keep inferring the screener union, or
+// strictFunctionTypes breaks every existing onSelect.
+export interface StudioSectionMeta<K extends string = StudioSectionKey> {
+  key: K
   label: string
   /** taxonomy CSS var, e.g. "--data-token" */
   accentVar: string
@@ -23,10 +28,10 @@ export interface StudioSectionMeta {
   optional?: boolean
 }
 
-interface StudioSpineProps {
-  sections: StudioSectionMeta[]
-  active: StudioSectionKey
-  onSelect: (key: StudioSectionKey) => void
+interface StudioSpineProps<K extends string = StudioSectionKey> {
+  sections: StudioSectionMeta<K>[]
+  active: K
+  onSelect: (key: K) => void
   score: number
   flash?: { pts: number; key: number; show: boolean }
   orientation?: 'vertical' | 'horizontal'
@@ -69,7 +74,7 @@ function StateDot({
  * ENRICH deepens it. Every section stays reachable; state is shown, never
  * locked behind a padlock.
  */
-export function StudioSpine({
+export function StudioSpine<K extends string = StudioSectionKey>({
   sections,
   active,
   onSelect,
@@ -77,7 +82,7 @@ export function StudioSpine({
   flash,
   orientation = 'vertical',
   className,
-}: StudioSpineProps) {
+}: StudioSpineProps<K>) {
   if (orientation === 'horizontal') {
     return (
       <div
@@ -116,7 +121,7 @@ export function StudioSpine({
   const renderGroup = (
     label: string,
     hint: string,
-    items: StudioSectionMeta[],
+    items: StudioSectionMeta<K>[],
   ) => (
     <div>
       <p className="mb-1.5 px-3 text-[11px] font-medium uppercase tracking-[0.14em] text-faint-foreground">
