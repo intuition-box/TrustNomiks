@@ -4,3 +4,8 @@
 # (attestation.test.ts was deleted entirely); the current tree contains no key.
 64732875699ced7a44f0c1de97d56feef3ee1d84:src/lib/intuition/attestation.test.ts:generic-api-key:11
 c9ba3a10674dc8943e44a1cc970a816ef989a0b7:src/lib/intuition/graphql-client.test.ts:generic-api-key:16
+# The same two commits exist a second time under different SHAs (duplicate
+# lineage left by the history rewrite; patches verified byte-identical).
+# Same well-known Anvil devnet key, same files and lines, not a real secret.
+47ca98279d5ceda76e58f5b47e22fab07db4e7e3:src/lib/intuition/attestation.test.ts:generic-api-key:11
+5522a6698072a9632d577d73f314a3c11cd2138d:src/lib/intuition/graphql-client.test.ts:generic-api-key:16
