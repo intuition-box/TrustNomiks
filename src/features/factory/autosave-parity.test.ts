@@ -47,6 +47,14 @@ describe('autosave parity (screener ⇄ factory twins)', () => {
     expect(factorySaves).toContain(marker)
   })
 
+  it('identity saves route through the update RPC once a draft exists', () => {
+    // Branching the identity save on isEditMode instead of the row's
+    // existence re-runs the INSERT on every post-auto-draft autosave and
+    // mints duplicate rows.
+    expect(screenerSaves).not.toContain('isEditMode && tokenId')
+    expect(factorySaves).not.toContain('isEditMode && projectId')
+  })
+
   it('both keep the formState.isDirty proxy subscription hot at render', () => {
     // RHF only maintains isDirty once it has been read during a render; the
     // handler-side reads in autosave/Continue would otherwise see a stale

@@ -133,7 +133,11 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           ? normalizedSector
           : null
 
-      if (isEditMode && tokenId) {
+      // Once a token row exists (edit mode OR the auto-draft insert), every
+      // identity save must go through the update RPC. Branching on isEditMode
+      // here would re-run the INSERT on each post-draft autosave and mint a
+      // duplicate token per keystroke burst.
+      if (tokenId) {
         // Update existing token via the RPC: it does the ownership (owner OR
         // moderator) and optimistic-lock checks server-side, atomically, and
         // returns the new updated_at (mirrors the other save_*_tx handlers).

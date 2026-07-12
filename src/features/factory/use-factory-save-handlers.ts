@@ -163,7 +163,11 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
           ? normalizedSector
           : null
 
-      if (isEditMode && projectId) {
+      // Once a design row exists (edit mode OR the auto-draft insert), every
+      // identity save must go through the update RPC. Branching on isEditMode
+      // here would re-run the INSERT on each post-draft autosave and mint a
+      // duplicate design per keystroke burst.
+      if (projectId) {
         // Update the existing design via the RPC: it does the ownership and
         // optimistic-lock checks server-side, atomically, and returns the new
         // updated_at (mirrors the other save_factory_*_tx handlers).
