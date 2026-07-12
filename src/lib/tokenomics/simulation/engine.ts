@@ -111,7 +111,9 @@ export function simulatePaths(args: SimulatePathsArgs): Float64Array {
   // Structure-of-arrays view of the releases: no property lookups in the
   // hot loop, and the only per-path state is the activation price.
   const day = new Float64Array(releaseCount)
-  const endDay = new Float64Array(releaseCount)
+  const fastEndDay = new Float64Array(releaseCount)
+  const slowStartDay = new Float64Array(releaseCount)
+  const slowEndDay = new Float64Array(releaseCount)
   const fastMuPerUsd = new Float64Array(releaseCount)
   const slowMuPerUsd = new Float64Array(releaseCount)
   const fastDecay = new Float64Array(releaseCount)
@@ -119,7 +121,9 @@ export function simulatePaths(args: SimulatePathsArgs): Float64Array {
   for (let j = 0; j < releaseCount; j++) {
     const release = releases[j]
     day[j] = release.day
-    endDay[j] = release.endDay
+    fastEndDay[j] = release.fastEndDay
+    slowStartDay[j] = release.slowStartDay
+    slowEndDay[j] = release.slowEndDay
     fastMuPerUsd[j] = release.fastMuPerUsd
     slowMuPerUsd[j] = release.slowMuPerUsd
     fastDecay[j] = release.fastDecay
@@ -148,15 +152,20 @@ export function simulatePaths(args: SimulatePathsArgs): Float64Array {
       let mu = baseMu[t]
       const sigma = baseSigma[t]
       for (let j = lo; j < next; j++) {
-        if (t >= endDay[j]) {
+        if (t >= slowEndDay[j]) {
           if (j === lo) lo++
           continue
         }
-        const tau = (t - day[j]) / DAYS_PER_YEAR
-        mu +=
-          activation[j] *
-          (fastMuPerUsd[j] * Math.exp(-fastDecay[j] * tau) +
-            slowMuPerUsd[j] * Math.exp(-slowDecay[j] * tau))
+        // Two-piece profile: the fast phase stops hard at fastEndDay, the
+        // slow phase runs on its own clock from slowStartDay.
+        if (t < fastEndDay[j]) {
+          const tau = (t - day[j]) / DAYS_PER_YEAR
+          mu += activation[j] * fastMuPerUsd[j] * Math.exp(-fastDecay[j] * tau)
+        }
+        if (t >= slowStartDay[j]) {
+          const tau = (t - slowStartDay[j]) / DAYS_PER_YEAR
+          mu += activation[j] * slowMuPerUsd[j] * Math.exp(-slowDecay[j] * tau)
+        }
       }
 
       const n = zRow ? zRow[t - 1] : (rng as Rng).nextNormal()

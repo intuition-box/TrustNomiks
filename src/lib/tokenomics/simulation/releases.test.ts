@@ -201,14 +201,33 @@ describe('buildReleaseSchedule', () => {
     expect(first.fastMuPerUsd).toBeCloseTo(fastMuPerUsd, 12)
     expect(first.fastMuPerUsd).toBeCloseTo(-3.5811e-4, 7) // magnitude sanity
     expect(first.slowMuPerUsd).toBeCloseTo(fastMuPerUsd * (1 - ratioFast), 12)
-    expect(first.endDay - first.day).toBe(Math.ceil(slowYears * DAYS_PER_YEAR)) // 153
+    // Two-piece structure: hard fast cutoff at D+15, slow clock from D+15,
+    // slow expiry after its full decay length (5 / decay years).
+    expect(first.fastEndDay - first.day).toBe(FAST_SELL_DAYS)
+    expect(first.slowStartDay).toBe(first.fastEndDay)
+    expect(first.slowEndDay).toBeCloseTo(
+      first.slowStartDay + (5 / slowDecay) * DAYS_PER_YEAR,
+      8,
+    )
 
-    // At tau = 0 the impact is price x (fast + slow).
+    // At tau = 0 only the fast phase contributes; at the slow start only
+    // the slow phase does (fast has stopped), at its full mu.
     expect(unlockImpactMuAtDay(first, 2, first.day)).toBeCloseTo(
-      2 * (first.fastMuPerUsd + first.slowMuPerUsd),
+      2 * first.fastMuPerUsd,
       12,
     )
-    expect(unlockImpactMuAtDay(first, 2, first.endDay)).toBe(0)
+    expect(unlockImpactMuAtDay(first, 2, first.slowStartDay)).toBeCloseTo(
+      2 * first.slowMuPerUsd,
+      12,
+    )
+    expect(unlockImpactMuAtDay(first, 2, first.slowEndDay)).toBe(0)
+    // Closed-form calibration identity: the continuous two-piece profile
+    // integrates exactly to the -2% target (fast to its cutoff where the
+    // residual is 1 - ratioFast, slow to infinity).
+    const continuousIntegral =
+      (first.fastMuPerUsd * ratioFast) / first.fastDecay +
+      first.slowMuPerUsd / first.slowDecay
+    expect(continuousIntegral).toBeCloseTo(targetPerUsd, 12)
 
     // A month-3 unlock lands in the bear window: shorter, sharper profile.
     const bearMonth = buildReleaseSchedule({
@@ -228,8 +247,11 @@ describe('buildReleaseSchedule', () => {
       windows,
     })
     expect(bearMonth[0].condition).toBe('bear')
-    expect(bearMonth[0].endDay - bearMonth[0].day).toBe(
-      Math.ceil(((3 * SLOW_SELL_MONTH_DAYS) / DAYS_PER_YEAR) * DAYS_PER_YEAR),
-    ) // 92
+    const bearSlowYears = (3 * SLOW_SELL_MONTH_DAYS) / DAYS_PER_YEAR
+    const bearSlowDecay = -Math.log(UNLOCK_SLOW_CUTOFF) / bearSlowYears
+    expect(bearMonth[0].slowEndDay - bearMonth[0].slowStartDay).toBeCloseTo(
+      (5 / bearSlowDecay) * DAYS_PER_YEAR,
+      8,
+    ) // shorter, sharper profile than bull
   })
 })

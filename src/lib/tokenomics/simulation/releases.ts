@@ -32,9 +32,15 @@ export interface ReleaseScheduleArgs {
   windows: NormalizedMacroWindow[]
 }
 
-/** One 15-day sell tranche with its impact model precomputed. */
+/**
+ * One 15-day sell tranche with its two-piece impact model precomputed.
+ * The profile is piecewise: the fast phase runs on [day, fastEndDay) and
+ * stops hard; the slow phase starts at fastEndDay with its own clock and
+ * expires at slowEndDay (its exponential is fully decayed there). The
+ * target calibration assumes exactly this structure.
+ */
 export interface ReleaseEvent {
-  /** Activation day D (30m or 30m + 15). */
+  /** Activation day D (30m or 30m + 15): the path price is captured here. */
   day: number
   /** Tokens sold by this tranche (half of the month's sold delta). */
   tokensSold: number
@@ -50,8 +56,12 @@ export interface ReleaseEvent {
   fastDecay: number
   /** Slow phase decay, per year. */
   slowDecay: number
-  /** Exclusive expiry day: day + slow phase length (<1% residual). */
-  endDay: number
+  /** Exclusive end of the fast phase: day + FAST_SELL_DAYS. */
+  fastEndDay: number
+  /** The slow phase clock starts here (= fastEndDay). */
+  slowStartDay: number
+  /** Exclusive expiry: slowStartDay + its full decay length. */
+  slowEndDay: number
 }
 
 const clampPct = (value: number): number => {
@@ -68,13 +78,16 @@ export function unlockImpactMuAtDay(
   activationPriceUsd: number,
   day: number,
 ): number {
-  if (day < event.day || day >= event.endDay) return 0
-  const tau = (day - event.day) / DAYS_PER_YEAR
-  return (
-    activationPriceUsd *
-    (event.fastMuPerUsd * Math.exp(-event.fastDecay * tau) +
-      event.slowMuPerUsd * Math.exp(-event.slowDecay * tau))
-  )
+  let mu = 0
+  if (day >= event.day && day < event.fastEndDay) {
+    const tau = (day - event.day) / DAYS_PER_YEAR
+    mu += event.fastMuPerUsd * Math.exp(-event.fastDecay * tau)
+  }
+  if (day >= event.slowStartDay && day < event.slowEndDay) {
+    const tau = (day - event.slowStartDay) / DAYS_PER_YEAR
+    mu += event.slowMuPerUsd * Math.exp(-event.slowDecay * tau)
+  }
+  return activationPriceUsd * mu
 }
 
 /**
@@ -154,7 +167,9 @@ export function buildReleaseSchedule(
           slowMuPerUsd: 0,
           fastDecay: 0,
           slowDecay: 0,
-          endDay: day,
+          fastEndDay: day,
+          slowStartDay: day,
+          slowEndDay: day,
         })
         continue
       }
@@ -169,6 +184,7 @@ export function buildReleaseSchedule(
         (fastDecay * slowDecay * targetPerUsd) /
         (fastDecay * (1 - ratioFast) + slowDecay * ratioFast)
 
+      const slowStartDay = day + FAST_SELL_DAYS
       events.push({
         day,
         tokensSold,
@@ -178,7 +194,11 @@ export function buildReleaseSchedule(
         slowMuPerUsd: fastMuPerUsd * (1 - ratioFast),
         fastDecay,
         slowDecay,
-        endDay: day + Math.ceil(slowYears * DAYS_PER_YEAR),
+        fastEndDay: slowStartDay,
+        // The slow exponential's own full decay length: 5 / decay years
+        // (residual < 1%); kept fractional so the cutoff lands exactly.
+        slowStartDay,
+        slowEndDay: slowStartDay + (5 / slowDecay) * DAYS_PER_YEAR,
       })
     }
   }
