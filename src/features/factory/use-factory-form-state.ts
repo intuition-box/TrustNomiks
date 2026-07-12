@@ -31,6 +31,7 @@ import {
   type VestingSchedulesFormData,
   type EmissionModelFormData,
   type FactoryBenchmarkSnapshot,
+  type VestingSeed,
 } from '@/lib/tokenomics'
 import { toast } from 'sonner'
 import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
@@ -551,6 +552,19 @@ export function useFactoryFormState() {
    * Assigned in use-factory-save-handlers.ts (needs saveSectionRef to be wired). */
   const autosaveActiveRef = useRef<() => Promise<void>>(async () => {})
 
+  /**
+   * Benchmark vesting seeds queued by the BenchmarkPanel's Apply, keyed by
+   * segment_type. Consumed by onSubmitStep3 IMMEDIATELY AFTER its
+   * step4Form.reset: the reset is the single place the vesting form is
+   * rebuilt from saved rows, so overlaying there is race-free. (An
+   * allocations-watching effect is NOT: onSubmitStep3 awaits a vesting fetch
+   * between setAllocations and the reset, so such an effect fires mid-save
+   * and its seeds get wiped by the reset that follows.)
+   */
+  const pendingVestingSeedsRef = useRef<Record<string, VestingSeed> | null>(
+    null,
+  )
+
   // Live design identity values for the page header
   const liveTokenName = step1Form.watch('name')
   const liveTokenTicker = step1Form.watch('ticker')
@@ -711,6 +725,7 @@ export function useFactoryFormState() {
     saveSectionRef,
     allocationsRef,
     autosaveActiveRef,
+    pendingVestingSeedsRef,
 
     liveTokenName,
     liveTokenTicker,

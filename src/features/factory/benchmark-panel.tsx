@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   Compass,
   Loader2,
@@ -47,16 +47,12 @@ export function BenchmarkPanel({ className }: { className?: string }) {
     setBenchmarkSnapshot,
     goSection,
     step3Form,
-    step4Form,
-    allocations,
     maxSupply,
     queueAutosave,
+    pendingVestingSeedsRef,
   } = useFactoryForm()
 
   const [loading, setLoading] = useState(false)
-  const pendingVestingSeedsRef = useRef<Record<string, VestingSeed> | null>(
-    null,
-  )
 
   const fetchAndPersist = async (bust: boolean) => {
     if (!projectId || !liveSector) return
@@ -134,6 +130,9 @@ export function BenchmarkPanel({ className }: { className?: string }) {
       shouldValidate: true,
     })
 
+    // Vesting schedules are keyed by allocation row ids, which only exist
+    // once the allocation save round-trips. Queue the seeds on the shared
+    // ref; onSubmitStep3 overlays them right after its step4Form.reset.
     const seeds: Record<string, VestingSeed> = {}
     for (const [type] of entries) {
       const v = benchmarkSnapshot.vesting[type]
@@ -145,28 +144,6 @@ export function BenchmarkPanel({ className }: { className?: string }) {
     goSection('allocation')
     toast.success('Benchmark applied. Review each section and save as you go.')
   }
-
-  // The vesting form is keyed by allocation row ids, which only exist after
-  // the allocation save round-trips. Apply the queued seeds as soon as the
-  // saved allocations land in state.
-  useEffect(() => {
-    const seeds = pendingVestingSeedsRef.current
-    if (!seeds || allocations.length === 0) return
-    let applied = false
-    for (const alloc of allocations) {
-      const seed = seeds[alloc.segment_type]
-      if (!seed) continue
-      applied = true
-      for (const [field, value] of Object.entries(seed)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- react-hook-form FieldPath cannot resolve dynamic Record<string,...> keys (same escape hatch as VestingStep)
-        step4Form.setValue(`schedules.${alloc.id}.${field}` as any, value, {
-          shouldDirty: true,
-        })
-      }
-    }
-    if (applied) pendingVestingSeedsRef.current = null
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allocations])
 
   if (!projectId) return null
 

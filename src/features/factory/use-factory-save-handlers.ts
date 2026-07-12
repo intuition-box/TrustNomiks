@@ -79,6 +79,7 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     saveSectionRef,
     allocationsRef,
     autosaveActiveRef,
+    pendingVestingSeedsRef,
   } = state
 
   const handleRpcError = (error: {
@@ -439,6 +440,25 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
           vestingData || [],
         ),
       })
+
+      // Overlay any benchmark vesting seeds in the same tick as the reset
+      // (see pendingVestingSeedsRef in use-factory-form-state.ts). setValue
+      // with shouldDirty so the seeded schedule persists on the next vesting
+      // save; reset() alone would leave the form pristine and skippable.
+      const vestingSeeds = pendingVestingSeedsRef.current
+      if (vestingSeeds) {
+        pendingVestingSeedsRef.current = null
+        for (const alloc of allocationsWithIds) {
+          const seed = vestingSeeds[alloc.segment_type]
+          if (!seed) continue
+          for (const [field, value] of Object.entries(seed)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- react-hook-form FieldPath cannot resolve dynamic Record<string,...> keys
+            step4Form.setValue(`schedules.${alloc.id}.${field}` as any, value, {
+              shouldDirty: true,
+            })
+          }
+        }
+      }
 
       calculateCompletedSteps()
       if (!opts.silent)
