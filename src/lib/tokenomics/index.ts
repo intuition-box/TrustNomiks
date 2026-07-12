@@ -9,5 +9,6 @@
 export * from './schemas'
 export * from './vesting'
 export * from './math'
+export * from './colors'
 export * from './cluster-scores'
 export * from './schedules'
