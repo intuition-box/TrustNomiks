@@ -18,6 +18,8 @@ import {
   type AllocationsFormData,
   type VestingSchedulesFormData,
   type EmissionModelFormData,
+  type FundingRoundsFormData,
+  formatNumber,
 } from '@/lib/tokenomics'
 import { toast } from 'sonner'
 import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
@@ -66,7 +68,9 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     step3Form,
     step4Form,
     step5Form,
+    step6Form,
     append,
+    appendRound,
     activeSection,
     setActiveSection,
     setAutosave,
@@ -636,6 +640,101 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     }
   }
 
+  // Save Section 6 - Funding rounds (optional, unscored: no completeness params)
+  const onSubmitStep6 = async (
+    data: FundingRoundsFormData,
+    opts: SaveOpts = {},
+  ): Promise<boolean> => {
+    if (!projectId) {
+      toast.error('Save the design identity first.')
+      return false
+    }
+
+    try {
+      setLoading(true)
+
+      const roundsPayload = data.rounds.map((round) => ({
+        id: round.id || null,
+        round_type: round.round_type,
+        label: round.label || null,
+        round_date: round.round_date || null,
+        token_price_usd: round.token_price_usd
+          ? String(parseDecimal(round.token_price_usd))
+          : null,
+        tokens_sold: round.tokens_sold
+          ? BigInt(String(round.tokens_sold).replace(/,/g, '')).toString()
+          : null,
+        amount_usd: round.amount_usd
+          ? String(parseDecimal(round.amount_usd))
+          : null,
+        notes: round.notes || null,
+      }))
+
+      const { data: rpcResult, error } = await supabase.rpc(
+        'save_factory_funding_tx',
+        {
+          p_project_id: projectId,
+          p_rounds: roundsPayload,
+          p_expected_updated_at: initialUpdatedAt,
+        },
+      )
+
+      if (error) {
+        if (handleRpcError(error)) return false
+        throw error
+      }
+
+      setInitialUpdatedAt(rpcResult.updated_at)
+
+      // Funding rows have no dependents (unlike allocations and their vesting
+      // schedules), so the simplest id-sync is a full reset from server truth.
+      step6Form.reset({
+        rounds: (rpcResult.rounds || []).map(
+          (round: {
+            id: string
+            round_type: string
+            label: string | null
+            round_date: string | null
+            token_price_usd: string | number | null
+            tokens_sold: string | number | null
+            amount_usd: string | number | null
+            notes: string | null
+          }) => ({
+            id: round.id,
+            round_type: round.round_type,
+            label: round.label || '',
+            round_date: round.round_date || undefined,
+            token_price_usd:
+              round.token_price_usd != null
+                ? String(round.token_price_usd)
+                : '',
+            tokens_sold:
+              round.tokens_sold != null
+                ? formatNumber(String(round.tokens_sold))
+                : '',
+            amount_usd:
+              round.amount_usd != null ? String(round.amount_usd) : '',
+            notes: round.notes || '',
+          }),
+        ),
+      })
+
+      calculateCompletedSteps()
+      if (!opts.silent) toast.success('Funding rounds saved')
+      return true
+    } catch (error: unknown) {
+      console.error('Error saving funding rounds:', error)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to save funding rounds',
+      )
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const openIdentityGuide = (target: 'category' | 'sector') => {
     setIdentityGuideTarget(target)
   }
@@ -694,6 +793,20 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
       percentage: '',
       token_amount: '',
       wallet_address: '',
+    })
+  }
+
+  // Add new funding round
+  const addRound = () => {
+    appendRound({
+      id: crypto.randomUUID(),
+      round_type: '',
+      label: '',
+      round_date: undefined,
+      token_price_usd: '',
+      tokens_sold: '',
+      amount_usd: '',
+      notes: '',
     })
   }
 
@@ -765,6 +878,8 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
         return onSubmitStep4(step4Form.getValues(), { silent: true })
       case 'emission':
         return onSubmitStep5(step5Form.getValues(), { silent: true })
+      case 'funding':
+        return onSubmitStep6(step6Form.getValues(), { silent: true })
     }
   }
 
@@ -809,7 +924,7 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
   useEffect(() => {
     const forms = Object.values(sectionFormsRef.current)
     const subs = forms.map((form) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- union of 5 form value shapes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- union of 6 form value shapes
       (form as any).watch((_values: unknown, info: { type?: string }) => {
         if (info?.type !== 'change') return
         queueAutosave()
@@ -905,12 +1020,14 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     if (nextSectionKey) goSection(nextSectionKey, { skipSave: true })
   }
 
-  /** Footer "Finish and review": final save + completion moment. */
+  /** Footer "Finish and review": final save + completion moment. Funding is
+   * the last section; the sections before it were persisted by Continue and
+   * the leave-section autosave along the way. */
   const handleFinish = async () => {
     if (!projectId) return
-    const valid = await step5Form.trigger()
+    const valid = await step6Form.trigger()
     if (!valid) return
-    const ok = await enqueueSave(() => onSubmitStep5(step5Form.getValues(), {}))
+    const ok = await enqueueSave(() => onSubmitStep6(step6Form.getValues(), {}))
     if (!ok) return
     const { totalScore } = scoreFromForms({
       vestingSaved: completedSteps.includes(4),
@@ -963,6 +1080,7 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     onSubmitStep3,
     onSubmitStep4,
     onSubmitStep5,
+    onSubmitStep6,
 
     openIdentityGuide,
     closeIdentityGuide,
@@ -972,6 +1090,7 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     openSegmentGuide,
     closeSegmentGuide,
     applySegmentTypeFromGuide,
+    addRound,
     preventScrollChange,
     selectInputValue,
     handleFrequencyChange,

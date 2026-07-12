@@ -11,6 +11,7 @@ import {
   allocationsSchema,
   vestingSchedulesSchema,
   emissionModelSchema,
+  fundingRoundsSchema,
   BLOCKCHAIN_OPTIONS,
   getCategoryOption,
   getSectorOptionsByCategory,
@@ -30,6 +31,7 @@ import {
   type AllocationsFormData,
   type VestingSchedulesFormData,
   type EmissionModelFormData,
+  type FundingRoundsFormData,
   type FactoryBenchmarkSnapshot,
   type VestingSeed,
 } from '@/lib/tokenomics'
@@ -69,6 +71,7 @@ type SectionForm =
   | ReturnType<typeof useForm<AllocationsFormData>>
   | ReturnType<typeof useForm<VestingSchedulesFormData>>
   | ReturnType<typeof useForm<EmissionModelFormData>>
+  | ReturnType<typeof useForm<FundingRoundsFormData>>
 
 /**
  * The keystone hook for the Factory builder: owns every RHF instance, the
@@ -101,7 +104,7 @@ export function useFactoryFormState() {
     number | null
   >(null)
   const [pendingRemoval, setPendingRemoval] = useState<{
-    type: 'allocation'
+    type: 'allocation' | 'funding'
     index: number
   } | null>(null)
   const prevScoreRef = useRef(0)
@@ -233,6 +236,23 @@ export function useFactoryFormState() {
     },
   })
 
+  // Section 6 Form - Funding rounds (factory-only, optional, unscored)
+  const step6Form = useForm<FundingRoundsFormData>({
+    resolver: zodResolver(fundingRoundsSchema),
+    defaultValues: {
+      rounds: [],
+    },
+  })
+
+  const {
+    fields: roundFields,
+    append: appendRound,
+    remove: removeRound,
+  } = useFieldArray({
+    control: step6Form.control,
+    name: 'rounds',
+  })
+
   // RHF's formState is a lazy proxy: isDirty is only computed once it has
   // been read during a render. handleContinue and the autosave read it inside
   // event handlers, where a never-subscribed read returns a stale false and
@@ -244,6 +264,7 @@ export function useFactoryFormState() {
     step3Form.formState.isDirty,
     step4Form.formState.isDirty,
     step5Form.formState.isDirty,
+    step6Form.formState.isDirty,
   ]
 
   const selectedCategory = step1Form.watch('category')
@@ -451,6 +472,36 @@ export function useFactoryFormState() {
         })
       }
 
+      // Fetch and pre-fill Section 6 - Funding rounds (factory-only)
+      const { data: fundingData } = await supabase
+        .from('factory_funding_rounds')
+        .select('*')
+        .eq('project_id', id)
+        .order('round_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+
+      if (fundingData && fundingData.length > 0) {
+        step6Form.reset({
+          rounds: fundingData.map((round) => ({
+            id: round.id,
+            round_type: round.round_type,
+            label: round.label || '',
+            round_date: round.round_date || undefined,
+            token_price_usd:
+              round.token_price_usd != null
+                ? String(round.token_price_usd)
+                : '',
+            tokens_sold:
+              round.tokens_sold != null
+                ? formatNumber(String(round.tokens_sold))
+                : '',
+            amount_usd:
+              round.amount_usd != null ? String(round.amount_usd) : '',
+            notes: round.notes || '',
+          })),
+        })
+      }
+
       toast.success('Design loaded successfully')
 
       // Calculate completed steps after loading
@@ -486,6 +537,10 @@ export function useFactoryFormState() {
     // Step 5: Check if emission model exists
     const step5Data = step5Form.getValues()
     if (step5Data.type) completed.push(5)
+
+    // Step 6: Check if funding rounds exist
+    const step6Data = step6Form.getValues()
+    if (step6Data.rounds.length > 0) completed.push(6)
 
     setCompletedSteps(completed)
   }
@@ -533,6 +588,7 @@ export function useFactoryFormState() {
     allocation: step3Form,
     vesting: step4Form,
     emission: step5Form,
+    funding: step6Form,
   })
 
   // Latest-ref pattern: the watch subscription mounts once, but each save
@@ -587,6 +643,7 @@ export function useFactoryFormState() {
   const _lw5infl = step5Form.watch('annual_inflation_rate')
   const _lw5burn = step5Form.watch('has_burn')
   const _lw5buy = step5Form.watch('has_buyback')
+  const _lw6rounds = step6Form.watch('rounds') || []
 
   // computeFactoryScore only reads truthiness off supply/emission numerics, so
   // the formatted form strings are mapped to 1/null sentinels rather than
@@ -701,10 +758,14 @@ export function useFactoryFormState() {
     step3Form,
     step4Form,
     step5Form,
+    step6Form,
     sectionDirty,
     fields,
     append,
     remove,
+    roundFields,
+    appendRound,
+    removeRound,
 
     selectedCategory,
     selectedCategoryOption,
@@ -736,6 +797,7 @@ export function useFactoryFormState() {
 
     _lw3segs,
     _lw5type,
+    _lw6rounds,
 
     liveIdentityScore,
     liveSupplyScore,

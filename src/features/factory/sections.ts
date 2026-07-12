@@ -1,10 +1,11 @@
 /**
  * Factory's studio sections: the screener's tokenomics core (same order),
  * without the attestation sections (Sources, Risk) that only make sense for
- * real, deployed tokens.
+ * real, deployed tokens, plus the factory-only Funding section (optional,
+ * unscored).
  */
 export type FactorySectionKey =
-  'identity' | 'supply' | 'allocation' | 'vesting' | 'emission'
+  'identity' | 'supply' | 'allocation' | 'vesting' | 'emission' | 'funding'
 
 export const FACTORY_SECTION_ORDER: FactorySectionKey[] = [
   'identity',
@@ -12,6 +13,7 @@ export const FACTORY_SECTION_ORDER: FactorySectionKey[] = [
   'allocation',
   'vesting',
   'emission',
+  'funding',
 ]
 
 export const FACTORY_SECTION_LABELS: Record<FactorySectionKey, string> = {
@@ -20,4 +22,5 @@ export const FACTORY_SECTION_LABELS: Record<FactorySectionKey, string> = {
   allocation: 'Allocation',
   vesting: 'Vesting',
   emission: 'Emission',
+  funding: 'Funding',
 }

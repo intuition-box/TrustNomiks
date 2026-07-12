@@ -34,6 +34,7 @@ import { SupplyStep } from './steps/SupplyStep'
 import { AllocationStep } from './steps/AllocationStep'
 import { VestingStep } from './steps/VestingStep'
 import { EmissionStep } from './steps/EmissionStep'
+import { FundingStep } from './steps/FundingStep'
 
 /** The Factory builder: same studio grammar as the screener form (spine ·
  *  active section · living graph), over the five tokenomics-core sections. */
@@ -61,6 +62,7 @@ export function FactoryDesigner() {
     chainLabel,
     _lw3segs,
     _lw5type,
+    _lw6rounds,
     liveIdentityScore,
     liveSupplyScore,
     liveAllocationScore,
@@ -136,6 +138,15 @@ export function FactoryDesigner() {
       tier: 'enrich',
       live: liveEmissionScore,
       max: FACTORY_CLUSTER_MAX.emission,
+    },
+    {
+      key: 'funding',
+      label: 'Funding',
+      accentVar: '--data-wallet',
+      tier: 'enrich',
+      live: _lw6rounds.length > 0 ? 1 : 0,
+      max: 0,
+      optional: true,
     },
   ]
 
@@ -303,6 +314,7 @@ export function FactoryDesigner() {
           <AllocationStep />
           <VestingStep />
           <EmissionStep />
+          <FundingStep />
 
           {/* ── Studio footer: previous · autosave chip · continue / finish ───── */}
           <div className="glass sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-lg">
