@@ -1,3 +1,4 @@
+import type { FactoryBenchmarkSnapshot } from '@/lib/tokenomics/benchmarks'
 import type { FactoryClusterScores } from '@/lib/tokenomics/factory-score'
 
 /** Design lifecycle: a private draft, or promoted into a real screener token. */
@@ -19,7 +20,7 @@ export interface FactoryProject {
   status: FactoryProjectStatus
   completeness: number
   cluster_scores: FactoryClusterScores | null
-  benchmark_snapshot: Record<string, unknown> | null
+  benchmark_snapshot: FactoryBenchmarkSnapshot | null
   benchmark_snapshot_at: string | null
   notes: string | null
   created_at: string

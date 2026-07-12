@@ -24,6 +24,7 @@ import {
   formatSectorLabel,
 } from '@/lib/tokenomics'
 import { FACTORY_SECTION_LABELS, type FactorySectionKey } from './sections'
+import { BenchmarkPanel } from './benchmark-panel'
 import { useFactoryForm } from './factory-form-context'
 import { COMPLETION_STEP } from './use-factory-form-state'
 import { FactoryCompletionScreen } from './FactoryCompletionScreen'
@@ -354,7 +355,8 @@ export function FactoryDesigner() {
         {/* end active section column */}
 
         {/* ── Living graph pane (desktop) ─────────────────────────────────────── */}
-        <aside className="sticky top-20 hidden w-72 shrink-0 xl:block">
+        <aside className="sticky top-20 hidden w-72 shrink-0 space-y-4 xl:block">
+          <BenchmarkPanel />
           <StudioGraphPane
             name={liveTokenName}
             ticker={liveTokenTicker}

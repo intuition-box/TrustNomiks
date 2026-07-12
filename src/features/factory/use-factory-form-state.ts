@@ -30,6 +30,7 @@ import {
   type AllocationsFormData,
   type VestingSchedulesFormData,
   type EmissionModelFormData,
+  type FactoryBenchmarkSnapshot,
 } from '@/lib/tokenomics'
 import { toast } from 'sonner'
 import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
@@ -87,6 +88,8 @@ export function useFactoryFormState() {
   const [loading, setLoading] = useState(false)
   const [loadingProjectData, setLoadingProjectData] = useState(isEditMode)
   const [finalScore, setFinalScore] = useState<number | null>(null)
+  const [benchmarkSnapshot, setBenchmarkSnapshot] =
+    useState<FactoryBenchmarkSnapshot | null>(null)
   const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
   const [ownershipDenied, setOwnershipDenied] = useState(false)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
@@ -326,6 +329,12 @@ export function useFactoryFormState() {
 
       // Store initial updated_at for optimistic locking
       setInitialUpdatedAt(projectData.updated_at)
+
+      // Hydrate the persisted benchmark snapshot (the design renders from it)
+      setBenchmarkSnapshot(
+        (projectData.benchmark_snapshot as FactoryBenchmarkSnapshot | null) ??
+          null,
+      )
 
       // Pre-fill Section 1 - Identity
       step1Form.reset({
@@ -640,6 +649,8 @@ export function useFactoryFormState() {
     setLoadingProjectData,
     finalScore,
     setFinalScore,
+    benchmarkSnapshot,
+    setBenchmarkSnapshot,
     initialUpdatedAt,
     setInitialUpdatedAt,
     ownershipDenied,
