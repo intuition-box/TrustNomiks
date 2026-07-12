@@ -3,7 +3,6 @@
 import {
   Bar,
   BarChart,
-  Cell,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -13,9 +12,13 @@ import {
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 import { getSegmentChartColor } from '@/lib/design/tokens'
 import {
+  SEGMENT_TYPES,
   formatSegmentTypeLabel,
   type SellPressurePoint,
 } from '@/lib/tokenomics'
+
+/** Stack key for minted supply (no collision with segment_type slugs). */
+const EMISSION_STACK_KEY = 'emission'
 
 interface SellPressureChartProps {
   points: SellPressurePoint[]
@@ -29,11 +32,13 @@ interface SellPressureChartProps {
 }
 
 /**
- * Monthly nominal sell pressure as bars (USD when a reference price is set,
- * token counts otherwise), against a dashed 2% market-depth line. Months
- * whose sales exceed the depth are tinted warning and say so in the tooltip
- * (the summary tile carries the same fact with an icon: color is never the
- * only cue).
+ * Monthly nominal sell pressure as bars stacked by allocation (USD when a
+ * reference price is set, token counts otherwise), against a dashed 2%
+ * market-depth line. Each stack slice uses the segment's chart color, the
+ * same one the supply chart above uses, so a bar reads at a glance as the
+ * mix of allocations unlocking that month; minted emission sits on top with
+ * the emission taxonomy color, mirroring the supply chart's overlay.
+ * Exceeding the depth stays a fact of the tooltip and the summary tile.
  */
 export function SellPressureChart({
   points,
@@ -42,22 +47,52 @@ export function SellPressureChart({
   marketDepthUsd,
   height = 240,
 }: SellPressureChartProps) {
-  const dataKey = hasPrice ? 'soldUsd' : 'tokensSold'
   const exceeds = (point: SellPressurePoint) =>
     hasPrice &&
     marketDepthUsd !== null &&
     (point.soldUsd as number) > marketDepthUsd
 
   /** Tokens in USD when a price is set, token counts otherwise. */
+  const toDisplayUnit = (tokens: number): number =>
+    hasPrice && refPriceUsd !== null ? tokens * refPriceUsd : tokens
   const formatSold = (tokens: number): string =>
     hasPrice && refPriceUsd !== null
       ? `$${formatCompactNumber(tokens * refPriceUsd)}`
       : formatCompactNumber(tokens)
 
+  // One stacked series per selling segment type, in the canonical taxonomy
+  // order (unknown legacy types appended), plus emission on top.
+  const sellingTypes = new Set<string>()
+  for (const point of points) {
+    for (const segmentType of Object.keys(point.soldByType)) {
+      sellingTypes.add(segmentType)
+    }
+  }
+  const typeOrder = [
+    ...SEGMENT_TYPES.filter((t) => sellingTypes.has(t)),
+    ...[...sellingTypes].filter(
+      (t) => !(SEGMENT_TYPES as readonly string[]).includes(t),
+    ),
+  ]
+  const hasEmission = points.some((point) => point.soldFromEmission > 0)
+
+  // Rows keep every SellPressurePoint field (the tooltip reads them back)
+  // and add one display-unit value per stacked series.
+  const data = points.map((point) => {
+    const row: Record<string, unknown> = { ...point }
+    for (const segmentType of typeOrder) {
+      row[segmentType] = toDisplayUnit(point.soldByType[segmentType] ?? 0)
+    }
+    if (hasEmission) {
+      row[EMISSION_STACK_KEY] = toDisplayUnit(point.soldFromEmission)
+    }
+    return row
+  })
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart
-        data={points}
+        data={data}
         margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
       >
         <XAxis
@@ -196,17 +231,25 @@ export function SellPressureChart({
             }}
           />
         )}
-        <Bar dataKey={dataKey} radius={[3, 3, 0, 0]}>
-          {points.map((point) => (
-            <Cell
-              key={point.month}
-              fill={
-                exceeds(point) ? 'hsl(var(--warning))' : 'hsl(var(--primary))'
-              }
-              fillOpacity={0.75}
-            />
-          ))}
-        </Bar>
+        {typeOrder.map((segmentType) => (
+          <Bar
+            key={segmentType}
+            dataKey={segmentType}
+            stackId="pressure"
+            fill={getSegmentChartColor(segmentType)}
+            fillOpacity={0.8}
+            isAnimationActive={false}
+          />
+        ))}
+        {hasEmission && (
+          <Bar
+            dataKey={EMISSION_STACK_KEY}
+            stackId="pressure"
+            fill="hsl(var(--data-emission))"
+            fillOpacity={0.55}
+            isAnimationActive={false}
+          />
+        )}
       </BarChart>
     </ResponsiveContainer>
   )
