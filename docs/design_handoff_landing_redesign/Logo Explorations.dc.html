@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<style>
+@font-face { font-family: 'Geist'; src: url('assets/Geist-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('assets/Geist-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+html, body { margin: 0; padding: 0; background: #060608; color: #FAFAFA; font-family: 'Geist', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: #A6A7AE; text-decoration: none; }
+a:hover { color: #FAFAFA; }
+</style>
+</helmet>
+
+<section style="padding: 40px; display: flex; flex-direction: column; gap: 20px;">
+  <div style="display: flex; flex-direction: column; gap: 4px;">
+    <h1 style="margin: 0; font-size: 20px; font-weight: 600;">TrustNomiks — Logo explorations</h1>
+    <p style="margin: 0; font-size: 13px; color: #A6A7AE;">5 directions. Chaque mark est testé en grand, petit (favicon) et en lockup avec le wordmark.</p>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+
+    <!-- 1a — current, refined -->
+    <div id="1a" style="width: 340px; border: 1px solid #28282E; border-radius: 16px; background: #0A0A0C; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #7C7C84; border: 1px solid #28282E; border-radius: 6px; padding: 2px 8px;">1a</span>
+        <span style="font-size: 12px; color: #A6A7AE;">Actuel — raffiné</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 140px; background: #111114; border-radius: 12px;">
+        <svg width="96" height="96" viewBox="0 0 32 32"><defs><linearGradient id="ga" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="10" cy="23.5" r="4.4" fill="none" stroke="url(#ga)" stroke-width="3.4"></circle><path d="M10 19.1 C10 13.4 14.6 10.4 20.4 10.4" fill="none" stroke="url(#ga)" stroke-width="3.4" stroke-linecap="round"></path><circle cx="24" cy="10.4" r="3.6" fill="none" stroke="url(#ga)" stroke-width="3.2"></circle></svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <svg width="24" height="24" viewBox="0 0 32 32"><defs><linearGradient id="ga2" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="10" cy="23.5" r="4.4" fill="none" stroke="url(#ga2)" stroke-width="3.4"></circle><path d="M10 19.1 C10 13.4 14.6 10.4 20.4 10.4" fill="none" stroke="url(#ga2)" stroke-width="3.4" stroke-linecap="round"></path><circle cx="24" cy="10.4" r="3.6" fill="none" stroke="url(#ga2)" stroke-width="3.2"></circle></svg>
+        <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="ga3" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="10" cy="23.5" r="4.4" fill="none" stroke="url(#ga3)" stroke-width="3.4"></circle><path d="M10 19.1 C10 13.4 14.6 10.4 20.4 10.4" fill="none" stroke="url(#ga3)" stroke-width="3.4" stroke-linecap="round"></path><circle cx="24" cy="10.4" r="3.6" fill="none" stroke="url(#ga3)" stroke-width="3.2"></circle></svg>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 32 32"><defs><linearGradient id="ga4" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="10" cy="23.5" r="4.4" fill="none" stroke="url(#ga4)" stroke-width="3.4"></circle><path d="M10 19.1 C10 13.4 14.6 10.4 20.4 10.4" fill="none" stroke="url(#ga4)" stroke-width="3.4" stroke-linecap="round"></path><circle cx="24" cy="10.4" r="3.6" fill="none" stroke="url(#ga4)" stroke-width="3.2"></circle></svg><span style="font-size: 15px; font-weight: 600;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg,#6366F1,#8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span></span>
+      </div>
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #7C7C84;">Deux atomes reliés par une claim edge. Référence — le point de départ.</p>
+    </div>
+
+    <!-- 1b — the triple -->
+    <div id="1b" style="width: 340px; border: 1px solid #28282E; border-radius: 16px; background: #0A0A0C; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #7C7C84; border: 1px solid #28282E; border-radius: 6px; padding: 2px 8px;">1b</span>
+        <span style="font-size: 12px; color: #A6A7AE;">Le Triple — sujet·prédicat·objet</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 140px; background: #111114; border-radius: 12px;">
+        <svg width="96" height="96" viewBox="0 0 32 32"><defs><linearGradient id="gb" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="24" x2="16" y2="9" stroke="url(#gb)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="9" x2="25" y2="22" stroke="url(#gb)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="24" r="3.8" fill="none" stroke="url(#gb)" stroke-width="3"></circle><circle cx="16" cy="9" r="3" fill="url(#gb)"></circle><circle cx="25" cy="22" r="3.8" fill="none" stroke="url(#gb)" stroke-width="3"></circle></svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <svg width="24" height="24" viewBox="0 0 32 32"><defs><linearGradient id="gb2" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="24" x2="16" y2="9" stroke="url(#gb2)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="9" x2="25" y2="22" stroke="url(#gb2)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="24" r="3.8" fill="none" stroke="url(#gb2)" stroke-width="3"></circle><circle cx="16" cy="9" r="3" fill="url(#gb2)"></circle><circle cx="25" cy="22" r="3.8" fill="none" stroke="url(#gb2)" stroke-width="3"></circle></svg>
+        <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="gb3" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="24" x2="16" y2="9" stroke="url(#gb3)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="9" x2="25" y2="22" stroke="url(#gb3)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="24" r="3.8" fill="none" stroke="url(#gb3)" stroke-width="3"></circle><circle cx="16" cy="9" r="3" fill="url(#gb3)"></circle><circle cx="25" cy="22" r="3.8" fill="none" stroke="url(#gb3)" stroke-width="3"></circle></svg>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 32 32"><defs><linearGradient id="gb4" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="24" x2="16" y2="9" stroke="url(#gb4)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="9" x2="25" y2="22" stroke="url(#gb4)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="24" r="3.8" fill="none" stroke="url(#gb4)" stroke-width="3"></circle><circle cx="16" cy="9" r="3" fill="url(#gb4)"></circle><circle cx="25" cy="22" r="3.8" fill="none" stroke="url(#gb4)" stroke-width="3"></circle></svg><span style="font-size: 15px; font-weight: 600;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg,#6366F1,#8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span></span>
+      </div>
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #7C7C84;">Le triple d'Intuition : trois nœuds, deux arêtes. L'unité atomique de la donnée vérifiable — le cœur du produit.</p>
+    </div>
+
+    <!-- 1c — orbit -->
+    <div id="1c" style="width: 340px; border: 1px solid #28282E; border-radius: 16px; background: #0A0A0C; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #7C7C84; border: 1px solid #28282E; border-radius: 6px; padding: 2px 8px;">1c</span>
+        <span style="font-size: 12px; color: #A6A7AE;">L'Orbite — l'observatoire</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 140px; background: #111114; border-radius: 12px;">
+        <svg width="96" height="96" viewBox="0 0 32 32"><defs><linearGradient id="gc" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#gc)" stroke-width="2.8"></circle><circle cx="16" cy="16" r="3.4" fill="url(#gc)"></circle><circle cx="24.6" cy="9.6" r="2.8" fill="#0A0A0C" stroke="url(#gc)" stroke-width="2.4"></circle></svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <svg width="24" height="24" viewBox="0 0 32 32"><defs><linearGradient id="gc2" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#gc2)" stroke-width="2.8"></circle><circle cx="16" cy="16" r="3.4" fill="url(#gc2)"></circle><circle cx="24.6" cy="9.6" r="2.8" fill="#0A0A0C" stroke="url(#gc2)" stroke-width="2.4"></circle></svg>
+        <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="gc3" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#gc3)" stroke-width="2.8"></circle><circle cx="16" cy="16" r="3.4" fill="url(#gc3)"></circle><circle cx="24.6" cy="9.6" r="2.8" fill="#0A0A0C" stroke="url(#gc3)" stroke-width="2.4"></circle></svg>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 32 32"><defs><linearGradient id="gc4" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#gc4)" stroke-width="2.8"></circle><circle cx="16" cy="16" r="3.4" fill="url(#gc4)"></circle><circle cx="24.6" cy="9.6" r="2.8" fill="#0A0A0C" stroke="url(#gc4)" stroke-width="2.4"></circle></svg><span style="font-size: 15px; font-weight: 600;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg,#6366F1,#8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span></span>
+      </div>
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #7C7C84;">Le hub au centre, un satellite de données en orbite. Évoque l'observatoire et la couche de données qui gravite autour des tokens.</p>
+    </div>
+
+    <!-- 1d — the constellation T -->
+    <div id="1d" style="width: 340px; border: 1px solid #28282E; border-radius: 16px; background: #0A0A0C; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #7C7C84; border: 1px solid #28282E; border-radius: 6px; padding: 2px 8px;">1d</span>
+        <span style="font-size: 12px; color: #A6A7AE;">Le T constellation — monogramme</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 140px; background: #111114; border-radius: 12px;">
+        <svg width="96" height="96" viewBox="0 0 32 32"><defs><linearGradient id="gd" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="8" x2="24" y2="8" stroke="url(#gd)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="8" x2="16" y2="23" stroke="url(#gd)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="8" r="2.6" fill="url(#gd)"></circle><circle cx="24" cy="8" r="2.6" fill="url(#gd)"></circle><circle cx="16" cy="24.5" r="3.6" fill="none" stroke="url(#gd)" stroke-width="3"></circle></svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <svg width="24" height="24" viewBox="0 0 32 32"><defs><linearGradient id="gd2" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="8" x2="24" y2="8" stroke="url(#gd2)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="8" x2="16" y2="23" stroke="url(#gd2)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="8" r="2.6" fill="url(#gd2)"></circle><circle cx="24" cy="8" r="2.6" fill="url(#gd2)"></circle><circle cx="16" cy="24.5" r="3.6" fill="none" stroke="url(#gd2)" stroke-width="3"></circle></svg>
+        <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="gd3" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="8" x2="24" y2="8" stroke="url(#gd3)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="8" x2="16" y2="23" stroke="url(#gd3)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="8" r="2.6" fill="url(#gd3)"></circle><circle cx="24" cy="8" r="2.6" fill="url(#gd3)"></circle><circle cx="16" cy="24.5" r="3.6" fill="none" stroke="url(#gd3)" stroke-width="3"></circle></svg>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 32 32"><defs><linearGradient id="gd4" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="8" y1="8" x2="24" y2="8" stroke="url(#gd4)" stroke-width="2.6" stroke-linecap="round"></line><line x1="16" y1="8" x2="16" y2="23" stroke="url(#gd4)" stroke-width="2.6" stroke-linecap="round"></line><circle cx="8" cy="8" r="2.6" fill="url(#gd4)"></circle><circle cx="24" cy="8" r="2.6" fill="url(#gd4)"></circle><circle cx="16" cy="24.5" r="3.6" fill="none" stroke="url(#gd4)" stroke-width="3"></circle></svg><span style="font-size: 15px; font-weight: 600;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg,#6366F1,#8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span></span>
+      </div>
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #7C7C84;">Un "T" dessiné comme un fragment de graphe : nœuds aux extrémités, atome ouvert en base. Monogramme fort pour favicon et app icon.</p>
+    </div>
+
+    <!-- 1e — stacked claims -->
+    <div id="1e" style="width: 340px; border: 1px solid #28282E; border-radius: 16px; background: #0A0A0C; padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #7C7C84; border: 1px solid #28282E; border-radius: 6px; padding: 2px 8px;">1e</span>
+        <span style="font-size: 12px; color: #A6A7AE;">La Pile — stake &amp; poids</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; height: 140px; background: #111114; border-radius: 12px;">
+        <svg width="96" height="96" viewBox="0 0 32 32"><defs><linearGradient id="ge" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="9" y1="24" x2="23" y2="24" stroke="url(#ge)" stroke-width="3" stroke-linecap="round" opacity="0.45"></line><line x1="11" y1="18.5" x2="21" y2="18.5" stroke="url(#ge)" stroke-width="3" stroke-linecap="round" opacity="0.7"></line><line x1="13" y1="13" x2="19" y2="13" stroke="url(#ge)" stroke-width="3" stroke-linecap="round"></line><circle cx="16" cy="7" r="2.8" fill="url(#ge)"></circle></svg>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <svg width="24" height="24" viewBox="0 0 32 32"><defs><linearGradient id="ge2" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="9" y1="24" x2="23" y2="24" stroke="url(#ge2)" stroke-width="3" stroke-linecap="round" opacity="0.45"></line><line x1="11" y1="18.5" x2="21" y2="18.5" stroke="url(#ge2)" stroke-width="3" stroke-linecap="round" opacity="0.7"></line><line x1="13" y1="13" x2="19" y2="13" stroke="url(#ge2)" stroke-width="3" stroke-linecap="round"></line><circle cx="16" cy="7" r="2.8" fill="url(#ge2)"></circle></svg>
+        <svg width="16" height="16" viewBox="0 0 32 32"><defs><linearGradient id="ge3" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="9" y1="24" x2="23" y2="24" stroke="url(#ge3)" stroke-width="3" stroke-linecap="round" opacity="0.45"></line><line x1="11" y1="18.5" x2="21" y2="18.5" stroke="url(#ge3)" stroke-width="3" stroke-linecap="round" opacity="0.7"></line><line x1="13" y1="13" x2="19" y2="13" stroke="url(#ge3)" stroke-width="3" stroke-linecap="round"></line><circle cx="16" cy="7" r="2.8" fill="url(#ge3)"></circle></svg>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 32 32"><defs><linearGradient id="ge4" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs><line x1="9" y1="24" x2="23" y2="24" stroke="url(#ge4)" stroke-width="3" stroke-linecap="round" opacity="0.45"></line><line x1="11" y1="18.5" x2="21" y2="18.5" stroke="url(#ge4)" stroke-width="3" stroke-linecap="round" opacity="0.7"></line><line x1="13" y1="13" x2="19" y2="13" stroke="url(#ge4)" stroke-width="3" stroke-linecap="round"></line><circle cx="16" cy="7" r="2.8" fill="url(#ge4)"></circle></svg><span style="font-size: 15px; font-weight: 600;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg,#6366F1,#8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span></span>
+      </div>
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #7C7C84;">Un nœud posé sur des strates de stake de plus en plus denses : la vérité qui prend du poids. Évoque le mécanisme $TRUST.</p>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+</body>
+</html>
