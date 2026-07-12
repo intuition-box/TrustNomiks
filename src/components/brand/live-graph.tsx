@@ -286,52 +286,59 @@ export function LiveGraph({
         className,
       )}
     >
+      {/* Out of flow: the library sets an explicit px width on its container,
+          which would otherwise feed the measured size back into the grid track
+          (min-content) and lock the layout wider than the viewport on shrink. */}
       {size.w > 0 && (
-        <ForceGraph2D
-          ref={fgRef}
-          width={size.w}
-          height={size.h}
-          graphData={graphData}
-          nodeId="id"
-          nodeRelSize={1}
-          nodeCanvasObject={nodeCanvasObject}
-          nodePointerAreaPaint={(
-            raw: object,
-            color: string,
-            ctx: CanvasRenderingContext2D,
-          ) => {
-            const node = raw as LiveNode & { x?: number; y?: number }
-            const s = (node.size ?? 4) + 3
-            ctx.beginPath()
-            ctx.arc(node.x ?? 0, node.y ?? 0, s, 0, 2 * Math.PI)
-            ctx.fillStyle = color
-            ctx.fill()
-          }}
-          onNodeClick={handleClick}
-          onNodeHover={
-            isLocal
-              ? (raw: object | null) =>
-                  setHoveredId(raw ? (raw as LiveNode).id : null)
-              : undefined
-          }
-          linkColor={(l: object) =>
-            (l as LiveLink).ghost ? readEdgeColor(0.22) : readEdgeColor()
-          }
-          linkLineDash={(l: object) => ((l as LiveLink).ghost ? [2, 3] : null)}
-          linkWidth={mode === 'hero' ? 0.7 : 0.5}
-          linkDirectionalParticles={particles}
-          linkDirectionalParticleWidth={1.8}
-          linkDirectionalParticleSpeed={0.006}
-          linkDirectionalParticleColor={() => readEdgeColor(0.9)}
-          warmupTicks={mode === 'local' ? 0 : 20}
-          cooldownTicks={reducedMotion ? 0 : ambient ? 120 : 400}
-          d3AlphaDecay={0.025}
-          d3VelocityDecay={0.32}
-          enableNodeDrag={!ambient}
-          enableZoomInteraction={mode !== 'ambient'}
-          enablePanInteraction={mode !== 'ambient'}
-          backgroundColor="transparent"
-        />
+        <div className="absolute inset-0">
+          <ForceGraph2D
+            ref={fgRef}
+            width={size.w}
+            height={size.h}
+            graphData={graphData}
+            nodeId="id"
+            nodeRelSize={1}
+            nodeCanvasObject={nodeCanvasObject}
+            nodePointerAreaPaint={(
+              raw: object,
+              color: string,
+              ctx: CanvasRenderingContext2D,
+            ) => {
+              const node = raw as LiveNode & { x?: number; y?: number }
+              const s = (node.size ?? 4) + 3
+              ctx.beginPath()
+              ctx.arc(node.x ?? 0, node.y ?? 0, s, 0, 2 * Math.PI)
+              ctx.fillStyle = color
+              ctx.fill()
+            }}
+            onNodeClick={handleClick}
+            onNodeHover={
+              isLocal
+                ? (raw: object | null) =>
+                    setHoveredId(raw ? (raw as LiveNode).id : null)
+                : undefined
+            }
+            linkColor={(l: object) =>
+              (l as LiveLink).ghost ? readEdgeColor(0.22) : readEdgeColor()
+            }
+            linkLineDash={(l: object) =>
+              (l as LiveLink).ghost ? [2, 3] : null
+            }
+            linkWidth={mode === 'hero' ? 0.7 : 0.5}
+            linkDirectionalParticles={particles}
+            linkDirectionalParticleWidth={1.8}
+            linkDirectionalParticleSpeed={0.006}
+            linkDirectionalParticleColor={() => readEdgeColor(0.9)}
+            warmupTicks={mode === 'local' ? 0 : 20}
+            cooldownTicks={reducedMotion ? 0 : ambient ? 120 : 400}
+            d3AlphaDecay={0.025}
+            d3VelocityDecay={0.32}
+            enableNodeDrag={!ambient}
+            enableZoomInteraction={mode !== 'ambient'}
+            enablePanInteraction={mode !== 'ambient'}
+            backgroundColor="transparent"
+          />
+        </div>
       )}
     </div>
   )

@@ -397,7 +397,7 @@ export default function Landing() {
                 Plug verified tokenomics straight into your agents and copilots.
                 Query claims, provenance and stake weights, no PDF scraping.
               </p>
-              <div className="overflow-hidden rounded-[10px] border bg-background px-4 py-3.5 font-mono text-xs leading-[1.7] text-muted-foreground">
+              <div className="overflow-hidden whitespace-nowrap rounded-[10px] border bg-background px-4 py-3.5 font-mono text-xs leading-[1.7] text-muted-foreground">
                 <div className="text-faint-foreground">
                   {'// claude / cursor config'}
                 </div>
