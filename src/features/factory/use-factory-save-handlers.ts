@@ -888,7 +888,15 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     const key = activeSectionRef.current
     if (!projectIdRef.current) return
     const form = sectionFormsRef.current[key]
-    if (!form.formState.isDirty) return
+    if (!form.formState.isDirty) {
+      // A queued autosave can outlive its edits (a save that resets its own
+      // form to server truth leaves nothing unsaved): do not strand the chip
+      // on "Unsaved changes" when the form is pristine.
+      setAutosave((a) =>
+        a.status === 'pending' ? { status: 'idle', at: a.at } : a,
+      )
+      return
+    }
     if (key === 'vesting' && allocationsRef.current.length === 0) return
     // Emission with no type picked yet: the only required field is untouched
     if (key === 'emission' && !step5Form.getValues('type')) return
