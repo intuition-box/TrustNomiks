@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import type { NodeType } from '@/lib/knowledge-graph/graph-types'
-import { getDataColor } from '@/lib/design/tokens'
+import { getBrandGradientStops, getDataColor } from '@/lib/design/tokens'
 
 const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), {
   ssr: false,
@@ -65,7 +65,7 @@ const SIZE_BY_TYPE: Partial<Record<NodeType, number>> = {
 /** Deterministic synthetic graph: hub → tokens → a couple of atom/triple children each. */
 function buildSynthetic(count: number, tokenLabels?: string[]): LiveGraphData {
   const nodes: LiveNode[] = [
-    { id: 'hub', type: 'graph_root', label: 'TrustNomiks', size: 9 },
+    { id: 'hub', type: 'graph_root', label: 'TrustNomiks', size: 13 },
   ]
   const links: LiveLink[] = []
   for (let t = 0; t < count; t++) {
@@ -126,6 +126,14 @@ export function LiveGraph({
     // resolvedTheme intentionally in deps to re-resolve on dark/light switch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, resolvedTheme])
+
+  // Brand gradient stops for the hub's Orbit mark (ring + core), theme-aware.
+  const brandStops = useMemo(
+    () => getBrandGradientStops(),
+    // resolvedTheme intentionally in deps to re-resolve on dark/light switch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolvedTheme],
+  )
 
   // Measure container
   useEffect(() => {
@@ -198,19 +206,22 @@ export function LiveGraph({
       }
 
       if (isHub) {
-        // luminous halo + ring
+        // luminous halo + the Orbit mark: gradient ring + filled gradient core
         ctx.beginPath()
         ctx.arc(x, y, s + 6, 0, 2 * Math.PI)
         ctx.fillStyle = withAlpha(color, 0.16)
         ctx.fill()
+        const grad = ctx.createLinearGradient(x - s, y + s, x + s, y - s)
+        grad.addColorStop(0, brandStops[0])
+        grad.addColorStop(1, brandStops[1])
         ctx.beginPath()
         ctx.arc(x, y, s, 0, 2 * Math.PI)
-        ctx.lineWidth = 2.4
-        ctx.strokeStyle = color
+        ctx.lineWidth = Math.max(2.4, s * 0.3)
+        ctx.strokeStyle = grad
         ctx.stroke()
         ctx.beginPath()
-        ctx.arc(x, y, s * 0.34, 0, 2 * Math.PI)
-        ctx.fillStyle = color
+        ctx.arc(x, y, s * 0.32, 0, 2 * Math.PI)
+        ctx.fillStyle = grad
         ctx.fill()
       } else if (isTriple) {
         ctx.save()
@@ -253,7 +264,7 @@ export function LiveGraph({
         ctx.fillText(node.label, x, y + s + 2)
       }
     },
-    [colorMap, isLocal, hoveredId, mode],
+    [colorMap, brandStops, isLocal, hoveredId, mode],
   )
 
   const handleClick = useCallback(
@@ -275,52 +286,59 @@ export function LiveGraph({
         className,
       )}
     >
+      {/* Out of flow: the library sets an explicit px width on its container,
+          which would otherwise feed the measured size back into the grid track
+          (min-content) and lock the layout wider than the viewport on shrink. */}
       {size.w > 0 && (
-        <ForceGraph2D
-          ref={fgRef}
-          width={size.w}
-          height={size.h}
-          graphData={graphData}
-          nodeId="id"
-          nodeRelSize={1}
-          nodeCanvasObject={nodeCanvasObject}
-          nodePointerAreaPaint={(
-            raw: object,
-            color: string,
-            ctx: CanvasRenderingContext2D,
-          ) => {
-            const node = raw as LiveNode & { x?: number; y?: number }
-            const s = (node.size ?? 4) + 3
-            ctx.beginPath()
-            ctx.arc(node.x ?? 0, node.y ?? 0, s, 0, 2 * Math.PI)
-            ctx.fillStyle = color
-            ctx.fill()
-          }}
-          onNodeClick={handleClick}
-          onNodeHover={
-            isLocal
-              ? (raw: object | null) =>
-                  setHoveredId(raw ? (raw as LiveNode).id : null)
-              : undefined
-          }
-          linkColor={(l: object) =>
-            (l as LiveLink).ghost ? readEdgeColor(0.22) : readEdgeColor()
-          }
-          linkLineDash={(l: object) => ((l as LiveLink).ghost ? [2, 3] : null)}
-          linkWidth={mode === 'hero' ? 0.7 : 0.5}
-          linkDirectionalParticles={particles}
-          linkDirectionalParticleWidth={1.8}
-          linkDirectionalParticleSpeed={0.006}
-          linkDirectionalParticleColor={() => readEdgeColor(0.9)}
-          warmupTicks={mode === 'local' ? 0 : 20}
-          cooldownTicks={reducedMotion ? 0 : ambient ? 120 : 400}
-          d3AlphaDecay={0.025}
-          d3VelocityDecay={0.32}
-          enableNodeDrag={!ambient}
-          enableZoomInteraction={mode !== 'ambient'}
-          enablePanInteraction={mode !== 'ambient'}
-          backgroundColor="transparent"
-        />
+        <div className="absolute inset-0">
+          <ForceGraph2D
+            ref={fgRef}
+            width={size.w}
+            height={size.h}
+            graphData={graphData}
+            nodeId="id"
+            nodeRelSize={1}
+            nodeCanvasObject={nodeCanvasObject}
+            nodePointerAreaPaint={(
+              raw: object,
+              color: string,
+              ctx: CanvasRenderingContext2D,
+            ) => {
+              const node = raw as LiveNode & { x?: number; y?: number }
+              const s = (node.size ?? 4) + 3
+              ctx.beginPath()
+              ctx.arc(node.x ?? 0, node.y ?? 0, s, 0, 2 * Math.PI)
+              ctx.fillStyle = color
+              ctx.fill()
+            }}
+            onNodeClick={handleClick}
+            onNodeHover={
+              isLocal
+                ? (raw: object | null) =>
+                    setHoveredId(raw ? (raw as LiveNode).id : null)
+                : undefined
+            }
+            linkColor={(l: object) =>
+              (l as LiveLink).ghost ? readEdgeColor(0.22) : readEdgeColor()
+            }
+            linkLineDash={(l: object) =>
+              (l as LiveLink).ghost ? [2, 3] : null
+            }
+            linkWidth={mode === 'hero' ? 0.7 : 0.5}
+            linkDirectionalParticles={particles}
+            linkDirectionalParticleWidth={1.8}
+            linkDirectionalParticleSpeed={0.006}
+            linkDirectionalParticleColor={() => readEdgeColor(0.9)}
+            warmupTicks={mode === 'local' ? 0 : 20}
+            cooldownTicks={reducedMotion ? 0 : ambient ? 120 : 400}
+            d3AlphaDecay={0.025}
+            d3VelocityDecay={0.32}
+            enableNodeDrag={!ambient}
+            enableZoomInteraction={mode !== 'ambient'}
+            enablePanInteraction={mode !== 'ambient'}
+            backgroundColor="transparent"
+          />
+        </div>
       )}
     </div>
   )

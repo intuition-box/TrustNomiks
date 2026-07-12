@@ -82,6 +82,10 @@ export default async function Image() {
       </svg>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
+        {/* Orbit mark. The satellite is filled with the backdrop color (the
+            fixed #09090b of this image) so it punches out the orbit ring —
+            Satori's mask support is unreliable, hardcoding per surface is the
+            handoff-sanctioned fallback. */}
         <svg width="110" height="110" viewBox="0 0 32 32">
           <defs>
             <linearGradient
@@ -97,27 +101,21 @@ export default async function Image() {
             </linearGradient>
           </defs>
           <circle
-            cx="10"
-            cy="23.5"
-            r="4.4"
+            cx="16"
+            cy="16"
+            r="10.5"
             fill="none"
             stroke="url(#g)"
-            strokeWidth="3.4"
+            strokeWidth="2.8"
           />
-          <path
-            d="M10 19.1 C10 13.4 14.6 10.4 20.4 10.4"
-            fill="none"
-            stroke="url(#g)"
-            strokeWidth="3.4"
-            strokeLinecap="round"
-          />
+          <circle cx="16" cy="16" r="3.4" fill="url(#g)" />
           <circle
-            cx="24"
-            cy="10.4"
-            r="3.6"
-            fill="none"
+            cx="24.6"
+            cy="9.6"
+            r="2.8"
+            fill="#09090b"
             stroke="url(#g)"
-            strokeWidth="3.2"
+            strokeWidth="2.4"
           />
         </svg>
         <div style={{ display: 'flex', fontSize: 92, fontWeight: 600 }}>
