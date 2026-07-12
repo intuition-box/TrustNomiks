@@ -13,6 +13,12 @@ interface StudioGraphPaneProps {
   hasEmission: boolean
   sourceCount: number
   riskCount: number
+  /**
+   * Screener-only attestation clusters (sources, risk flags) and the
+   * on-chain footer line. Factory designs have neither, so their always-empty
+   * ghost nodes would read as permanently missing data; pass false there.
+   */
+  showAttestationSlots?: boolean
   className?: string
 }
 
@@ -29,6 +35,7 @@ export function StudioGraphPane({
   hasEmission,
   sourceCount,
   riskCount,
+  showAttestationSlots = true,
   className,
 }: StudioGraphPaneProps) {
   const signature = [
@@ -39,6 +46,7 @@ export function StudioGraphPane({
     hasEmission,
     sourceCount,
     riskCount,
+    showAttestationSlots,
   ].join('§')
 
   const data: LiveGraphData = useMemo(() => {
@@ -77,8 +85,10 @@ export function StudioGraphPane({
     if (vestingCount === 0)
       for (let i = 0; i < 2; i++) addGhost(`ghost-vest-${i}`, 'vesting')
     if (!hasEmission) addGhost('ghost-emission', 'emission')
-    if (sourceCount === 0) addGhost('ghost-src', 'data_source')
-    if (riskCount === 0) addGhost('ghost-risk', 'risk_flag')
+    if (showAttestationSlots && sourceCount === 0)
+      addGhost('ghost-src', 'data_source')
+    if (showAttestationSlots && riskCount === 0)
+      addGhost('ghost-risk', 'risk_flag')
     return { nodes, links }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature])
@@ -102,8 +112,9 @@ export function StudioGraphPane({
         <LiveGraph mode="local" data={data} />
       </div>
       <p className="border-t px-4 py-2.5 text-xs text-faint-foreground">
-        Dashed nodes are waiting for data. Fill a section and watch them
-        materialize; publishing puts them on-chain.
+        {showAttestationSlots
+          ? 'Dashed nodes are waiting for data. Fill a section and watch them materialize; publishing puts them on-chain.'
+          : 'Dashed nodes are waiting for data. Fill a section and watch them materialize.'}
       </p>
     </div>
   )
