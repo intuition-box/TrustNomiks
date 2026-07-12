@@ -1,0 +1,166 @@
+'use client'
+
+import {
+  Bar,
+  BarChart,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
+import type { SellPressurePoint } from '@/lib/tokenomics'
+
+interface SellPressureChartProps {
+  points: SellPressurePoint[]
+  /** false renders token counts instead of USD (no reference price set) */
+  hasPrice: boolean
+  /** 2% market depth in USD; drawn as a dashed reference line when set */
+  marketDepthUsd: number | null
+  height?: number
+}
+
+/**
+ * Monthly nominal sell pressure as bars (USD when a reference price is set,
+ * token counts otherwise), against a dashed 2% market-depth line. Months
+ * whose sales exceed the depth are tinted warning and say so in the tooltip
+ * (the summary tile carries the same fact with an icon: color is never the
+ * only cue).
+ */
+export function SellPressureChart({
+  points,
+  hasPrice,
+  marketDepthUsd,
+  height = 240,
+}: SellPressureChartProps) {
+  const dataKey = hasPrice ? 'soldUsd' : 'tokensSold'
+  const exceeds = (point: SellPressurePoint) =>
+    hasPrice &&
+    marketDepthUsd !== null &&
+    (point.soldUsd as number) > marketDepthUsd
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={points}
+        margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
+      >
+        <XAxis
+          dataKey={points[0]?.date ? 'date' : 'month'}
+          tick={{ fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          interval="preserveStartEnd"
+          tickFormatter={(v) => (typeof v === 'number' ? `M${v}` : v)}
+        />
+        <YAxis
+          tickFormatter={(v) =>
+            hasPrice ? `$${formatCompactNumber(v)}` : formatCompactNumber(v)
+          }
+          tick={{ fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+          width={60}
+        />
+        <Tooltip
+          cursor={{ fill: 'hsl(var(--muted-foreground))', fillOpacity: 0.08 }}
+          wrapperStyle={{
+            outline: 'none',
+            background: 'transparent',
+            border: 'none',
+            boxShadow: 'none',
+          }}
+          content={({ active, payload, label }) => {
+            if (!active || !payload?.length) return null
+            const point = payload[0].payload as SellPressurePoint
+            return (
+              <div
+                className="rounded-lg px-3 py-2 text-sm shadow-lg max-w-64"
+                style={{
+                  backgroundColor: 'hsl(var(--popover))',
+                  color: 'hsl(var(--popover-foreground))',
+                  border: '1px solid hsl(var(--border))',
+                }}
+              >
+                <p className="font-medium mb-1">
+                  {typeof label === 'number' ? `Month ${label}` : label}
+                </p>
+                <div className="space-y-0.5 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Tokens sold</span>
+                    <span className="font-mono">
+                      {formatCompactNumber(point.tokensSold)}
+                    </span>
+                  </div>
+                  {point.soldUsd !== null && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Sell pressure</span>
+                      <span className="font-mono">
+                        ${formatCompactNumber(point.soldUsd)}
+                      </span>
+                    </div>
+                  )}
+                  {point.priceImpactPct !== null && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Est. price impact</span>
+                      <span className="tabular">
+                        {point.priceImpactPct.toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                  {point.mintedDelta > 0 && (
+                    <p
+                      className="pt-1"
+                      style={{ color: 'hsl(var(--muted-foreground))' }}
+                    >
+                      Includes{' '}
+                      <span className="font-mono">
+                        {formatCompactNumber(point.mintedDelta)}
+                      </span>{' '}
+                      newly emitted tokens
+                    </p>
+                  )}
+                  {exceeds(point) && (
+                    <p
+                      className="pt-1 font-medium"
+                      style={{ color: 'hsl(var(--warning))' }}
+                    >
+                      Exceeds the 2% market depth
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          }}
+        />
+        {hasPrice && marketDepthUsd !== null && (
+          <ReferenceLine
+            y={marketDepthUsd}
+            stroke="hsl(var(--muted-foreground))"
+            strokeDasharray="4 4"
+            strokeOpacity={0.5}
+            label={{
+              value: `2% depth: $${formatCompactNumber(marketDepthUsd)}`,
+              position: 'right',
+              fill: 'hsl(var(--muted-foreground))',
+              fontSize: 10,
+            }}
+          />
+        )}
+        <Bar dataKey={dataKey} radius={[3, 3, 0, 0]}>
+          {points.map((point) => (
+            <Cell
+              key={point.month}
+              fill={
+                exceeds(point) ? 'hsl(var(--warning))' : 'hsl(var(--primary))'
+              }
+              fillOpacity={0.75}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}

@@ -1,0 +1,366 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  Banknote,
+  CheckCircle2,
+  TrendingDown,
+} from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Slider } from '@/components/ui/slider'
+import { StatTile } from '@/components/composite/stat-tile'
+import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
+import { SellPressureChart } from '@/components/charts/sell-pressure-chart'
+import { getSegmentChartColor } from '@/lib/design/tokens'
+import {
+  DEFAULT_EMISSION_SELL_PCT,
+  DEFAULT_SELL_PRESSURE_PCT,
+  SEGMENT_TYPES,
+  buildProjectionInputs,
+  computeSellPressure,
+  computeSupplyProjection,
+  formatSegmentTypeLabel,
+  formatUsd,
+  parseDecimal,
+  summarizeFundingRounds,
+  summarizeProjection,
+  type ProjectionScenario,
+  type SegmentType,
+  type VestingTimelinePoint,
+} from '@/lib/tokenomics'
+import { useFactoryForm } from './factory-form-context'
+
+/** Series key for minted supply; suffixed to dodge a same-named segment. */
+const EMISSION_KEY = 'Emission (minted)'
+
+const toPositive = (value: string): number | null => {
+  if (!value.trim()) return null
+  const parsed = parseDecimal(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+/**
+ * Deterministic projections of the saved design, rendered on the completion
+ * screen: circulating-supply curve (unlocks + emission) and the nominal
+ * monthly sell pressure the scenario assumptions imply. Assumptions are
+ * ephemeral: they describe a hypothesis, not the design, and are not
+ * persisted (a future iteration will snapshot them).
+ */
+export function ProjectionPanel() {
+  const {
+    allocations,
+    step4Form,
+    step5Form,
+    _lw6rounds,
+    maxSupply,
+    preventScrollChange,
+    selectInputValue,
+  } = useFactoryForm()
+
+  // The completion screen renders post-save, so the forms are static here:
+  // read them once per mount instead of subscribing.
+  const inputs = useMemo(
+    () =>
+      buildProjectionInputs({
+        allocations,
+        schedules: step4Form.getValues('schedules'),
+        maxSupply,
+        emission: step5Form.getValues(),
+        tgeDate: null,
+      }),
+    [allocations, maxSupply, step4Form, step5Form],
+  )
+
+  const supply = useMemo(() => computeSupplyProjection(inputs), [inputs])
+
+  // Scenario knobs. pctSoldByType only stores user overrides; display and
+  // the engine both fall back to DEFAULT_SELL_PRESSURE_PCT.
+  const [pctSoldByType, setPctSoldByType] = useState<Record<string, number>>({})
+  const [pctSoldEmission, setPctSoldEmission] = useState(
+    DEFAULT_EMISSION_SELL_PCT,
+  )
+  const [priceInput, setPriceInput] = useState<string>(() => {
+    const derived = summarizeFundingRounds(_lw6rounds ?? [], maxSupply)
+    return derived.latestPriceUsd !== null ? String(derived.latestPriceUsd) : ''
+  })
+  const [depthInput, setDepthInput] = useState('')
+
+  const scenario = useMemo<ProjectionScenario>(
+    () => ({
+      pctSoldByType,
+      pctSoldEmission,
+      refPriceUsd: toPositive(priceInput),
+      marketDepthUsd: toPositive(depthInput),
+    }),
+    [pctSoldByType, pctSoldEmission, priceInput, depthInput],
+  )
+
+  const pressure = useMemo(
+    () => computeSellPressure(supply, scenario),
+    [supply, scenario],
+  )
+  const summary = useMemo(
+    () => summarizeProjection(supply, pressure, scenario),
+    [supply, pressure, scenario],
+  )
+
+  const presentTypes = useMemo(() => {
+    const present = new Set(
+      inputs.allocations.map((a) => a.segment_type).filter(Boolean),
+    )
+    const ordered = SEGMENT_TYPES.filter((t) => present.has(t))
+    const extras = [...present].filter(
+      (t) => !(SEGMENT_TYPES as readonly string[]).includes(t),
+    )
+    return [...ordered, ...extras]
+  }, [inputs])
+
+  const pctFor = (type: string): number =>
+    pctSoldByType[type] ?? DEFAULT_SELL_PRESSURE_PCT[type as SegmentType] ?? 0
+
+  // Unlock areas + the minted series, on the supply projection's horizon
+  // (the vesting timeline is held flat past its end).
+  const supplyChartData = useMemo<VestingTimelinePoint[]>(() => {
+    const lastTimelineIdx = supply.timeline.length - 1
+    return supply.points.map((point) => {
+      const base = supply.timeline[Math.min(point.month, lastTimelineIdx)]
+      const row: VestingTimelinePoint = {
+        month: point.month,
+        date: point.date,
+        total: point.circulating,
+      }
+      for (const { key } of supply.segmentKeys) {
+        if (supply.customSegments.includes(key)) continue
+        row[key] = (base[key] as number) ?? 0
+      }
+      if (supply.emissionActive) row[EMISSION_KEY] = point.minted
+      return row
+    })
+  }, [supply])
+
+  const chartSegments = useMemo(
+    () =>
+      supply.segmentKeys
+        .filter(({ key }) => !supply.customSegments.includes(key))
+        .map(({ key, segment_type }) => ({ label: key, segment_type })),
+    [supply],
+  )
+
+  if (inputs.allocations.length === 0 || supply.maxSupply <= 0) {
+    return (
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold tracking-tight">Projections</h2>
+        <p className="text-sm text-muted-foreground">
+          Add a max supply, allocations and vesting to project this design.
+        </p>
+      </section>
+    )
+  }
+
+  const monthsAbove = summary.monthsAboveDepth
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Projections</h2>
+        <p className="text-sm text-muted-foreground">
+          A deterministic read of the saved design: how supply enters
+          circulation, and the sell pressure your assumptions imply.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatTile
+          label="Implied FDV"
+          icon={Banknote}
+          accentVar="--data-wallet"
+          value={
+            summary.impliedFdvUsd !== null ? (
+              <span className="tabular">
+                ${formatUsd(summary.impliedFdvUsd)}
+              </span>
+            ) : (
+              'Not set'
+            )
+          }
+          hint="reference price x max supply"
+        />
+        <StatTile
+          label="Heaviest month"
+          icon={TrendingDown}
+          value={
+            summary.worstMonth ? (
+              <span className="tabular">M{summary.worstMonth.month}</span>
+            ) : (
+              'Not set'
+            )
+          }
+          hint={
+            summary.worstMonth
+              ? summary.worstMonth.soldUsd !== null
+                ? `$${formatUsd(summary.worstMonth.soldUsd)} sold${
+                    summary.worstMonth.priceImpactPct !== null
+                      ? `, est. ${summary.worstMonth.priceImpactPct.toFixed(1)}% impact`
+                      : ''
+                  }`
+                : 'set a reference price for USD figures'
+              : 'nothing is sold under these assumptions'
+          }
+        />
+        <StatTile
+          label="Months above depth"
+          icon={
+            monthsAbove !== null && monthsAbove > 0
+              ? AlertTriangle
+              : CheckCircle2
+          }
+          accentVar={
+            monthsAbove !== null && monthsAbove > 0 ? '--warning' : '--success'
+          }
+          value={
+            monthsAbove !== null ? (
+              <span className="tabular">{monthsAbove}</span>
+            ) : (
+              'Not set'
+            )
+          }
+          hint={
+            monthsAbove !== null
+              ? 'months selling more than the 2% depth'
+              : 'set a price and a market depth'
+          }
+        />
+      </div>
+
+      <div className="space-y-5 rounded-xl border bg-surface-1 px-5 py-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="projection-ref-price"
+              className="text-sm font-medium"
+            >
+              Reference price (USD)
+            </label>
+            <Input
+              id="projection-ref-price"
+              type="number"
+              min="0"
+              step="0.0001"
+              placeholder="e.g. 0.02"
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              onWheel={preventScrollChange}
+              onDoubleClick={selectInputValue}
+            />
+            <p className="text-xs text-muted-foreground">
+              Prefilled from the latest funding round when one exists.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="projection-market-depth"
+              className="text-sm font-medium"
+            >
+              2% market depth (USD)
+            </label>
+            <Input
+              id="projection-market-depth"
+              type="number"
+              min="0"
+              step="1000"
+              placeholder="e.g. 500000"
+              value={depthInput}
+              onChange={(e) => setDepthInput(e.target.value)}
+              onWheel={preventScrollChange}
+              onDoubleClick={selectInputValue}
+            />
+            <p className="text-xs text-muted-foreground">
+              Order-book depth within 2% of the price you expect at launch.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Share sold at unlock</p>
+          {presentTypes.map((type) => (
+            <div key={type} className="flex items-center gap-3">
+              <span
+                className="inline-block h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: getSegmentChartColor(type) }}
+                aria-hidden
+              />
+              <span className="w-32 truncate text-sm">
+                {formatSegmentTypeLabel(type)}
+              </span>
+              <Slider
+                value={[pctFor(type)]}
+                min={0}
+                max={100}
+                step={5}
+                aria-label={`Share of ${formatSegmentTypeLabel(type)} unlocks sold`}
+                onValueChange={([value]) =>
+                  setPctSoldByType((prev) => ({ ...prev, [type]: value }))
+                }
+                className="flex-1"
+              />
+              <span className="tabular w-10 text-right text-sm">
+                {pctFor(type)}%
+              </span>
+            </div>
+          ))}
+          {supply.emissionActive && (
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-block h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: 'hsl(var(--data-emission))' }}
+                aria-hidden
+              />
+              <span className="w-32 truncate text-sm">Emission</span>
+              <Slider
+                value={[pctSoldEmission]}
+                min={0}
+                max={100}
+                step={5}
+                aria-label="Share of newly emitted tokens sold"
+                onValueChange={([value]) => setPctSoldEmission(value)}
+                className="flex-1"
+              />
+              <span className="tabular w-10 text-right text-sm">
+                {pctSoldEmission}%
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-xl border bg-surface-1 px-5 py-4">
+        <h3 className="text-sm font-semibold">Circulating supply projection</h3>
+        <UnlockTimelineChart
+          data={supplyChartData}
+          segments={chartSegments}
+          maxSupply={supply.maxSupply}
+          customSegments={supply.customSegments}
+          emissionSeriesKey={supply.emissionActive ? EMISSION_KEY : undefined}
+          height={280}
+        />
+      </div>
+
+      <div className="space-y-3 rounded-xl border bg-surface-1 px-5 py-4">
+        <h3 className="text-sm font-semibold">Monthly sell pressure</h3>
+        {!pressure.hasPrice && (
+          <p className="text-xs text-muted-foreground">
+            Token counts for now: set a reference price to see USD pressure and
+            the estimated price impact.
+          </p>
+        )}
+        <SellPressureChart
+          points={pressure.points}
+          hasPrice={pressure.hasPrice}
+          marketDepthUsd={scenario.marketDepthUsd}
+          height={240}
+        />
+      </div>
+    </section>
+  )
+}

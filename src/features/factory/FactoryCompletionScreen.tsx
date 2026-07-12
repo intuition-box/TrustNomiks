@@ -3,6 +3,7 @@
 import { ArrowRight, Plus, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFactoryForm } from './factory-form-context'
+import { ProjectionPanel } from './projection-panel'
 
 /** Post-save "Design saved" screen, shown once the final section (Emission)
  *  is saved via Finish. A design is private, so there is no publish moment. */
@@ -10,7 +11,7 @@ export function FactoryCompletionScreen() {
   const { router, projectId, finalScore, step1Form } = useFactoryForm()
 
   return (
-    <div className="mx-auto max-w-2xl pb-16 pt-8">
+    <div className="mx-auto max-w-3xl space-y-8 pb-16 pt-8">
       <div className="overflow-hidden rounded-xl border bg-surface-1">
         <div className="space-y-4 px-8 py-10 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
@@ -76,6 +77,8 @@ export function FactoryCompletionScreen() {
           </div>
         </div>
       </div>
+
+      <ProjectionPanel />
     </div>
   )
 }

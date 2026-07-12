@@ -25,6 +25,14 @@ interface UnlockTimelineChartProps {
   maxSupply: number
   customSegments?: string[]
   height?: number
+  /**
+   * Data key of an emission (minted supply) series stacked on top of the
+   * unlock areas. Emission is a concept, not an allocation segment, so the
+   * series is colored with the emission taxonomy token and drawn with a
+   * dashed outline at lower opacity (a non-color cue) instead of going
+   * through the segment palette.
+   */
+  emissionSeriesKey?: string
 }
 
 export function UnlockTimelineChart({
@@ -33,6 +41,7 @@ export function UnlockTimelineChart({
   maxSupply,
   customSegments = [],
   height = 350,
+  emissionSeriesKey,
 }: UnlockTimelineChartProps) {
   const areaColors = chartColorsFor(segments.map((s) => s.segment_type))
   return (
@@ -142,6 +151,19 @@ export function UnlockTimelineChart({
               strokeWidth={1.5}
             />
           ))}
+          {emissionSeriesKey && (
+            <Area
+              key={emissionSeriesKey}
+              type="stepAfter"
+              dataKey={emissionSeriesKey}
+              stackId="1"
+              fill="hsl(var(--data-emission))"
+              stroke="hsl(var(--data-emission))"
+              fillOpacity={0.35}
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
       {customSegments.length > 0 && (
