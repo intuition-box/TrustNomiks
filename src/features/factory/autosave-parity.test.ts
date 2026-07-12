@@ -47,6 +47,14 @@ describe('autosave parity (screener ⇄ factory twins)', () => {
     expect(factorySaves).toContain(marker)
   })
 
+  it('both keep the formState.isDirty proxy subscription hot at render', () => {
+    // RHF only maintains isDirty once it has been read during a render; the
+    // handler-side reads in autosave/Continue would otherwise see a stale
+    // false and silently skip the first save after mount.
+    expect(screenerState).toContain('const sectionDirty = [')
+    expect(factoryState).toContain('const sectionDirty = [')
+  })
+
   it('both single-source createSaveQueue from the tokenomics lib', () => {
     // The screener imports via the form-helpers re-export shim; the factory
     // hook imports the lib directly. Either path resolves to

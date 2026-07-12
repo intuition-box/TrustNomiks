@@ -229,6 +229,19 @@ export function useFactoryFormState() {
     },
   })
 
+  // RHF's formState is a lazy proxy: isDirty is only computed once it has
+  // been read during a render. handleContinue and the autosave read it inside
+  // event handlers, where a never-subscribed read returns a stale false and
+  // the save is silently skipped (the first Continue after mount lost its
+  // section). Reading every form's isDirty here keeps the subscription hot.
+  const sectionDirty = [
+    step1Form.formState.isDirty,
+    step2Form.formState.isDirty,
+    step3Form.formState.isDirty,
+    step4Form.formState.isDirty,
+    step5Form.formState.isDirty,
+  ]
+
   const selectedCategory = step1Form.watch('category')
   const selectedCategoryOption = getCategoryOption(selectedCategory)
   const sectorOptions = getSectorOptionsByCategory(selectedCategory)
@@ -663,6 +676,7 @@ export function useFactoryFormState() {
     step3Form,
     step4Form,
     step5Form,
+    sectionDirty,
     fields,
     append,
     remove,
