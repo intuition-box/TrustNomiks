@@ -146,6 +146,14 @@ export interface SellPressurePoint {
   mintedDelta: number
   /** Tokens assumed sold this month; computed even without a price. */
   tokensSold: number
+  /**
+   * Tokens sold this month per segment_type (after the sell shares are
+   * applied); zero contributions are omitted. Emission is tracked apart
+   * in soldFromEmission (it is minted supply, not an allocation).
+   */
+  soldByType: Record<string, number>
+  /** Tokens sold this month out of newly minted emission. */
+  soldFromEmission: number
   /** tokensSold x refPriceUsd; null in tokens-only mode. */
   soldUsd: number | null
   /**
@@ -422,13 +430,18 @@ export function computeSellPressure(
   const pctEmission = clampPct(scenario.pctSoldEmission)
 
   const points: SellPressurePoint[] = supply.points.map((point) => {
+    const soldByType: Record<string, number> = {}
     let tokensSold = 0
     for (const [segmentType, delta] of Object.entries(
       point.unlockedDeltaByType,
     )) {
-      tokensSold += delta * (pctForType(segmentType) / 100)
+      const sold = delta * (pctForType(segmentType) / 100)
+      if (sold <= 0) continue
+      soldByType[segmentType] = (soldByType[segmentType] ?? 0) + sold
+      tokensSold += sold
     }
-    tokensSold += point.mintedDelta * (pctEmission / 100)
+    const soldFromEmission = point.mintedDelta * (pctEmission / 100)
+    tokensSold += soldFromEmission
 
     const soldUsd = hasPrice
       ? tokensSold * (scenario.refPriceUsd as number)
@@ -445,6 +458,8 @@ export function computeSellPressure(
       unlockedDelta: point.unlockedDelta,
       mintedDelta: point.mintedDelta,
       tokensSold,
+      soldByType,
+      soldFromEmission,
       soldUsd,
       priceImpactPct,
     }

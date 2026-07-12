@@ -304,6 +304,9 @@ describe('computeSellPressure', () => {
       }),
     )
     expect(pressure.points[0].tokensSold).toBeCloseTo(600, 5) // 500 + 100
+    expect(pressure.points[0].soldByType['team-founders']).toBeCloseTo(500, 5)
+    expect(pressure.points[0].soldByType.treasury).toBeCloseTo(100, 5)
+    expect(pressure.points[0].soldFromEmission).toBe(0)
     expect(pressure.points[0].soldUsd).toBeCloseTo(60, 5)
     expect(pressure.points[0].priceImpactPct).toBeCloseTo(-4, 5)
 
@@ -348,6 +351,8 @@ describe('computeSellPressure', () => {
     expect(m12.mintedDelta).toBeGreaterThan(0)
     expect(m12.newTokens).toBeCloseTo(m12.mintedDelta, 8)
     expect(m12.tokensSold).toBeCloseTo(m12.mintedDelta * 0.5, 8)
+    expect(m12.soldFromEmission).toBeCloseTo(m12.mintedDelta * 0.5, 8)
+    expect(m12.soldByType).toEqual({}) // treasury at 0%: zero rows omitted
   })
 
   it('clamps percentages and treats NaN as zero', () => {

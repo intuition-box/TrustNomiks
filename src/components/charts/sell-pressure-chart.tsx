@@ -11,12 +11,18 @@ import {
   YAxis,
 } from 'recharts'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
-import type { SellPressurePoint } from '@/lib/tokenomics'
+import { getSegmentChartColor } from '@/lib/design/tokens'
+import {
+  formatSegmentTypeLabel,
+  type SellPressurePoint,
+} from '@/lib/tokenomics'
 
 interface SellPressureChartProps {
   points: SellPressurePoint[]
   /** false renders token counts instead of USD (no reference price set) */
   hasPrice: boolean
+  /** Converts the per-allocation token breakdown to USD in the tooltip. */
+  refPriceUsd: number | null
   /** 2% market depth in USD; drawn as a dashed reference line when set */
   marketDepthUsd: number | null
   height?: number
@@ -32,6 +38,7 @@ interface SellPressureChartProps {
 export function SellPressureChart({
   points,
   hasPrice,
+  refPriceUsd,
   marketDepthUsd,
   height = 240,
 }: SellPressureChartProps) {
@@ -40,6 +47,12 @@ export function SellPressureChart({
     hasPrice &&
     marketDepthUsd !== null &&
     (point.soldUsd as number) > marketDepthUsd
+
+  /** Tokens in USD when a price is set, token counts otherwise. */
+  const formatSold = (tokens: number): string =>
+    hasPrice && refPriceUsd !== null
+      ? `$${formatCompactNumber(tokens * refPriceUsd)}`
+      : formatCompactNumber(tokens)
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -110,17 +123,51 @@ export function SellPressureChart({
                       </span>
                     </div>
                   )}
-                  {point.mintedDelta > 0 && (
-                    <p
-                      className="pt-1"
-                      style={{ color: 'hsl(var(--muted-foreground))' }}
+                  {(Object.keys(point.soldByType).length > 0 ||
+                    point.soldFromEmission > 0) && (
+                    <div
+                      className="mt-1.5 space-y-0.5 border-t pt-1.5"
+                      style={{ borderColor: 'hsl(var(--border))' }}
                     >
-                      Includes{' '}
-                      <span className="font-mono">
-                        {formatCompactNumber(point.mintedDelta)}
-                      </span>{' '}
-                      newly emitted tokens
-                    </p>
+                      {Object.entries(point.soldByType)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([segmentType, tokens]) => (
+                          <div
+                            key={segmentType}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className="inline-block h-2 w-2 rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    getSegmentChartColor(segmentType),
+                                }}
+                              />
+                              {formatSegmentTypeLabel(segmentType)}
+                            </span>
+                            <span className="font-mono">
+                              {formatSold(tokens)}
+                            </span>
+                          </div>
+                        ))}
+                      {point.soldFromEmission > 0 && (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className="inline-block h-2 w-2 rounded-full"
+                              style={{
+                                backgroundColor: 'hsl(var(--data-emission))',
+                              }}
+                            />
+                            Emission
+                          </span>
+                          <span className="font-mono">
+                            {formatSold(point.soldFromEmission)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {exceeds(point) && (
                     <p

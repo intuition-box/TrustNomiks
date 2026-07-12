@@ -384,6 +384,7 @@ export function ProjectionPanel() {
         <SellPressureChart
           points={pressure.points}
           hasPrice={pressure.hasPrice}
+          refPriceUsd={scenario.refPriceUsd}
           marketDepthUsd={scenario.marketDepthUsd}
           height={320}
         />
