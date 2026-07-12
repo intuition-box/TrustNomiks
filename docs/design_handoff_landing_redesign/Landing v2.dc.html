@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: 'Geist'; src: url('assets/Geist-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('assets/Geist-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+html, body { margin: 0; padding: 0; background: #0A0A0C; color: #FAFAFA; font-family: 'Geist', -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+a { color: #A6A7AE; text-decoration: none; transition: color 150ms cubic-bezier(0.22,1,0.36,1); }
+a:hover { color: #FAFAFA; }
+@keyframes tn-ping { 0% { transform: scale(1); opacity: 0.75; } 75%, 100% { transform: scale(2.4); opacity: 0; } }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; background: #0A0A0C; position: relative; overflow: hidden;">
+
+  <!-- ambient brand wash -->
+  <div style="position: absolute; top: -160px; left: 50%; transform: translateX(-50%); width: 820px; height: 480px; border-radius: 9999px; background: linear-gradient(135deg, #6366F1, #8B5CF6); opacity: 0.14; filter: blur(80px); pointer-events: none;"></div>
+
+  <!-- ── TOP NAV ─────────────────────────────────────────────── -->
+  <header data-screen-label="Nav" style="position: relative; z-index: 10; max-width: 1120px; margin: 0 auto; padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+    <span style="display: inline-flex; align-items: center; gap: 8px;">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="tnGrad" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs>
+        <circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#tnGrad)" stroke-width="2.8"></circle>
+        <circle cx="16" cy="16" r="3.4" fill="url(#tnGrad)"></circle>
+        <circle cx="24.6" cy="9.6" r="2.8" fill="#0A0A0C" stroke="url(#tnGrad)" stroke-width="2.4"></circle>
+      </svg>
+      <span style="font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span>
+    </span>
+
+    <nav style="display: flex; align-items: center; gap: 28px; font-size: 13px;">
+      <a href="#platform" style="color: #A6A7AE;">Platform</a>
+      <a href="#developers" style="color: #A6A7AE;">Developers</a>
+      <a href="#vision" style="color: #A6A7AE;">Vision</a>
+      <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">Whitepaper <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+    </nav>
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <a href="/login" style="display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: 1px solid #28282E; border-radius: 8px; font-size: 13px; color: #FAFAFA; background: transparent;" style-hover="border-color: #3A3A42; background: #18181C;">Log in</a>
+      <a href="/dashboard" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #FFFFFF; background: linear-gradient(135deg, #6366F1, #8B5CF6);" style-hover="filter: brightness(1.1);">Launch app <span aria-hidden="true">→</span></a>
+    </div>
+  </header>
+
+  <!-- ── HERO ────────────────────────────────────────────────── -->
+  <section data-screen-label="Hero" style="position: relative; z-index: 10; max-width: 1120px; margin: 0 auto; padding: 56px 24px 40px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 32px; align-items: center;">
+    <div style="display: flex; flex-direction: column; gap: 26px;">
+
+      <span data-intro="1" style="display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; border: 1px solid rgba(139, 92, 246, 0.3); background: rgba(17, 17, 20, 0.6); border-radius: 9999px; padding: 5px 12px; font-size: 12px; backdrop-filter: blur(8px);">
+        <span style="position: relative; display: flex; width: 6px; height: 6px;">
+          <span style="position: absolute; inset: 0; border-radius: 9999px; background: #8B5CF6; animation: tn-ping 1.6s cubic-bezier(0,0,0.2,1) infinite;"></span>
+          <span style="position: relative; display: inline-flex; width: 6px; height: 6px; border-radius: 9999px; background: #8B5CF6;"></span>
+        </span>
+        <span style="font-weight: 600; background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">The verifiable data layer for AI agents</span>
+      </span>
+
+      <h1 data-intro="1" style="margin: 0; font-size: clamp(36px, 4.6vw, 52px); font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance;">The Tokenomics<br><span style="background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Intelligence Graph.</span></h1>
+
+      <p data-intro="1" style="margin: 0; max-width: 480px; font-size: 16px; line-height: 1.5; color: #A6A7AE; text-wrap: pretty;">TrustNomiks turns fragmented whitepapers, DAO proposals and on-chain records into <span style="color: #FAFAFA;">clean, verifiable, machine-readable claims</span>, then serves them to <span style="color: #FAFAFA;">AI agents over MCP and API</span>. The tokenomics data layer your agents can actually trust.</p>
+
+      <div data-intro="1" style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="display: inline-flex; align-items: center; gap: 7px; border: 1px solid #28282E; background: rgba(17,17,20,0.7); border-radius: 9999px; padding: 5px 12px; font-size: 12px; color: #A6A7AE;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #0EA5E9;"></span>MCP server</span>
+        <span style="display: inline-flex; align-items: center; gap: 7px; border: 1px solid #28282E; background: rgba(17,17,20,0.7); border-radius: 9999px; padding: 5px 12px; font-size: 12px; color: #A6A7AE;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #3B82F6;"></span>REST + GraphQL API</span>
+        <span style="display: inline-flex; align-items: center; gap: 7px; border: 1px solid #28282E; background: rgba(17,17,20,0.7); border-radius: 9999px; padding: 5px 12px; font-size: 12px; color: #A6A7AE;"><span style="width: 6px; height: 6px; background: #A855F7; transform: rotate(45deg);"></span>Machine-readable triples</span>
+        <span style="display: inline-flex; align-items: center; gap: 7px; border: 1px solid #28282E; background: rgba(17,17,20,0.7); border-radius: 9999px; padding: 5px 12px; font-size: 12px; color: #A6A7AE;"><span style="width: 6px; height: 6px; border-radius: 9999px; background: #10B981;"></span>On-chain provenance</span>
+      </div>
+
+      <div data-intro="1" style="display: flex; gap: 12px;">
+        <a href="/login?intent=view" style="flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 52px; padding: 0 20px; border-radius: 10px; font-size: 15px; font-weight: 600; color: #FFFFFF; background: linear-gradient(135deg, #6366F1, #8B5CF6); box-shadow: 0 0 24px -6px rgba(99, 102, 241, 0.5);" style-hover="filter: brightness(1.1);"><span>Explore trusted data</span><span aria-hidden="true">→</span></a>
+        <a href="/login?intent=contribute" style="flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 52px; padding: 0 20px; border: 1px solid #28282E; border-radius: 10px; font-size: 15px; font-weight: 600; color: #FAFAFA; background: rgba(17,17,20,0.7);" style-hover="border-color: #3A3A42; background: #18181C;"><span>Contribute a token</span><span aria-hidden="true">→</span></a>
+      </div>
+
+      <div data-intro="1" style="max-width: 440px; display: flex; flex-direction: column; gap: 8px; padding-top: 4px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; font-size: 13px;">
+          <span style="color: #A6A7AE;">The collective goal</span>
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums;"><span style="font-weight: 600; background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">{{ count }}</span><span style="color: #A6A7AE;"> / 300 tokens structured</span></span>
+        </div>
+        <div style="height: 6px; border-radius: 9999px; background: #18181C; overflow: hidden;">
+          <div style="height: 100%; border-radius: 9999px; background: linear-gradient(135deg, #6366F1, #8B5CF6); transition: width 1000ms cubic-bezier(0.22,1,0.36,1); width: {{ progressWidth }};"></div>
+        </div>
+        <p style="margin: 0; padding-top: 2px; font-size: 12px; color: #7C7C84;">Built on Intuition Protocol, curated by $TRUST.</p>
+      </div>
+    </div>
+
+    <!-- living graph -->
+    <div style="position: relative; height: 500px;">
+      <div style="position: absolute; inset: 0; border-radius: 9999px; background: radial-gradient(closest-side, rgba(99, 102, 241, 0.2), transparent); filter: blur(40px); pointer-events: none;"></div>
+      <canvas data-tn-graph="1" ref="{{ canvasRef }}" style="position: absolute; inset: 0; width: 100%; height: 100%;"></canvas>
+    </div>
+  </section>
+
+  <!-- ── VALUE ───────────────────────────────────────────────── -->
+  <section id="platform" data-screen-label="Value" style="position: relative; z-index: 10; max-width: 1120px; margin: 0 auto; padding: 64px 24px;">
+    <p style="margin: 0 0 32px; text-align: center; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #A6A7AE;">From scattered docs to agent-ready intelligence</p>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+      <div data-reveal="1" style="border: 1px solid #28282E; border-radius: 12px; background: #111114; padding: 24px; transition: border-color 150ms, background 150ms, transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms;" style-hover="border-color: #3A3A42; background: #18181C; transform: translateY(-3px); box-shadow: 0 12px 32px -16px rgba(0,0,0,0.6);">
+        <span style="display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 10px; background: rgba(139, 92, 246, 0.14); margin-bottom: 16px;"><span style="width: 12px; height: 12px; border-radius: 9999px; background: #8B5CF6; box-shadow: 0 0 12px -2px #8B5CF6;"></span></span>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Structure</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">Turn a whitepaper or DAO proposal into clean, standardized tokenomics. Supply, allocations, vesting and emissions, all in one place.</p>
+      </div>
+      <div data-reveal="1" style="border: 1px solid #28282E; border-radius: 12px; background: #111114; padding: 24px; transition: border-color 150ms, background 150ms, transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms;" style-hover="border-color: #3A3A42; background: #18181C; transform: translateY(-3px); box-shadow: 0 12px 32px -16px rgba(0,0,0,0.6);">
+        <span style="display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 10px; background: rgba(245, 158, 11, 0.14); margin-bottom: 16px;"><span style="width: 12px; height: 12px; border-radius: 9999px; background: #F59E0B; box-shadow: 0 0 12px -2px #F59E0B;"></span></span>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Compare</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">See how any token's distribution, unlock schedule and emissions stack up against its peers, side by side.</p>
+      </div>
+      <div data-reveal="1" style="border: 1px solid #28282E; border-radius: 12px; background: #111114; padding: 24px; transition: border-color 150ms, background 150ms, transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms;" style-hover="border-color: #3A3A42; background: #18181C; transform: translateY(-3px); box-shadow: 0 12px 32px -16px rgba(0,0,0,0.6);">
+        <span style="display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 10px; background: rgba(16, 185, 129, 0.14); margin-bottom: 16px;"><span style="width: 12px; height: 12px; border-radius: 9999px; background: #10B981; box-shadow: 0 0 12px -2px #10B981;"></span></span>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Verify</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">Every figure links back to its source, and can be published on-chain as a curated, stake-weighted claim.</p>
+      </div>
+      <div data-reveal="1" style="border: 1px solid #28282E; border-radius: 12px; background: #111114; padding: 24px; transition: border-color 150ms, background 150ms, transform 200ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms;" style-hover="border-color: #3A3A42; background: #18181C; transform: translateY(-3px); box-shadow: 0 12px 32px -16px rgba(0,0,0,0.6);">
+        <span style="display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 10px; background: rgba(14, 165, 233, 0.14); margin-bottom: 16px;"><span style="width: 12px; height: 12px; background: #0EA5E9; box-shadow: 0 0 12px -2px #0EA5E9;"></span></span>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Feed agents</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">Expose curated tokenomics over an MCP server and a REST + GraphQL API, so AI agents query verifiable claims instead of scraping PDFs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ECOSYSTEM ───────────────────────────────────────────── -->
+  <section id="developers" data-screen-label="Ecosystem" style="position: relative; z-index: 10; max-width: 1120px; margin: 0 auto; padding: 64px 24px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 36px;">
+      <p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #A6A7AE;">The TrustNomiks ecosystem</p>
+      <h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.015em;">One graph. Every surface.</h2>
+      <p style="margin: 0; max-width: 560px; font-size: 15px; line-height: 1.5; color: #A6A7AE;">The app is the front door. Around it, the same verified graph is served to analysts, contributors and AI agents through open interfaces.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 16px; align-items: stretch;">
+
+      <!-- Documentation -->
+      <div data-reveal="1" style="display: flex; flex-direction: column; gap: 12px; border: 1px solid #28282E; border-radius: 14px; background: #111114; padding: 26px; opacity: 0.75;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: #3B82F6;">docs/</span>
+          <sc-if value="{{ showSoonBadges }}" hint-placeholder-val="{{ true }}"><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #7C7C84; border: 1px solid #28282E; border-radius: 9999px; padding: 2px 8px;">Soon</span></sc-if>
+        </div>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Documentation</h3>
+        <p style="margin: 0; flex: 1; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">The tokenomics ontology, contribution guides, and the Atoms &amp; Triples data model — everything needed to read or extend the graph.</p>
+        <span style="font-size: 13px; font-weight: 600; color: #7C7C84;">Available at launch</span>
+      </div>
+
+      <!-- API & MCP -->
+      <div data-reveal="1" style="display: flex; flex-direction: column; gap: 12px; border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 14px; background: #111114; padding: 26px; box-shadow: 0 0 32px -12px rgba(99, 102, 241, 0.35);">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: #0EA5E9;">api/ · mcp/</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">For agents</span>
+        </div>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">API &amp; MCP server</h3>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">Plug verified tokenomics straight into your agents and copilots. Query claims, provenance and stake weights — no PDF scraping.</p>
+        <div style="border: 1px solid #28282E; border-radius: 10px; background: #0A0A0C; padding: 14px 16px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; line-height: 1.7; color: #A6A7AE; overflow: hidden;">
+          <div><span style="color: #7C7C84;">// claude / cursor config</span></div>
+          <div><span style="color: #8B5CF6;">"mcpServers"</span>: {</div>
+          <div>&nbsp;&nbsp;<span style="color: #0EA5E9;">"trustnomiks"</span>: { <span style="color: #10B981;">"url"</span>: <span style="color: #FAFAFA;">"mcp.trustnomiks.io"</span> }</div>
+          <div>}</div>
+        </div>
+        <sc-if value="{{ waitlistOpen }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; gap: 8px;">
+              <input type="email" placeholder="you@company.com" value="{{ waitlistEmail }}" onChange="{{ onWaitlistChange }}" style="flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid #28282E; border-radius: 8px; background: #0A0A0C; color: #FAFAFA; font-size: 13px; font-family: 'Geist', sans-serif; outline: none;" style-focus="border-color: #6366F1;">
+              <button onClick="{{ onWaitlistSubmit }}" style="height: 38px; padding: 0 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; color: #FFFFFF; background: linear-gradient(135deg, #6366F1, #8B5CF6); cursor: pointer; font-family: 'Geist', sans-serif;" style-hover="filter: brightness(1.1);">Get notified</button>
+            </div>
+            <span style="font-size: 11.5px; color: #7C7C84;">Be first to plug your agents in when the API &amp; MCP server go live.</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ waitlistDone }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: center; gap: 8px; border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; background: rgba(16, 185, 129, 0.08); padding: 10px 14px; font-size: 13px; color: #10B981;">
+            <span style="width: 6px; height: 6px; border-radius: 9999px; background: #10B981;"></span>
+            You're on the list — we'll email you at launch.
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- Whitepaper -->
+      <div data-reveal="1" style="display: flex; flex-direction: column; gap: 12px; border: 1px solid #28282E; border-radius: 14px; background: #111114; padding: 26px; opacity: 0.75;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; color: #A855F7;">paper/</span>
+          <sc-if value="{{ showSoonBadges }}" hint-placeholder-val="{{ true }}"><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #7C7C84; border: 1px solid #28282E; border-radius: 9999px; padding: 2px 8px;">Soon</span></sc-if>
+        </div>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Whitepaper</h3>
+        <p style="margin: 0; flex: 1; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">The full protocol design: the standardized ontology, $TRUST curation economics, and the road to a verifiable agentic data layer.</p>
+        <span style="font-size: 13px; font-weight: 600; color: #7C7C84;">Available at launch</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── VISION ──────────────────────────────────────────────── -->
+  <section id="vision" data-screen-label="Vision" style="position: relative; z-index: 10; max-width: 1120px; margin: 0 auto; padding: 64px 24px;">
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 36px;">
+      <p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #A6A7AE;">Where this is going</p>
+      <h2 style="margin: 0; font-size: 32px; font-weight: 600; letter-spacing: -0.015em;">From data layer to agent economy.</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+      <div data-reveal="1" style="border-top: 1px solid #3A3A42; padding: 24px 4px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; color: #6366F1;">01</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #10B981;">Now</span>
+        </div>
+        <h3 style="margin: 0; font-size: 17px; font-weight: 600;">Structure</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">300 tokens with complete, sourced tokenomics — one standardized ontology across supply, allocations, vesting and emissions.</p>
+      </div>
+      <div data-reveal="1" style="border-top: 1px solid #3A3A42; padding: 24px 4px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; color: #6366F1;">02</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #F59E0B;">Next</span>
+        </div>
+        <h3 style="margin: 0; font-size: 17px; font-weight: 600;">Curate</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">Every claim published on Intuition and weighted by $TRUST staking — the community puts skin in the game on what's true.</p>
+      </div>
+      <div data-reveal="1" style="border-top: 1px solid #3A3A42; padding: 24px 4px 0;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <span style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; color: #6366F1;">03</span>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #7C7C84;">Ahead</span>
+        </div>
+        <h3 style="margin: 0; font-size: 17px; font-weight: 600;">Serve</h3>
+        <p style="margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: #A6A7AE;">AI agents, risk desks and protocols consume verified claims over MCP and API — trust as infrastructure, not a promise.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMMUNITY BAND ──────────────────────────────────────── -->
+  <section data-screen-label="Community" style="position: relative; z-index: 10; max-width: 1120px; margin: 0 auto; padding: 32px 24px 72px;">
+    <div data-reveal="1" style="position: relative; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 16px; background: #111114; padding: 48px 32px; text-align: center; overflow: hidden;">
+      <div style="position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 600px; height: 300px; border-radius: 9999px; background: linear-gradient(135deg, #6366F1, #8B5CF6); opacity: 0.12; filter: blur(60px); pointer-events: none;"></div>
+      <h2 style="position: relative; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.015em;">Built in the open. Curated by $TRUST.</h2>
+      <p style="position: relative; margin: 12px auto 0; max-width: 480px; font-size: 15px; line-height: 1.5; color: #A6A7AE;">Every contribution makes the graph more complete — and more valuable to everyone who queries it.</p>
+      <div style="position: relative; display: flex; justify-content: center; gap: 12px; margin-top: 28px;">
+        <a href="/login?intent=contribute" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 22px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #FFFFFF; background: linear-gradient(135deg, #6366F1, #8B5CF6);" style-hover="filter: brightness(1.1);">Contribute a token →</a>
+        <span style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 22px; border: 1px solid #28282E; border-radius: 10px; font-size: 14px; font-weight: 600; color: #55565E; background: rgba(10,10,12,0.6); cursor: default;">Join the community <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ──────────────────────────────────────────────── -->
+  <footer data-screen-label="Footer" style="position: relative; z-index: 10; border-top: 1px solid #28282E;">
+    <div style="max-width: 1120px; margin: 0 auto; padding: 48px 24px 32px; display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; gap: 28px;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+            <defs><linearGradient id="tnGradF" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs>
+            <circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#tnGradF)" stroke-width="2.8"></circle>
+            <circle cx="16" cy="16" r="3.4" fill="url(#tnGradF)"></circle>
+            <circle cx="24.6" cy="9.6" r="2.8" fill="#0A0A0C" stroke="url(#tnGradF)" stroke-width="2.4"></circle>
+          </svg>
+          <span style="font-size: 14px; font-weight: 600;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span>
+        </span>
+        <p style="margin: 0; max-width: 260px; font-size: 12.5px; line-height: 1.55; color: #7C7C84;">The verifiable tokenomics data layer for the agentic era. Built on Intuition Protocol.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #7C7C84;">Product</span>
+        <a href="/dashboard">Launch app</a>
+        <a href="/login?intent=view">Explore the graph</a>
+        <a href="/data-room">Data Room</a>
+        <a href="/tokens/new">Contribute</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #7C7C84;">Developers</span>
+        <a href="#developers">MCP server — waitlist</a>
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">Documentation <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #7C7C84;">Resources</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">Whitepaper <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+        <a href="#vision">Vision &amp; roadmap</a>
+        <a href="https://intuition.systems">Intuition Protocol</a>
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">Blog <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #7C7C84;">Community</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">Discord <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">X / Twitter <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; color: #55565E; cursor: default;">LinkedIn <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.08em; border: 1px solid #28282E; border-radius: 9999px; padding: 1px 6px; color: #7C7C84;">SOON</span></span>
+      </div>
+    </div>
+    <div style="max-width: 1120px; margin: 0 auto; padding: 0 24px 32px; display: flex; justify-content: space-between; font-size: 12px; color: #7C7C84;">
+      <span>© 2026 TrustNomiks</span>
+      <span>The verifiable tokenomics data layer for the agentic era.</span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tokensStructured&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 128, &quot;min&quot;: 0, &quot;max&quot;: 300, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Data&quot;}, &quot;showSoonBadges&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Ecosystem&quot;}}">
+class Component extends DCLogic {
+  state = { count: 0, waitlistEmail: '', waitlistDone: false };
+
+  get _target() {
+    return this.props.tokensStructured ?? 128;
+  }
+
+  _ensureRef() {
+    if (!this._canvasRef) {
+      this._canvasRef = (el) => {
+        this._canvas = el;
+        if (el) this._startGraph(el);
+      };
+    }
+    return this._canvasRef;
+  }
+
+  componentDidMount() {
+    this._boot();
+  }
+
+  _boot() {
+    if (this._started) return;
+    this._started = true;
+    // count-up (1600ms ease-out)
+    const t0 = performance.now();
+    const dur = 1600;
+    const tick = (now) => {
+      const p = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      this.setState({ count: Math.round(eased * this._target) });
+      if (p < 1) this._countRaf = requestAnimationFrame(tick);
+    };
+    this._countRaf = requestAnimationFrame(tick);
+    // locate the canvas by attribute (poll — ref callback may fire earlier or not at all)
+    const findCanvas = () => {
+      if (this._canvas && this._raf) return;
+      const el = this._canvas || document.querySelector('canvas[data-tn-graph]');
+      if (el) {
+        this._canvas = el;
+        this._startGraph(el);
+      } else {
+        this._pollTimer = setTimeout(findCanvas, 120);
+      }
+    };
+    findCanvas();
+    // scroll reveals (staggered per section)
+    setTimeout(() => this._setupReveals(), 60);
+  }
+
+  _setupReveals() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+    // hero intro — staggered fade-up on load (WAAPI: survives React re-renders)
+    Array.from(document.querySelectorAll('[data-intro]')).forEach((el, i) => {
+      el.animate(
+        [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'translateY(0px)' }],
+        { duration: 700, easing: EASE, delay: 90 * i, fill: 'backwards' }
+      );
+    });
+    // scroll reveals — paused WAAPI animations played on intersect
+    const els = Array.from(document.querySelectorAll('[data-reveal]'));
+    if (!els.length) return;
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        io.unobserve(en.target);
+        if (en.target.__revealAnim) en.target.__revealAnim.play();
+      });
+    }, { threshold: 0.12 });
+    els.forEach((el) => {
+      const sibs = Array.from(el.parentElement.querySelectorAll(':scope > [data-reveal]'));
+      const idx = Math.max(0, sibs.indexOf(el));
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.85) return; // already visible on load
+      const finalOpacity = getComputedStyle(el).opacity || '1';
+      const anim = el.animate(
+        [{ opacity: 0, transform: 'translateY(22px)' }, { opacity: finalOpacity, transform: 'translateY(0px)' }],
+        { duration: 650, easing: EASE, delay: idx * 100, fill: 'both' }
+      );
+      anim.pause();
+      el.__revealAnim = anim;
+      io.observe(el);
+    });
+    this._io = io;
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this._raf);
+    cancelAnimationFrame(this._countRaf);
+    clearTimeout(this._pollTimer);
+  }
+
+  _startGraph(canvas) {
+    cancelAnimationFrame(this._raf);
+    const ctx = canvas.getContext('2d');
+    const TOKENS = ['ARB', 'OP', 'UNI', 'AAVE', 'LDO', 'JUP', 'TIA', 'ENA', 'EIGEN'];
+    // taxonomy satellite colors: allocation, vesting, emission, source(square), risk, chain, sector
+    const SATS = [
+      { c: '#F59E0B', shape: 'circle' },
+      { c: '#10B981', shape: 'circle' },
+      { c: '#EF4444', shape: 'circle' },
+      { c: '#3B82F6', shape: 'square' },
+      { c: '#F97316', shape: 'circle' },
+      { c: '#0EA5E9', shape: 'circle' },
+      { c: '#A855F7', shape: 'circle' },
+    ];
+    const rand = (seed) => {
+      let s = seed;
+      return () => {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    };
+    const r = rand(42);
+    // build node model
+    const nodes = [];
+    const edges = [];
+    const hub = { x: 0.5, y: 0.5, r: 13, kind: 'hub', phase: 0 };
+    nodes.push(hub);
+    TOKENS.forEach((label, i) => {
+      const a = (i / TOKENS.length) * Math.PI * 2 - Math.PI / 2 + (r() - 0.5) * 0.35;
+      const dist = 0.30 + r() * 0.07;
+      const t = {
+        x: 0.5 + Math.cos(a) * dist * 0.92,
+        y: 0.5 + Math.sin(a) * dist,
+        r: 6.5, kind: 'token', label, phase: r() * Math.PI * 2,
+      };
+      nodes.push(t);
+      edges.push([hub, t]);
+      const nSat = 2 + (i % 2);
+      for (let c = 0; c < nSat; c++) {
+        const sa = a + (c - (nSat - 1) / 2) * 0.55 + (r() - 0.5) * 0.25;
+        const sd = dist + 0.10 + r() * 0.05;
+        const sat = SATS[(i + c) % SATS.length];
+        const s = {
+          x: 0.5 + Math.cos(sa) * sd * 0.92,
+          y: 0.5 + Math.sin(sa) * sd,
+          r: 3.6, kind: 'sat', color: sat.c, shape: sat.shape, phase: r() * Math.PI * 2,
+        };
+        nodes.push(s);
+        edges.push([t, s]);
+      }
+    });
+    // traveling particles (particle-salvo)
+    let particles = [];
+    let lastSalvo = 0;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const draw = (now) => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) { this._raf = requestAnimationFrame(draw); return; }
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr; canvas.height = h * dpr;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const t = reduced ? 0 : now / 1000;
+      const px = (n) => ({
+        x: n.x * w + Math.sin(t * 0.6 + n.phase) * 2.4,
+        y: n.y * h + Math.cos(t * 0.5 + n.phase * 1.3) * 2.4,
+      });
+      // edges
+      ctx.strokeStyle = 'rgba(120, 120, 132, 0.22)';
+      ctx.lineWidth = 1;
+      edges.forEach(([a, b]) => {
+        const pa = px(a), pb = px(b);
+        ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      });
+      // salvo particles
+      if (!reduced) {
+        if (now - lastSalvo > 1400 && particles.length < 4) {
+          lastSalvo = now;
+          particles.push({ edge: edges[Math.floor(Math.random() * edges.length)], t0: now });
+        }
+        particles = particles.filter((p) => now - p.t0 < 1200);
+        particles.forEach((p) => {
+          const k = (now - p.t0) / 1200;
+          const pa = px(p.edge[0]), pb = px(p.edge[1]);
+          const x = pa.x + (pb.x - pa.x) * k, y = pa.y + (pb.y - pa.y) * k;
+          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(139, 92, 246, ' + (1 - k) * 0.9 + ')';
+          ctx.fill();
+        });
+      }
+      // nodes
+      nodes.forEach((n) => {
+        const p = px(n);
+        if (n.kind === 'hub') {
+          const g = ctx.createLinearGradient(p.x - 14, p.y + 14, p.x + 14, p.y - 14);
+          g.addColorStop(0, '#6366F1'); g.addColorStop(1, '#8B5CF6');
+          ctx.save();
+          ctx.shadowColor = 'rgba(99, 102, 241, 0.8)'; ctx.shadowBlur = 22;
+          ctx.beginPath(); ctx.arc(p.x, p.y, n.r, 0, Math.PI * 2);
+          ctx.strokeStyle = g; ctx.lineWidth = 4; ctx.stroke();
+          ctx.beginPath(); ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
+          ctx.fillStyle = g; ctx.fill();
+          ctx.restore();
+        } else if (n.kind === 'token') {
+          ctx.save();
+          ctx.shadowColor = 'rgba(139, 92, 246, 0.7)'; ctx.shadowBlur = 12;
+          ctx.beginPath(); ctx.arc(p.x, p.y, n.r, 0, Math.PI * 2);
+          ctx.fillStyle = '#8B5CF6'; ctx.fill();
+          ctx.restore();
+          ctx.font = '500 10px ui-monospace, Menlo, monospace';
+          ctx.fillStyle = '#7C7C84';
+          ctx.textAlign = 'center';
+          ctx.fillText(n.label, p.x, p.y + n.r + 14);
+        } else {
+          ctx.save();
+          ctx.shadowColor = n.color; ctx.shadowBlur = 8;
+          ctx.fillStyle = n.color;
+          if (n.shape === 'square') {
+            ctx.fillRect(p.x - n.r, p.y - n.r, n.r * 2, n.r * 2);
+          } else {
+            ctx.beginPath(); ctx.arc(p.x, p.y, n.r, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+      });
+      this._raf = requestAnimationFrame(draw);
+    };
+    this._raf = requestAnimationFrame(draw);
+  }
+
+  renderVals() {
+    // bootstrap from here too — renderVals is guaranteed to run
+    if (!this._started) setTimeout(() => this._boot(), 0);
+    const target = this._target;
+    const showSoonBadges = this.props.showSoonBadges ?? true;
+    return {
+      count: this.state.count,
+      progressWidth: ((this.state.count / 300) * 100).toFixed(1) + '%',
+      canvasRef: this._ensureRef(),
+      showSoonBadges,
+      waitlistEmail: this.state.waitlistEmail,
+      waitlistOpen: !this.state.waitlistDone,
+      waitlistDone: this.state.waitlistDone,
+      onWaitlistChange: (e) => this.setState({ waitlistEmail: e.target.value }),
+      onWaitlistSubmit: () => {
+        const email = this.state.waitlistEmail.trim();
+        if (/^\S+@\S+\.\S+$/.test(email)) {
+          // TODO (Claude Code): insert into Supabase `waitlist` table (anon insert-only RLS)
+          this.setState({ waitlistDone: true });
+        }
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

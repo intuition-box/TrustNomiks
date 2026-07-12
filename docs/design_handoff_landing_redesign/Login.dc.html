@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face { font-family: 'Geist'; src: url('assets/Geist-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Geist'; src: url('assets/Geist-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+html, body { margin: 0; padding: 0; background: #0A0A0C; color: #FAFAFA; font-family: 'Geist', -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: #8B8CF5; text-decoration: none; }
+a:hover { color: #FAFAFA; }
+input::placeholder { color: #7C7C84; }
+</style>
+</helmet>
+
+<div style="display: flex; min-height: 100vh; background: #0A0A0C;">
+
+  <!-- ── AUTH PANEL ─────────────────────────────────────────── -->
+  <div data-screen-label="Auth panel" style="display: flex; flex-direction: column; justify-content: center; width: 480px; flex-shrink: 0; padding: 40px; background: #111114; border-right: 1px solid #28282E; box-sizing: border-box;">
+    <div style="width: 100%; max-width: 384px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px;">
+
+      <span style="display: inline-flex; align-items: center; gap: 8px;">
+        <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+          <defs><linearGradient id="tnGradL" x1="0" y1="32" x2="32" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6366F1"></stop><stop offset="1" stop-color="#8B5CF6"></stop></linearGradient></defs>
+          <circle cx="16" cy="16" r="10.5" fill="none" stroke="url(#tnGradL)" stroke-width="2.8"></circle>
+          <circle cx="16" cy="16" r="3.4" fill="url(#tnGradL)"></circle>
+          <circle cx="24.6" cy="9.6" r="2.8" fill="#111114" stroke="url(#tnGradL)" stroke-width="2.4"></circle>
+        </svg>
+        <span style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em; line-height: 1;"><span style="color: #6366F1;">Trust</span><span style="background: linear-gradient(135deg, #6366F1, #8B5CF6); -webkit-background-clip: text; background-clip: text; color: transparent;">Nomiks</span></span>
+      </span>
+
+      <!-- pending confirmation state -->
+      <sc-if value="{{ isPending }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.015em;">Check your inbox</h1>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #A6A7AE;">We sent a confirmation link to <span style="font-weight: 600; color: #FAFAFA;">{{ pendingEmail }}</span>. Click it to activate your account.</p>
+          </div>
+          <button onClick="{{ onResend }}" style="height: 40px; width: 100%; border: 1px solid #2E2E36; border-radius: 6px; background: #0A0A0C; color: #FAFAFA; font-size: 14px; font-weight: 500; font-family: 'Geist', sans-serif; cursor: pointer;" style-hover="background: #202024;">{{ resendLabel }}</button>
+          <button onClick="{{ onBackToLogin }}" style="border: none; background: none; padding: 0; text-align: left; font-size: 14px; font-weight: 500; color: #6366F1; cursor: pointer; font-family: 'Geist', sans-serif;" style-hover="text-decoration: underline;">Back to login</button>
+        </div>
+      </sc-if>
+
+      <!-- auth form -->
+      <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 32px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.015em;">{{ heading }}</h1>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #A6A7AE;">{{ subtext }}</p>
+          </div>
+
+          <!-- mode switch -->
+          <div role="tablist" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-radius: 8px; background: #18181C; padding: 4px;">
+            <button role="tab" onClick="{{ onModeLogin }}" style="border: none; border-radius: 6px; padding: 6px 12px; font-size: 14px; font-weight: 500; font-family: 'Geist', sans-serif; cursor: pointer; transition: color 150ms, background 150ms; background: {{ loginTabBg }}; color: {{ loginTabColor }}; box-shadow: {{ loginTabShadow }};">Log in</button>
+            <button role="tab" onClick="{{ onModeSignup }}" style="border: none; border-radius: 6px; padding: 6px 12px; font-size: 14px; font-weight: 500; font-family: 'Geist', sans-serif; cursor: pointer; transition: color 150ms, background 150ms; background: {{ signupTabBg }}; color: {{ signupTabColor }}; box-shadow: {{ signupTabShadow }};">Create account</button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <sc-if value="{{ error }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="border: 1px solid rgba(220, 56, 56, 0.25); border-radius: 6px; background: rgba(220, 56, 56, 0.1); padding: 12px; font-size: 14px; color: #E25555;">{{ error }}</div>
+            </sc-if>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label for="tn-email" style="font-size: 14px; font-weight: 500;">Email</label>
+              <input id="tn-email" type="email" placeholder="you@example.com" value="{{ email }}" onChange="{{ onEmail }}" style="height: 36px; padding: 0 12px; border: 1px solid #2E2E36; border-radius: 6px; background: transparent; color: #FAFAFA; font-size: 14px; font-family: 'Geist', sans-serif; outline: none; width: 100%; box-sizing: border-box;" style-focus="border-color: #6366F1;">
+              <sc-if value="{{ emailError }}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 12px; color: #E25555;">{{ emailError }}</p></sc-if>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <label for="tn-password" style="font-size: 14px; font-weight: 500;">Password</label>
+              <input id="tn-password" type="password" placeholder="••••••••" value="{{ password }}" onChange="{{ onPassword }}" style="height: 36px; padding: 0 12px; border: 1px solid #2E2E36; border-radius: 6px; background: transparent; color: #FAFAFA; font-size: 14px; font-family: 'Geist', sans-serif; outline: none; width: 100%; box-sizing: border-box;" style-focus="border-color: #6366F1;">
+              <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+                <p style="margin: 0; font-size: 12px; color: {{ pwHintColor }};">{{ pwHint }}</p>
+              </sc-if>
+              <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; justify-content: flex-end;">
+                  <button onClick="{{ onForgot }}" style="border: none; background: none; padding: 0; font-size: 12px; font-weight: 500; color: #6366F1; cursor: pointer; font-family: 'Geist', sans-serif;" style-hover="text-decoration: underline;">{{ forgotLabel }}</button>
+                </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ forgotSent }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; background: rgba(16, 185, 129, 0.1); padding: 12px; font-size: 14px; color: #10B981;">Check your inbox for a reset link.</div>
+            </sc-if>
+
+            <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label for="tn-confirm" style="font-size: 14px; font-weight: 500;">Confirm password</label>
+                <input id="tn-confirm" type="password" placeholder="••••••••" value="{{ confirmPassword }}" onChange="{{ onConfirm }}" style="height: 36px; padding: 0 12px; border: 1px solid #2E2E36; border-radius: 6px; background: transparent; color: #FAFAFA; font-size: 14px; font-family: 'Geist', sans-serif; outline: none; width: 100%; box-sizing: border-box;" style-focus="border-color: #6366F1;">
+                <sc-if value="{{ confirmError }}" hint-placeholder-val="{{ false }}"><p style="margin: 0; font-size: 12px; color: #E25555;">{{ confirmError }}</p></sc-if>
+              </div>
+            </sc-if>
+
+            <button onClick="{{ onSubmit }}" style="height: 40px; width: 100%; border: none; border-radius: 6px; background: linear-gradient(135deg, #6366F1, #8B5CF6); color: #FFFFFF; font-size: 14px; font-weight: 500; font-family: 'Geist', sans-serif; cursor: pointer; transition: filter 150ms; opacity: {{ submitOpacity }};" style-hover="filter: brightness(1.1);">{{ submitLabel }}</button>
+          </div>
+
+          <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #A6A7AE;">No wallet needed here. Connect one only when you publish on-chain.</p>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- ── THE GRAPH GREETS YOU ───────────────────────────────── -->
+  <div data-screen-label="Ambient panel" aria-hidden="true" style="position: relative; flex: 1; overflow: hidden;">
+    <div style="position: absolute; inset: 0; background-image: url('assets/login-atmosphere.jpg'); background-size: cover; background-position: center; opacity: 0.9;"></div>
+    <div style="position: absolute; inset: 0; background: linear-gradient(to right, #0A0A0C, transparent 40%);"></div>
+    <canvas data-tn-ambient="1" style="position: absolute; inset: 0; width: 100%; height: 100%;"></canvas>
+    <div style="position: absolute; bottom: 48px; left: 48px; max-width: 448px; display: flex; flex-direction: column; gap: 16px;">
+      <p style="margin: 0; font-size: 18px; font-weight: 500; color: #FAFAFA;">Structure, verify and publish tokenomics as a living graph.</p>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; font-size: 14px; color: #A6A7AE;">
+        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 9999px; background: #8B5CF6;"></span> Tokens</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; background: #94A3B8; transform: rotate(45deg);"></span> Claims</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 11px; height: 11px; background: #3B82F6;"></span> Sources</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;intent&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;view&quot;, &quot;contribute&quot;, &quot;none&quot;], &quot;default&quot;: &quot;view&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Contexte&quot;}, &quot;startMode&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;login&quot;, &quot;signup&quot;], &quot;default&quot;: &quot;signup&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Contexte&quot;}}">
+class Component extends DCLogic {
+  state = {
+    mode: 'login', modeTouched: false,
+    email: '', password: '', confirmPassword: '',
+    error: '', emailError: '', confirmError: '',
+    loading: false, pendingEmail: null,
+    resendStatus: 'idle', forgotStatus: 'idle',
+  };
+
+  get _mode() {
+    if (this.state.modeTouched) return this.state.mode;
+    const start = this.props.startMode ?? (this.props.intent && this.props.intent !== 'none' ? 'signup' : 'login');
+    return start;
+  }
+
+  _startAmbient(canvas) {
+    cancelAnimationFrame(this._raf);
+    const ctx = canvas.getContext('2d');
+    const SATS = ['#F59E0B', '#10B981', '#EF4444', '#3B82F6', '#F97316', '#0EA5E9', '#A855F7'];
+    const rand = (seed) => { let s = seed; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
+    const r = rand(7);
+    const nodes = []; const edges = [];
+    const hub = { x: 0.58, y: 0.42, r: 11, kind: 'hub', phase: 0 };
+    nodes.push(hub);
+    for (let t = 0; t < 14; t++) {
+      const a = (t / 14) * Math.PI * 2 + (r() - 0.5) * 0.4;
+      const d = 0.22 + r() * 0.14;
+      const tok = { x: 0.58 + Math.cos(a) * d * 0.85, y: 0.42 + Math.sin(a) * d, r: 5, kind: 'token', phase: r() * 6.28 };
+      nodes.push(tok); edges.push([hub, tok]);
+      const n = 1 + (t % 2);
+      for (let c = 0; c < n; c++) {
+        const sa = a + (c - 0.5) * 0.5 + (r() - 0.5) * 0.3;
+        const sd = d + 0.08 + r() * 0.05;
+        const s = { x: 0.58 + Math.cos(sa) * sd * 0.85, y: 0.42 + Math.sin(sa) * sd, r: 2.8, kind: 'sat', color: SATS[(t + c) % SATS.length], phase: r() * 6.28 };
+        nodes.push(s); edges.push([tok, s]);
+      }
+    }
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const draw = (now) => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h) { this._raf = requestAnimationFrame(draw); return; }
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      const t = reduced ? 0 : now / 1000;
+      const px = (n) => ({ x: n.x * w + Math.sin(t * 0.5 + n.phase) * 3, y: n.y * h + Math.cos(t * 0.4 + n.phase * 1.3) * 3 });
+      ctx.strokeStyle = 'rgba(120, 120, 132, 0.18)'; ctx.lineWidth = 1;
+      edges.forEach(([a, b]) => { const pa = px(a), pb = px(b); ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke(); });
+      nodes.forEach((n) => {
+        const p = px(n);
+        ctx.save();
+        if (n.kind === 'hub') {
+          const g = ctx.createLinearGradient(p.x - 12, p.y + 12, p.x + 12, p.y - 12);
+          g.addColorStop(0, '#6366F1'); g.addColorStop(1, '#8B5CF6');
+          ctx.shadowColor = 'rgba(99,102,241,0.7)'; ctx.shadowBlur = 18;
+          ctx.beginPath(); ctx.arc(p.x, p.y, n.r, 0, 6.29); ctx.strokeStyle = g; ctx.lineWidth = 3.5; ctx.stroke();
+          ctx.beginPath(); ctx.arc(p.x, p.y, 3.6, 0, 6.29); ctx.fillStyle = g; ctx.fill();
+        } else if (n.kind === 'token') {
+          ctx.shadowColor = 'rgba(139,92,246,0.55)'; ctx.shadowBlur = 10;
+          ctx.beginPath(); ctx.arc(p.x, p.y, n.r, 0, 6.29); ctx.fillStyle = 'rgba(139,92,246,0.85)'; ctx.fill();
+        } else {
+          ctx.shadowColor = n.color; ctx.shadowBlur = 6;
+          ctx.beginPath(); ctx.arc(p.x, p.y, n.r, 0, 6.29); ctx.fillStyle = n.color; ctx.globalAlpha = 0.8; ctx.fill();
+        }
+        ctx.restore();
+      });
+      this._raf = requestAnimationFrame(draw);
+    };
+    this._raf = requestAnimationFrame(draw);
+  }
+
+  _boot() {
+    if (this._started) return;
+    this._started = true;
+    const find = () => {
+      const el = document.querySelector('canvas[data-tn-ambient]');
+      if (el) this._startAmbient(el);
+      else this._pollTimer = setTimeout(find, 120);
+    };
+    find();
+  }
+
+  componentDidMount() { this._boot(); }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); clearTimeout(this._pollTimer); }
+
+  _validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+
+  renderVals() {
+    if (!this._started) setTimeout(() => this._boot(), 0);
+    const mode = this._mode;
+    const isLogin = mode === 'login';
+    const isSignup = mode === 'signup';
+    const intent = this.props.intent ?? 'view';
+    const INTENT_COPY = {
+      view: { heading: 'Explore the graph', subtext: 'Create a free account to browse and compare tokenomics.' },
+      contribute: { heading: 'Contribute a token', subtext: 'Create an account to structure and publish tokenomics data.' },
+      none: { heading: 'Join the graph', subtext: 'Create an account to start structuring tokenomics data.' },
+    };
+    const ic = INTENT_COPY[intent] || INTENT_COPY.none;
+    const pwLong = this.state.password.length >= 8;
+    const switchMode = (next) => this.setState({ mode: next, modeTouched: true, error: '', emailError: '', confirmError: '', confirmPassword: '', forgotStatus: 'idle' });
+    return {
+      isPending: Boolean(this.state.pendingEmail),
+      isForm: !this.state.pendingEmail,
+      pendingEmail: this.state.pendingEmail,
+      heading: isLogin ? 'Welcome back' : ic.heading,
+      subtext: isLogin ? 'Log in to keep structuring and exploring tokenomics.' : ic.subtext,
+      isLogin, isSignup,
+      loginTabBg: isLogin ? '#202024' : 'transparent',
+      loginTabColor: isLogin ? '#FAFAFA' : '#A6A7AE',
+      loginTabShadow: isLogin ? '0 1px 2px rgba(0,0,0,0.4)' : 'none',
+      signupTabBg: isSignup ? '#202024' : 'transparent',
+      signupTabColor: isSignup ? '#FAFAFA' : '#A6A7AE',
+      signupTabShadow: isSignup ? '0 1px 2px rgba(0,0,0,0.4)' : 'none',
+      email: this.state.email,
+      password: this.state.password,
+      confirmPassword: this.state.confirmPassword,
+      error: this.state.error,
+      emailError: this.state.emailError,
+      confirmError: this.state.confirmError,
+      pwHint: pwLong ? '✓ 8+ characters' : '8+ characters',
+      pwHintColor: this.state.password.length === 0 ? '#A6A7AE' : (pwLong ? '#10B981' : '#F59E0B'),
+      forgotSent: isLogin && this.state.forgotStatus === 'sent',
+      forgotLabel: this.state.forgotStatus === 'sending' ? 'Sending…' : 'Forgot password?',
+      resendLabel: this.state.resendStatus === 'sending' ? 'Sending…' : 'Resend email',
+      submitOpacity: this.state.loading ? 0.5 : 1,
+      submitLabel: this.state.loading
+        ? (isLogin ? 'Logging in…' : 'Creating your account…')
+        : (isLogin ? 'Log in' : 'Create account'),
+      onEmail: (e) => this.setState({ email: e.target.value, emailError: '' }),
+      onPassword: (e) => this.setState({ password: e.target.value }),
+      onConfirm: (e) => this.setState({ confirmPassword: e.target.value, confirmError: '' }),
+      onModeLogin: () => switchMode('login'),
+      onModeSignup: () => switchMode('signup'),
+      onForgot: () => {
+        if (!this.state.email || !this._validEmail(this.state.email)) {
+          this.setState({ error: 'Enter your email above first, then try again.' });
+          return;
+        }
+        this.setState({ forgotStatus: 'sending', error: '' });
+        setTimeout(() => this.setState({ forgotStatus: 'sent' }), 800);
+      },
+      onResend: () => {
+        this.setState({ resendStatus: 'sending' });
+        setTimeout(() => this.setState({ resendStatus: 'idle' }), 900);
+      },
+      onBackToLogin: () => this.setState({ pendingEmail: null, resendStatus: 'idle', mode: 'login', modeTouched: true, error: '' }),
+      onSubmit: () => {
+        const { email, password, confirmPassword } = this.state;
+        if (!email || !password) { this.setState({ error: 'Fill in your email and password first.' }); return; }
+        if (!this._validEmail(email)) { this.setState({ error: 'This does not look like an email address.' }); return; }
+        if (password.length < 8) { this.setState({ error: 'Your password needs at least 8 characters.' }); return; }
+        if (isSignup && password !== confirmPassword) { this.setState({ error: 'Passwords do not match yet.' }); return; }
+        this.setState({ error: '', loading: true });
+        // Mock: Supabase auth happens here in the real app
+        setTimeout(() => {
+          if (isSignup) this.setState({ loading: false, pendingEmail: email });
+          else this.setState({ loading: false, error: '' });
+        }, 900);
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
