@@ -7,7 +7,10 @@ test('landing page renders and shows the TrustNomiks brand', async ({
   await expect(
     page.getByRole('heading', { name: /the tokenomics/i }),
   ).toBeVisible()
-  await expect(page.getByText('TrustNomiks', { exact: true })).toBeVisible()
+  // The landing shows the brand lockup twice (top nav + footer): assert the nav one.
+  await expect(
+    page.getByRole('banner').getByText('TrustNomiks', { exact: true }),
+  ).toBeVisible()
 })
 
 test('login page renders with email and password inputs', async ({ page }) => {
