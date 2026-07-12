@@ -445,9 +445,12 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
       // (see pendingVestingSeedsRef in use-factory-form-state.ts). setValue
       // with shouldDirty so the seeded schedule persists on the next vesting
       // save; reset() alone would leave the form pristine and skippable.
+      // The ref is NOT consumed here: the allocation form stays dirty after a
+      // save, so any later Continue re-runs this reset from DB rows (still
+      // vesting-less) and would wipe a one-shot overlay. Seeds stay pending
+      // and re-overlay on every rebuild until the vesting save lands them.
       const vestingSeeds = pendingVestingSeedsRef.current
       if (vestingSeeds) {
-        pendingVestingSeedsRef.current = null
         for (const alloc of allocationsWithIds) {
           const seed = vestingSeeds[alloc.segment_type]
           if (!seed) continue
@@ -533,6 +536,9 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
       }
 
       setInitialUpdatedAt(newUpdatedAt)
+
+      // The seeded schedules are now persisted rows: stop re-overlaying them.
+      pendingVestingSeedsRef.current = null
 
       calculateCompletedSteps()
       if (!opts.silent) toast.success('Vesting schedules saved')
