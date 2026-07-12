@@ -145,13 +145,11 @@ export function EmissionStep() {
               {step5Form.watch('type') !== 'fixed_cap' && (
                 <div className="space-y-4 p-4 border rounded-lg">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">
-                      Inflation Schedule
-                    </FormLabel>
-                    <FormDescription>
+                    <p className="text-base font-medium">Inflation Schedule</p>
+                    <p className="text-sm text-muted-foreground">
                       Optional year-by-year rates. A year&apos;s rate applies
                       from that year on, overriding the flat annual rate above.
-                    </FormDescription>
+                    </p>
                   </div>
 
                   {inflationYearFields.map((field, index) => (
