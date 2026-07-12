@@ -10,13 +10,14 @@ interface LogoMarkProps {
 }
 
 /**
- * The TrustNomiks mark: two atoms joined by a claim edge, drawn on the brand
- * gradient (primary → secondary, theme-aware). SVG reconstruction of the
- * raster logo; `public/trustnomiks_logo_final.png` remains as the fallback
- * asset for contexts that need a bitmap.
+ * The TrustNomiks mark, "Orbit": hub + core (the graph root) with a data
+ * satellite in orbit, drawn on the brand gradient (primary → secondary,
+ * theme-aware). The orbit ring is masked out behind the satellite so the
+ * mark stays transparent and works on any surface (background, surface-1…).
  */
 export function LogoMark({ size = 28, className }: LogoMarkProps) {
   const gradId = useId()
+  const maskId = useId()
   return (
     <svg
       width={size}
@@ -38,29 +39,28 @@ export function LogoMark({ size = 28, className }: LogoMarkProps) {
           <stop offset="0" stopColor="hsl(var(--primary))" />
           <stop offset="1" stopColor="hsl(var(--secondary))" />
         </linearGradient>
+        <mask id={maskId} maskUnits="userSpaceOnUse">
+          <rect width="32" height="32" fill="white" />
+          <circle cx="24.6" cy="9.6" r="4" fill="black" />
+        </mask>
       </defs>
       <circle
-        cx="10"
-        cy="23.5"
-        r="4.4"
+        cx="16"
+        cy="16"
+        r="10.5"
         fill="none"
         stroke={`url(#${gradId})`}
-        strokeWidth="3.4"
+        strokeWidth="2.8"
+        mask={`url(#${maskId})`}
       />
-      <path
-        d="M10 19.1 C10 13.4 14.6 10.4 20.4 10.4"
-        fill="none"
-        stroke={`url(#${gradId})`}
-        strokeWidth="3.4"
-        strokeLinecap="round"
-      />
+      <circle cx="16" cy="16" r="3.4" fill={`url(#${gradId})`} />
       <circle
-        cx="24"
-        cy="10.4"
-        r="3.6"
+        cx="24.6"
+        cy="9.6"
+        r="2.8"
         fill="none"
         stroke={`url(#${gradId})`}
-        strokeWidth="3.2"
+        strokeWidth="2.4"
       />
     </svg>
   )

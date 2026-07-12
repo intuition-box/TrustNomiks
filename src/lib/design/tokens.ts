@@ -98,6 +98,14 @@ export function withAlpha(color: string, alpha: number): string {
   return color
 }
 
+/** Brand gradient stops (primary → secondary) for canvas gradients — the
+ *  canvas counterpart of `var(--gradient-brand)`. Theme-aware, hex fallback. */
+export function getBrandGradientStops(): [string, string] {
+  const p = readVar('--primary')
+  const s = readVar('--secondary')
+  return [p ? `hsl(${p})` : '#6366f1', s ? `hsl(${s})` : '#8b5cf6']
+}
+
 /** On-chain publication status → tone token. DOM inlines
  *  `hsl(var(STATUS_TONE_CSS_VAR[s]))`; canvas resolves via getStatusToneColor. */
 export const STATUS_TONE_CSS_VAR = {
