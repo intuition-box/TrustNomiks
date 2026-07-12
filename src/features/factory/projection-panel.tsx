@@ -30,6 +30,7 @@ import {
   type VestingTimelinePoint,
 } from '@/lib/tokenomics'
 import { useFactoryForm } from './factory-form-context'
+import { StressTestCard } from './stress-test-card'
 
 /** Series key for minted supply; suffixed to dodge a same-named segment. */
 const EMISSION_KEY = 'Emission (minted)'
@@ -49,6 +50,7 @@ const toPositive = (value: string): number | null => {
  */
 export function ProjectionPanel() {
   const {
+    projectId,
     allocations,
     step4Form,
     step5Form,
@@ -146,6 +148,19 @@ export function ProjectionPanel() {
         .map(({ key, segment_type }) => ({ label: key, segment_type })),
     [supply],
   )
+
+  // Fully resolved record (overrides + defaults) for the stress-test route:
+  // the server must see exactly the shares the sliders display.
+  const resolvedPctSoldByType = useMemo(() => {
+    const record: Record<string, number> = {}
+    for (const type of presentTypes) {
+      record[type] =
+        pctSoldByType[type] ??
+        DEFAULT_SELL_PRESSURE_PCT[type as SegmentType] ??
+        0
+    }
+    return record
+  }, [presentTypes, pctSoldByType])
 
   if (inputs.allocations.length === 0 || supply.maxSupply <= 0) {
     return (
@@ -361,6 +376,14 @@ export function ProjectionPanel() {
           height={240}
         />
       </div>
+
+      <StressTestCard
+        projectId={projectId}
+        refPriceUsd={scenario.refPriceUsd}
+        marketDepthUsd={scenario.marketDepthUsd}
+        pctSoldByType={resolvedPctSoldByType}
+        pctSoldEmission={pctSoldEmission}
+      />
     </section>
   )
 }
