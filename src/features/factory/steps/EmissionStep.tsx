@@ -1,6 +1,8 @@
 'use client'
 
+import { Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -36,7 +38,20 @@ export function EmissionStep() {
     onSubmitStep5,
     preventScrollChange,
     selectInputValue,
+    inflationYearFields,
+    appendInflationYear,
+    removeInflationYear,
   } = useFactoryForm()
+
+  const addInflationYear = () => {
+    const years = (step5Form.getValues('inflation_schedule') ?? [])
+      .map((row) => parseInt(row.year, 10))
+      .filter((year) => Number.isFinite(year) && year > 0)
+    appendInflationYear({
+      year: String(years.length > 0 ? Math.max(...years) + 1 : 1),
+      rate: '',
+    })
+  }
 
   return (
     <div
@@ -125,6 +140,88 @@ export function EmissionStep() {
                   </FormItem>
                 )}
               />
+
+              {/* Inflation Schedule (year-by-year overrides) */}
+              {step5Form.watch('type') !== 'fixed_cap' && (
+                <div className="space-y-4 p-4 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                      Inflation Schedule
+                    </FormLabel>
+                    <FormDescription>
+                      Optional year-by-year rates. A year&apos;s rate applies
+                      from that year on, overriding the flat annual rate above.
+                    </FormDescription>
+                  </div>
+
+                  {inflationYearFields.map((field, index) => (
+                    <div key={field.id} className="flex items-start gap-3">
+                      <FormField
+                        control={step5Form.control}
+                        name={`inflation_schedule.${index}.year`}
+                        render={({ field }) => (
+                          <FormItem className="w-28">
+                            <FormLabel>Year</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                step="1"
+                                placeholder="1"
+                                onWheel={preventScrollChange}
+                                onDoubleClick={selectInputValue}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={step5Form.control}
+                        name={`inflation_schedule.${index}.rate`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Annual Rate (%)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="e.g. 8"
+                                onWheel={preventScrollChange}
+                                onDoubleClick={selectInputValue}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="mt-7"
+                        aria-label={`Remove year ${index + 1}`}
+                        onClick={() => removeInflationYear(index)}
+                      >
+                        <X className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </div>
+                  ))}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addInflationYear}
+                    className="w-full"
+                  >
+                    <Plus className="mr-2 h-4 w-4" aria-hidden />
+                    Add year
+                  </Button>
+                </div>
+              )}
 
               {/* Burn Mechanism */}
               <div className="space-y-4 p-4 border rounded-lg">
