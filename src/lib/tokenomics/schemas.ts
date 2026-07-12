@@ -685,23 +685,53 @@ export const IMMEDIATE_SEGMENT_TYPES: SegmentType[] = [
 ]
 
 // Step 5: Emission Model
-export const emissionModelSchema = z.object({
-  type: z.string().min(1, 'Emission type is required'),
-  annual_inflation_rate: z.string().optional(),
-  inflation_schedule: z
-    .array(
-      z.object({
-        year: z.string().min(1, 'Year is required'),
-        rate: z.string().min(1, 'Rate is required'),
-      }),
-    )
-    .optional(),
-  has_burn: z.boolean().optional(),
-  burn_details: z.string().optional(),
-  has_buyback: z.boolean().optional(),
-  buyback_details: z.string().optional(),
-  notes: z.string().optional(),
-})
+export const emissionModelSchema = z
+  .object({
+    type: z.string().min(1, 'Emission type is required'),
+    annual_inflation_rate: z.string().optional(),
+    inflation_schedule: z
+      .array(
+        z.object({
+          year: z.string().min(1, 'Year is required'),
+          rate: z.string().min(1, 'Rate is required'),
+        }),
+      )
+      .optional(),
+    has_burn: z.boolean().optional(),
+    burn_details: z.string().optional(),
+    has_buyback: z.boolean().optional(),
+    buyback_details: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const seenYears = new Set<string>()
+    for (const [index, entry] of (data.inflation_schedule ?? []).entries()) {
+      const year = entry.year.trim()
+      if (!/^\d+$/.test(year) || parseInt(year, 10) < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Year must be a whole number of 1 or more',
+          path: ['inflation_schedule', index, 'year'],
+        })
+      } else if (seenYears.has(year)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Each year can only appear once',
+          path: ['inflation_schedule', index, 'year'],
+        })
+      } else {
+        seenYears.add(year)
+      }
+      const rate = parseFloat(entry.rate.replace(',', '.'))
+      if (Number.isNaN(rate) || rate < 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Rate must be a number of 0 or more',
+          path: ['inflation_schedule', index, 'rate'],
+        })
+      }
+    }
+  })
 
 export type EmissionModelFormData = z.infer<typeof emissionModelSchema>
 

@@ -57,6 +57,9 @@ import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
  *      allocations; emission with no type picked.
  * Stripped relative to the screener (do NOT re-add): sources/risk forms,
  * challenge pre-fill, CoinGecko autofill, claim attributions.
+ * Factory-only additions (assumed divergence, not screener drift): the
+ * step-5 inflation_schedule field array + its load hydration. The screener
+ * saves the same field but has no UI for it and its step-5 reset drops it.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -225,6 +228,15 @@ export function useFactoryFormState() {
       buyback_details: '',
       notes: '',
     },
+  })
+
+  const {
+    fields: inflationYearFields,
+    append: appendInflationYear,
+    remove: removeInflationYear,
+  } = useFieldArray({
+    control: step5Form.control,
+    name: 'inflation_schedule',
   })
 
   // Section 6 Form - Funding rounds (factory-only, optional, unscored)
@@ -438,6 +450,17 @@ export function useFactoryFormState() {
           type: emissionData.type,
           annual_inflation_rate:
             emissionData.annual_inflation_rate?.toString() || '',
+          inflation_schedule: Array.isArray(emissionData.inflation_schedule)
+            ? (
+                emissionData.inflation_schedule as Array<{
+                  year: number
+                  rate: number
+                }>
+              ).map((item) => ({
+                year: String(item.year),
+                rate: String(item.rate),
+              }))
+            : [],
           has_burn: emissionData.has_burn || false,
           burn_details: emissionData.burn_details || '',
           has_buyback: emissionData.has_buyback || false,
@@ -726,6 +749,9 @@ export function useFactoryFormState() {
     roundFields,
     appendRound,
     removeRound,
+    inflationYearFields,
+    appendInflationYear,
+    removeInflationYear,
 
     selectedCategory,
     selectedCategoryOption,
