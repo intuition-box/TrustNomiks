@@ -23,7 +23,11 @@ import {
   formatNumber,
 } from '@/lib/tokenomics'
 import { toast } from 'sonner'
-import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
+import {
+  FACTORY_SECTION_ORDER,
+  type FactoryFormSectionKey,
+  type FactorySectionKey,
+} from './sections'
 import {
   COMPLETION_STEP,
   type FactoryFormState,
@@ -851,7 +855,7 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
 
   // Latest-ref pattern: the watch subscription mounts once, but each save
   // closes over fresh state (initialUpdatedAt for the optimistic lock).
-  saveSectionRef.current = async (key: FactorySectionKey) => {
+  saveSectionRef.current = async (key: FactoryFormSectionKey) => {
     switch (key) {
       case 'identity':
         return onSubmitStep1(step1Form.getValues(), { silent: true })
@@ -872,6 +876,8 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
   autosaveActiveRef.current = async () => {
     const key = activeSectionRef.current
     if (!projectIdRef.current) return
+    // Projections is a derived view: nothing to persist, nothing dirty.
+    if (key === 'projections') return
     const form = sectionFormsRef.current[key]
     if (!form.formState.isDirty) {
       // A queued autosave can outlive its edits (a save that resets its own
@@ -983,6 +989,12 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
 
   /** Footer "Continue": persist the current section (surfacing errors), then advance. */
   const handleContinue = async () => {
+    if (activeSection === 'projections') {
+      // Derived view, nothing to persist (and, as the last section, the
+      // footer shows Finish here anyway).
+      if (nextSectionKey) goSection(nextSectionKey, { skipSave: true })
+      return
+    }
     const form = sectionFormsRef.current[activeSection]
     if (activeSection === 'identity' && !projectId) {
       const valid = await form.trigger()
@@ -1013,15 +1025,21 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     if (nextSectionKey) goSection(nextSectionKey, { skipSave: true })
   }
 
-  /** Footer "Finish and review": final save + completion moment. Funding is
-   * the last section; the sections before it were persisted by Continue and
-   * the leave-section autosave along the way. */
+  /** Footer "Finish and review": final save + completion moment. Projections
+   * (the last section) has nothing of its own to persist; every form section
+   * was flushed by Continue and the leave-section autosave along the way.
+   * Funding is still saved here when dirty, as the safety net for a direct
+   * spine jump that outran its debounced autosave. */
   const handleFinish = async () => {
     if (!projectId) return
-    const valid = await step6Form.trigger()
-    if (!valid) return
-    const ok = await enqueueSave(() => onSubmitStep6(step6Form.getValues(), {}))
-    if (!ok) return
+    if (step6Form.formState.isDirty) {
+      const valid = await step6Form.trigger()
+      if (!valid) return
+      const ok = await enqueueSave(() =>
+        onSubmitStep6(step6Form.getValues(), {}),
+      )
+      if (!ok) return
+    }
     const { totalScore } = scoreFromForms({
       vestingSaved: completedSteps.includes(4),
     })

@@ -35,7 +35,11 @@ import {
   type VestingSeed,
 } from '@/lib/tokenomics'
 import { toast } from 'sonner'
-import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
+import {
+  FACTORY_SECTION_ORDER,
+  type FactoryFormSectionKey,
+  type FactorySectionKey,
+} from './sections'
 
 /*
  * ── DRIFT LEDGER ─────────────────────────────────────────────────────────────
@@ -58,8 +62,10 @@ import { FACTORY_SECTION_ORDER, type FactorySectionKey } from './sections'
  * Stripped relative to the screener (do NOT re-add): sources/risk forms,
  * challenge pre-fill, CoinGecko autofill, claim attributions.
  * Factory-only additions (assumed divergence, not screener drift): the
- * step-5 inflation_schedule field array + its load hydration. The screener
- * saves the same field but has no UI for it and its step-5 reset drops it.
+ * step-5 inflation_schedule field array + its load hydration (the screener
+ * saves the same field but has no UI for it and its step-5 reset drops it),
+ * and the formless Projections section (a derived view; every save path
+ * guards on it via FactoryFormSectionKey).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -579,7 +585,9 @@ export function useFactoryFormState() {
   }, [isComplete])
 
   // ── Studio orchestration: shared refs used by use-factory-save-handlers ────
-  const sectionFormsRef = useRef<Record<FactorySectionKey, SectionForm>>({
+  // Keyed by the form-backed sections only: Projections is a derived view
+  // with nothing to persist.
+  const sectionFormsRef = useRef<Record<FactoryFormSectionKey, SectionForm>>({
     identity: step1Form,
     supply: step2Form,
     allocation: step3Form,
@@ -592,9 +600,9 @@ export function useFactoryFormState() {
   // closes over fresh state (initialUpdatedAt for the optimistic lock). The
   // real implementation is assigned in use-factory-save-handlers.ts, which is
   // the only place with access to onSubmitStep1..5.
-  const saveSectionRef = useRef<(key: FactorySectionKey) => Promise<boolean>>(
-    async () => false,
-  )
+  const saveSectionRef = useRef<
+    (key: FactoryFormSectionKey) => Promise<boolean>
+  >(async () => false)
 
   const allocationsRef = useRef(allocations)
   useEffect(() => {

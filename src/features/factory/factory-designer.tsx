@@ -35,6 +35,7 @@ import { AllocationStep } from './steps/AllocationStep'
 import { VestingStep } from './steps/VestingStep'
 import { EmissionStep } from './steps/EmissionStep'
 import { FundingStep } from './steps/FundingStep'
+import { ProjectionsStep } from './steps/ProjectionsStep'
 
 /** The Factory builder: same studio grammar as the screener form (spine ·
  *  active section · living graph), over the five tokenomics-core sections. */
@@ -143,6 +144,15 @@ export function FactoryDesigner() {
       accentVar: '--data-wallet',
       tier: 'enrich',
       live: _lw6rounds.length > 0 ? 1 : 0,
+      max: 0,
+      optional: true,
+    },
+    {
+      key: 'projections',
+      label: 'Projections',
+      accentVar: '--data-risk',
+      tier: 'enrich',
+      live: allocations.length > 0 ? 1 : 0,
       max: 0,
       optional: true,
     },
@@ -303,6 +313,7 @@ export function FactoryDesigner() {
           <VestingStep />
           <EmissionStep />
           <FundingStep />
+          <ProjectionsStep />
 
           {/* ── Studio footer: previous · autosave chip · continue / finish ───── */}
           <div className="glass sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-lg">

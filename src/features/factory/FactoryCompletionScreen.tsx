@@ -1,17 +1,24 @@
 'use client'
 
-import { ArrowRight, Plus, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, FlaskConical, Plus, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFactoryForm } from './factory-form-context'
-import { ProjectionPanel } from './projection-panel'
 
-/** Post-save "Design saved" screen, shown once the final section (Emission)
- *  is saved via Finish. A design is private, so there is no publish moment. */
+/** Post-save "Design saved" screen, shown once Finish is pressed on the
+ *  last section. A design is private, so there is no publish moment; the
+ *  projections and stress test live in the builder's Projections section. */
 export function FactoryCompletionScreen() {
-  const { router, projectId, finalScore, step1Form } = useFactoryForm()
+  const {
+    router,
+    projectId,
+    finalScore,
+    step1Form,
+    setCurrentStep,
+    goSection,
+  } = useFactoryForm()
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 pb-16 pt-8">
+    <div className="mx-auto max-w-2xl pb-16 pt-8">
       <div className="overflow-hidden rounded-xl border bg-surface-1">
         <div className="space-y-4 px-8 py-10 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
@@ -45,11 +52,23 @@ export function FactoryCompletionScreen() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+          <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
             {projectId && (
               <Button
                 variant="brand"
-                className="flex-1"
+                size="lg"
+                onClick={() => {
+                  setCurrentStep(1)
+                  goSection('projections', { skipSave: true })
+                }}
+              >
+                <FlaskConical className="h-4 w-4" aria-hidden />
+                View projections
+              </Button>
+            )}
+            {projectId && (
+              <Button
+                variant="outline"
                 size="lg"
                 onClick={() => router.push(`/factory/new?id=${projectId}`)}
               >
@@ -59,7 +78,6 @@ export function FactoryCompletionScreen() {
             )}
             <Button
               variant="outline"
-              className="flex-1"
               size="lg"
               onClick={() => router.push('/factory')}
             >
@@ -67,7 +85,6 @@ export function FactoryCompletionScreen() {
             </Button>
             <Button
               variant="outline"
-              className="flex-1"
               size="lg"
               onClick={() => router.push('/factory/new')}
             >
@@ -77,8 +94,6 @@ export function FactoryCompletionScreen() {
           </div>
         </div>
       </div>
-
-      <ProjectionPanel />
     </div>
   )
 }
