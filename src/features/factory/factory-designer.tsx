@@ -56,10 +56,8 @@ export function FactoryDesigner() {
     autosave,
     liveTokenName,
     liveTokenTicker,
-    liveChain,
     liveCategory,
     liveSector,
-    chainLabel,
     _lw3segs,
     _lw5type,
     _lw6rounds,
@@ -231,22 +229,12 @@ export function FactoryDesigner() {
                   </Badge>
                 )}
               </div>
-              {(liveChain || liveCategory) && (
+              {liveCategory && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {liveChain && chainLabel && (
-                    <Badge
-                      variant="outline"
-                      className="font-normal text-muted-foreground capitalize"
-                    >
-                      {chainLabel}
-                    </Badge>
-                  )}
-                  {liveCategory && (
-                    <span className="text-sm text-muted-foreground">
-                      {formatCategoryLabel(liveCategory)}
-                      {liveSector && ` · ${formatSectorLabel(liveSector)}`}
-                    </span>
-                  )}
+                  <span className="text-sm text-muted-foreground">
+                    {formatCategoryLabel(liveCategory)}
+                    {liveSector && ` · ${formatSectorLabel(liveSector)}`}
+                  </span>
                 </div>
               )}
             </>

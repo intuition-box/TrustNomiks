@@ -1,9 +1,7 @@
 'use client'
 
-import { format } from 'date-fns'
-import { CalendarIcon } from 'lucide-react'
+import { Rocket } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -15,18 +13,19 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Calendar } from '@/components/ui/calendar'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { FACTORY_CLUSTER_MAX, formatNumber } from '@/lib/tokenomics'
+  FACTORY_CLUSTER_MAX,
+  deriveTgeUnlock,
+  formatNumber,
+} from '@/lib/tokenomics'
 import { SectionHeader } from '@/features/studio/section-chrome'
 import { useFactoryForm } from '../factory-form-context'
 import { FactoryNotReadySection } from './factory-not-ready'
 
-/** Section 2: Supply — max/initial/TGE/circulating supply, source URL, notes. */
+/** Section 2: Supply — the ONE manual anchor of a design (max supply).
+ *  A designed token has no observed figures: what circulates at launch is
+ *  DERIVED from the allocation and vesting sections, never typed in (the
+ *  screener's manual supply fields describe a token that already exists). */
 export function SupplyStep() {
   const {
     projectId,
@@ -34,9 +33,15 @@ export function SupplyStep() {
     completedSteps,
     liveSupplyScore,
     step2Form,
+    step4Form,
     onSubmitStep2,
     selectInputValue,
+    _lw3segs,
   } = useFactoryForm()
+
+  const maxWatch = step2Form.watch('max_supply')
+  const schedulesWatch = step4Form.watch('schedules') || {}
+  const tgeUnlock = deriveTgeUnlock(_lw3segs, schedulesWatch, maxWatch || '')
 
   return (
     <div
@@ -50,7 +55,7 @@ export function SupplyStep() {
       <SectionHeader
         accentVar="--data-supply"
         label="Supply"
-        desc="· Token supply metrics"
+        desc="· The design's anchor"
         liveScore={liveSupplyScore}
         maxScore={FACTORY_CLUSTER_MAX.supply}
         saved={completedSteps.includes(2)}
@@ -67,7 +72,7 @@ export function SupplyStep() {
               onSubmit={step2Form.handleSubmit((data) => onSubmitStep2(data))}
               className="space-y-6"
             >
-              {/* Max Supply */}
+              {/* Max Supply: the one number every other section builds on */}
               <FormField
                 control={step2Form.control}
                 name="max_supply"
@@ -86,166 +91,43 @@ export function SupplyStep() {
                       />
                     </FormControl>
                     <FormDescription>
-                      The maximum total supply of tokens (use commas for
-                      readability)
+                      The total number of tokens your design will ever mint.
+                      Allocations, vesting and funding all build on it.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Initial Supply */}
-              <FormField
-                control={step2Form.control}
-                name="initial_supply"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Initial Supply</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g. 500,000,000"
-                        {...field}
-                        onDoubleClick={selectInputValue}
-                        onChange={(e) => {
-                          const formatted = formatNumber(e.target.value)
-                          field.onChange(formatted)
-                        }}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      The initial minted supply at launch (optional)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* TGE Supply */}
-              <FormField
-                control={step2Form.control}
-                name="tge_supply"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>TGE Supply</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g. 100,000,000"
-                        {...field}
-                        onDoubleClick={selectInputValue}
-                        onChange={(e) => {
-                          const formatted = formatNumber(e.target.value)
-                          field.onChange(formatted)
-                        }}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Tokens available at Token Generation Event (optional)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Circulating Supply */}
-                <FormField
-                  control={step2Form.control}
-                  name="circulating_supply"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Circulating Supply</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g. 250,000,000"
-                          {...field}
-                          onDoubleClick={selectInputValue}
-                          onChange={(e) => {
-                            const formatted = formatNumber(e.target.value)
-                            field.onChange(formatted)
-                          }}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Projected circulating supply
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Circulating Date */}
-                <FormField
-                  control={step2Form.control}
-                  name="circulating_date"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Circulating Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground',
-                              )}
-                            >
-                              {field.value ? (
-                                format(new Date(field.value), 'PPP')
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/10 dark:shadow-black/50 backdrop-blur"
-                          align="start"
-                          sideOffset={10}
-                          collisionPadding={16}
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={
-                              field.value ? new Date(field.value) : undefined
-                            }
-                            onSelect={(date) =>
-                              field.onChange(date?.toISOString())
-                            }
-                            captionLayout="dropdown"
-                            fromYear={2000}
-                            toYear={2035}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        Date of circulating data
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Derived launch figure: flows from vesting, never typed */}
+              <div className="space-y-1.5 rounded-lg border bg-surface-2/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium">
+                    <Rocket
+                      className="h-4 w-4"
+                      style={{ color: 'hsl(var(--data-supply))' }}
+                      aria-hidden
+                    />
+                    Unlocked at TGE
+                  </span>
+                  <span className="tabular text-sm font-semibold">
+                    {tgeUnlock.tokens > 0
+                      ? formatNumber(String(tgeUnlock.tokens))
+                      : 'Not set'}
+                    {tgeUnlock.pctOfMaxSupply !== null &&
+                      tgeUnlock.tokens > 0 && (
+                        <span className="ml-1.5 font-normal text-muted-foreground">
+                          ({tgeUnlock.pctOfMaxSupply}%)
+                        </span>
+                      )}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Derived from your allocation and vesting sections: immediate
+                  segments unlock fully, the others release their TGE share. It
+                  updates as the design evolves.
+                </p>
               </div>
-
-              {/* Source URL */}
-              <FormField
-                control={step2Form.control}
-                name="source_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Source URL</FormLabel>
-                    <FormControl>
-                      <Input type="url" placeholder="https://..." {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Link to the reference behind these figures (optional)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               {/* Notes */}
               <FormField
@@ -256,7 +138,7 @@ export function SupplyStep() {
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Additional notes about supply metrics..."
+                        placeholder="Minting policy, supply rationale..."
                         className="min-h-[100px]"
                         {...field}
                       />

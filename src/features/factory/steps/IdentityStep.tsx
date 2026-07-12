@@ -1,7 +1,6 @@
 'use client'
 
-import { format } from 'date-fns'
-import { CalendarIcon, CircleHelp } from 'lucide-react'
+import { CircleHelp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,12 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Calendar } from '@/components/ui/calendar'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Sheet,
   SheetContent,
@@ -37,7 +30,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import {
-  BLOCKCHAIN_OPTIONS,
   CATEGORY_OPTIONS,
   FACTORY_CLUSTER_MAX,
   isSectorCompatibleWithCategory,
@@ -45,9 +37,10 @@ import {
 import { SectionHeader } from '@/features/studio/section-chrome'
 import { useFactoryForm } from '../factory-form-context'
 
-/** Section 1: Identity — name, ticker, chain, category/sector (guided), TGE date.
- *  Twin of Step1Identity with the deployed-token fields (contract address,
- *  CoinGecko link + autofill) stripped: a design has no on-chain footprint. */
+/** Section 1: Identity — name, ticker, category/sector (guided). A design
+ *  names a token that does not exist yet: no chain, no TGE date, no contract
+ *  address, no CoinGecko link (those describe a deployed token, screener-side).
+ *  The taxonomy is what matters here: it fuels the benchmark cohort. */
 export function IdentityStep() {
   const {
     activeSection,
@@ -131,24 +124,49 @@ export function IdentityStep() {
             />
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Blockchain */}
+              {/* Category */}
               <FormField
                 control={step1Form.control}
-                name="chain"
+                name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Blockchain</FormLabel>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <FormLabel className="mb-0">Category</FormLabel>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => openIdentityGuide('category')}
+                      >
+                        <CircleHelp className="mr-1 h-3.5 w-3.5" />
+                        Guide
+                      </Button>
+                    </div>
                     <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value)
+                        const currentSector = step1Form.getValues('sector')
+                        if (
+                          currentSector &&
+                          !isSectorCompatibleWithCategory(value, currentSector)
+                        ) {
+                          step1Form.setValue('sector', undefined, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                            shouldTouch: true,
+                          })
+                        }
+                      }}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select blockchain" />
+                          <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {BLOCKCHAIN_OPTIONS.map((option) => (
+                        {CATEGORY_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}
                           </SelectItem>
@@ -160,111 +178,52 @@ export function IdentityStep() {
                 )}
               />
 
-              <div className="space-y-4">
-                {/* Category */}
-                <FormField
-                  control={step1Form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <FormLabel className="mb-0">Category</FormLabel>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => openIdentityGuide('category')}
-                        >
-                          <CircleHelp className="mr-1 h-3.5 w-3.5" />
-                          Guide
-                        </Button>
-                      </div>
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) => {
-                          field.onChange(value)
-                          const currentSector = step1Form.getValues('sector')
-                          if (
-                            currentSector &&
-                            !isSectorCompatibleWithCategory(
-                              value,
-                              currentSector,
-                            )
-                          ) {
-                            step1Form.setValue('sector', undefined, {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                              shouldTouch: true,
-                            })
-                          }
-                        }}
+              {/* Sector */}
+              <FormField
+                control={step1Form.control}
+                name="sector"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <FormLabel className="mb-0">Sector</FormLabel>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => openIdentityGuide('sector')}
                       >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CATEGORY_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Sector */}
-                <FormField
-                  control={step1Form.control}
-                  name="sector"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <FormLabel className="mb-0">Sector</FormLabel>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => openIdentityGuide('sector')}
-                        >
-                          <CircleHelp className="mr-1 h-3.5 w-3.5" />
-                          Guide
-                        </Button>
-                      </div>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        disabled={!selectedCategoryOption}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select sector" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {sectorOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {!selectedCategoryOption && (
-                        <FormDescription className="text-xs">
-                          Select a category first.
-                        </FormDescription>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                        <CircleHelp className="mr-1 h-3.5 w-3.5" />
+                        Guide
+                      </Button>
+                    </div>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!selectedCategoryOption}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select sector" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {sectorOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!selectedCategoryOption && (
+                      <FormDescription className="text-xs">
+                        Select a category first.
+                      </FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Sheet
@@ -376,59 +335,6 @@ export function IdentityStep() {
                 )}
               </SheetContent>
             </Sheet>
-
-            {/* TGE Date */}
-            <FormField
-              control={step1Form.control}
-              name="tge_date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>TGE Date (Token Generation Event)</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground',
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="z-[90] w-[22rem] max-w-[calc(100vw-2rem)] border-border/80 bg-card/95 p-3 shadow-2xl shadow-black/10 dark:shadow-black/50 backdrop-blur"
-                      align="start"
-                      sideOffset={10}
-                      collisionPadding={16}
-                    >
-                      <Calendar
-                        mode="single"
-                        selected={
-                          field.value ? new Date(field.value) : undefined
-                        }
-                        onSelect={(date) => field.onChange(date?.toISOString())}
-                        captionLayout="dropdown"
-                        fromYear={2000}
-                        toYear={2035}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormDescription>
-                    The planned token generation date (optional)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             {/* Notes */}
             <FormField

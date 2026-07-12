@@ -51,22 +51,22 @@ export const FACTORY_MAX_RAW_SCORE = 80
 export const FACTORY_RESCALE = 100 / FACTORY_MAX_RAW_SCORE
 
 /**
- * Compute per-cluster scores for a Factory design. Mirrors computeScores'
- * weights with the two unreachable terms removed: identity has no
- * contract_address +5 (max 15, not 20) and there is no Sources +10; Emission
- * is scored as its own cluster instead of an extras bucket.
+ * Compute per-cluster scores for a Factory design. A design describes a token
+ * that does not exist yet, so the weights reward DESIGN decisions, not
+ * observed facts: identity is the naming plus the taxonomy that fuels the
+ * benchmark cohort (no chain, no TGE date, no contract address); supply is
+ * the single max-supply anchor (launch figures are derived from vesting, not
+ * typed); Emission is a first-class cluster instead of an extras bucket.
  */
 export function computeFactoryScore(data: {
   project: {
     name: string | null
     ticker: string | null
-    chain: string | null
-    tge_date: string | null
+    category: string | null
+    sector: string | null
   }
   supply: {
     max_supply: number | null
-    initial_supply?: number | null
-    tge_supply?: number | null
   } | null
   allocations: { id: string; percentage: number }[]
   vestingCount: number
@@ -85,17 +85,13 @@ export function computeFactoryScore(data: {
     emission: 0,
   }
 
-  // Identity (max 15)
-  if (data.project.name && data.project.ticker && data.project.chain)
-    clusters.identity += 10
-  if (data.project.tge_date) clusters.identity += 5
+  // Identity (max 15): the name pair, then the taxonomy that unlocks the
+  // benchmark cohort
+  if (data.project.name && data.project.ticker) clusters.identity += 10
+  if (data.project.category && data.project.sector) clusters.identity += 5
 
-  // Supply (max 15)
-  if (data.supply?.max_supply) {
-    clusters.supply += 10
-    if (data.supply.initial_supply || data.supply.tge_supply)
-      clusters.supply += 5
-  }
+  // Supply (max 15): the one manual anchor of the design
+  if (data.supply?.max_supply) clusters.supply += 15
 
   // Allocation (max 20)
   if (data.allocations.length >= 3) clusters.allocation += 10

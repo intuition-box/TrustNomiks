@@ -19,6 +19,7 @@ import {
   type VestingSchedulesFormData,
   type EmissionModelFormData,
   type FundingRoundsFormData,
+  deriveTgeUnlock,
   formatNumber,
 } from '@/lib/tokenomics'
 import { toast } from 'sonner'
@@ -50,7 +51,6 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     setProjectId,
     maxSupply,
     setMaxSupply,
-    setTgeDate,
     allocations,
     setAllocations,
     setLoading,
@@ -119,16 +119,10 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
       project: {
         name: s1.name || null,
         ticker: s1.ticker || null,
-        chain: s1.chain || null,
-        tge_date: s1.tge_date || null,
+        category: s1.category || null,
+        sector: s1.sector || null,
       },
-      supply: s2.max_supply
-        ? {
-            max_supply: 1,
-            initial_supply: s2.initial_supply ? 1 : null,
-            tge_supply: s2.tge_supply ? 1 : null,
-          }
-        : null,
+      supply: s2.max_supply ? { max_supply: 1 } : null,
       allocations: s3.segments.map((s) => ({
         id: s.id ?? '',
         percentage: parseDecimal(s.percentage) || 0,
@@ -183,8 +177,6 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
             p_identity: {
               name: data.name,
               ticker: data.ticker.toUpperCase(),
-              chain: data.chain || null,
-              tge_date: data.tge_date || null,
               category: normalizedCategory || null,
               sector: safeSector,
               notes: data.notes || null,
@@ -211,8 +203,6 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
           .insert({
             name: data.name,
             ticker: data.ticker.toUpperCase(),
-            chain: data.chain || null,
-            tge_date: data.tge_date || null,
             category: normalizedCategory || null,
             sector: safeSector,
             notes: data.notes || null,
@@ -230,7 +220,6 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
         setInitialUpdatedAt(projectData.updated_at)
       }
 
-      setTgeDate(data.tge_date)
       calculateCompletedSteps()
       if (!opts.silent) {
         toast.success(
@@ -267,19 +256,17 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
       // Store max supply for allocation calculations
       setMaxSupply(data.max_supply || '')
 
-      // Convert string numbers to bigint strings
       const maxSupplyNum = data.max_supply
         ? BigInt(data.max_supply.replace(/,/g, ''))
         : null
-      const initialSupply = data.initial_supply
-        ? BigInt(data.initial_supply.replace(/,/g, ''))
-        : null
-      const tgeSupply = data.tge_supply
-        ? BigInt(data.tge_supply.replace(/,/g, ''))
-        : null
-      const circulatingSupply = data.circulating_supply
-        ? BigInt(data.circulating_supply.replace(/,/g, ''))
-        : null
+
+      // A design's launch figure is DERIVED from its vesting, never typed:
+      // persist the current TGE unlock so the row reflects the design.
+      const tgeUnlock = deriveTgeUnlock(
+        step3Form.getValues('segments'),
+        step4Form.getValues('schedules'),
+        data.max_supply || '',
+      )
 
       const { data: newUpdatedAt, error } = await supabase.rpc(
         'save_factory_supply_metrics_tx',
@@ -287,13 +274,11 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
           p_project_id: projectId,
           p_metrics: {
             max_supply: maxSupplyNum ? maxSupplyNum.toString() : null,
-            initial_supply: initialSupply ? initialSupply.toString() : null,
-            tge_supply: tgeSupply ? tgeSupply.toString() : null,
-            circulating_supply: circulatingSupply
-              ? circulatingSupply.toString()
-              : null,
-            circulating_date: data.circulating_date || null,
-            source_url: data.source_url || null,
+            initial_supply: null,
+            tge_supply: tgeUnlock.tokens > 0 ? String(tgeUnlock.tokens) : null,
+            circulating_supply: null,
+            circulating_date: null,
+            source_url: null,
             notes: data.notes || null,
           },
           p_expected_updated_at: initialUpdatedAt,

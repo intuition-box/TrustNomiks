@@ -12,7 +12,6 @@ import {
   vestingSchedulesSchema,
   emissionModelSchema,
   fundingRoundsSchema,
-  BLOCKCHAIN_OPTIONS,
   getCategoryOption,
   getSectorOptionsByCategory,
   toSupportedCategory,
@@ -87,7 +86,6 @@ export function useFactoryFormState() {
   const [currentStep, setCurrentStep] = useState(1)
   const [projectId, setProjectId] = useState<string | null>(editProjectId)
   const [maxSupply, setMaxSupply] = useState<string>('')
-  const [, setTgeDate] = useState<string | undefined>(undefined)
   const [allocations, setAllocations] = useState<AllocationWithId[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingProjectData, setLoadingProjectData] = useState(isEditMode)
@@ -169,8 +167,6 @@ export function useFactoryFormState() {
     defaultValues: {
       name: '',
       ticker: '',
-      chain: undefined,
-      tge_date: undefined,
       category: undefined,
       sector: undefined,
       notes: '',
@@ -182,11 +178,6 @@ export function useFactoryFormState() {
     resolver: zodResolver(supplyMetricsSchema),
     defaultValues: {
       max_supply: '',
-      initial_supply: '',
-      tge_supply: '',
-      circulating_supply: '',
-      circulating_date: undefined,
-      source_url: '',
       notes: '',
     },
   })
@@ -362,8 +353,6 @@ export function useFactoryFormState() {
       step1Form.reset({
         name: projectData.name,
         ticker: projectData.ticker,
-        chain: projectData.chain || undefined,
-        tge_date: projectData.tge_date || undefined,
         category: toSupportedCategory(projectData.category) || undefined,
         sector:
           toSupportedCategory(projectData.category) &&
@@ -377,10 +366,6 @@ export function useFactoryFormState() {
         notes: projectData.notes || '',
       })
 
-      if (projectData.tge_date) {
-        setTgeDate(projectData.tge_date)
-      }
-
       // Fetch and pre-fill Section 2 - Supply (row may legitimately not exist yet)
       const { data: supplyData } = await supabase
         .from('factory_supply_metrics')
@@ -393,17 +378,6 @@ export function useFactoryFormState() {
           max_supply: supplyData.max_supply
             ? formatNumber(String(supplyData.max_supply))
             : '',
-          initial_supply: supplyData.initial_supply
-            ? formatNumber(String(supplyData.initial_supply))
-            : '',
-          tge_supply: supplyData.tge_supply
-            ? formatNumber(String(supplyData.tge_supply))
-            : '',
-          circulating_supply: supplyData.circulating_supply
-            ? formatNumber(String(supplyData.circulating_supply))
-            : '',
-          circulating_date: supplyData.circulating_date || undefined,
-          source_url: supplyData.source_url || '',
           notes: supplyData.notes || '',
         })
         if (supplyData.max_supply) {
@@ -624,20 +598,13 @@ export function useFactoryFormState() {
   // Live design identity values for the page header
   const liveTokenName = step1Form.watch('name')
   const liveTokenTicker = step1Form.watch('ticker')
-  const liveChain = step1Form.watch('chain')
   const liveCategory = step1Form.watch('category')
   const liveSector = step1Form.watch('sector')
-  const chainLabel =
-    BLOCKCHAIN_OPTIONS.find((b) => b.value === liveChain)?.label ?? liveChain
 
   // ── Live score: THE Factory scoring contract, never a hand-rolled sum ──────
   const _lw1name = step1Form.watch('name')
   const _lw1ticker = step1Form.watch('ticker')
-  const _lw1chain = step1Form.watch('chain')
-  const _lw1tge = step1Form.watch('tge_date')
   const _lw2max = step2Form.watch('max_supply')
-  const _lw2init = step2Form.watch('initial_supply')
-  const _lw2tge = step2Form.watch('tge_supply')
   const _lw3segs = step3Form.watch('segments') || []
   const _lw5type = step5Form.watch('type')
   const _lw5infl = step5Form.watch('annual_inflation_rate')
@@ -653,16 +620,10 @@ export function useFactoryFormState() {
       project: {
         name: _lw1name || null,
         ticker: _lw1ticker || null,
-        chain: _lw1chain || null,
-        tge_date: _lw1tge || null,
+        category: liveCategory || null,
+        sector: liveSector || null,
       },
-      supply: _lw2max
-        ? {
-            max_supply: 1,
-            initial_supply: _lw2init ? 1 : null,
-            tge_supply: _lw2tge ? 1 : null,
-          }
-        : null,
+      supply: _lw2max ? { max_supply: 1 } : null,
       allocations: _lw3segs.map((s) => ({
         id: s.id ?? '',
         percentage: parseDecimal(s.percentage) || 0,
@@ -711,7 +672,6 @@ export function useFactoryFormState() {
     setProjectId,
     maxSupply,
     setMaxSupply,
-    setTgeDate,
     allocations,
     setAllocations,
     loading,
@@ -790,10 +750,8 @@ export function useFactoryFormState() {
 
     liveTokenName,
     liveTokenTicker,
-    liveChain,
     liveCategory,
     liveSector,
-    chainLabel,
 
     _lw3segs,
     _lw5type,

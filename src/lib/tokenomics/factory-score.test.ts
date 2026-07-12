@@ -7,7 +7,7 @@ import {
 } from './factory-score'
 
 const emptyDesign = {
-  project: { name: null, ticker: null, chain: null, tge_date: null },
+  project: { name: null, ticker: null, category: null, sector: null },
   supply: null,
   allocations: [],
   vestingCount: 0,
@@ -18,10 +18,10 @@ const completeDesign = {
   project: {
     name: 'Meridian',
     ticker: 'MRD',
-    chain: 'ethereum',
-    tge_date: '2027-01-01',
+    category: 'open-digital-economy',
+    sector: 'gaming-ecosystem',
   },
-  supply: { max_supply: 1_000_000_000, initial_supply: 100_000_000 },
+  supply: { max_supply: 1_000_000_000 },
   allocations: [
     { id: 'a1', percentage: 50 },
     { id: 'a2', percentage: 25 },
@@ -51,16 +51,16 @@ describe('computeFactoryScore', () => {
   })
 
   it('rescales a partial raw score through FACTORY_RESCALE, rounded', () => {
-    // identity 10 (no tge) + supply 10 (no initial/tge) = raw 20 -> 25/100
+    // identity 10 (no taxonomy yet) + supply 15 = raw 25 -> 31/100
     const { clusterScores, totalScore } = computeFactoryScore({
       ...emptyDesign,
-      project: { name: 'X', ticker: 'X', chain: 'base', tge_date: null },
+      project: { name: 'X', ticker: 'X', category: null, sector: null },
       supply: { max_supply: 1000 },
     })
     expect(clusterScores.identity).toBe(10)
-    expect(clusterScores.supply).toBe(10)
-    expect(totalScore).toBe(Math.round(20 * FACTORY_RESCALE))
-    expect(totalScore).toBe(25)
+    expect(clusterScores.supply).toBe(15)
+    expect(totalScore).toBe(Math.round(25 * FACTORY_RESCALE))
+    expect(totalScore).toBe(31)
   })
 
   it('withholds the allocation sum bonus off exactly 100 percent', () => {
