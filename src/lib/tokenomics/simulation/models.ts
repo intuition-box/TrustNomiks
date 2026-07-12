@@ -95,7 +95,9 @@ export interface CrisisEventInput {
 /**
  * Crisis contribution at a given day: zero before startDay, then the base
  * table times the shock multiplier, decaying exponentially with
- * decay = CRISIS_EXP_MULT x 365 / durationDays per (flat) year.
+ * decay = CRISIS_EXP_MULT x 365 / durationDays per (flat) year. The shock
+ * expires after its full decay length (5 / decay years, <1% residual);
+ * past that the contribution is exactly zero, not a lingering tail.
  */
 export function crisisDriftVolAtDay(
   type: CrisisType,
@@ -106,8 +108,9 @@ export function crisisDriftVolAtDay(
   if (day < startDay) return { mu: 0, sigma: 0 }
   const { durationDays, base } = CRISIS_CALIBRATION[type]
   const decay = (CRISIS_EXP_MULT * CRISIS_DECAY_DAYS_PER_YEAR) / durationDays
-  const factor =
-    CRISIS_EXP_MULT * Math.exp((-decay * (day - startDay)) / DAYS_PER_YEAR)
+  const elapsedYears = (day - startDay) / DAYS_PER_YEAR
+  if (elapsedYears >= 5 / decay) return { mu: 0, sigma: 0 }
+  const factor = CRISIS_EXP_MULT * Math.exp(-decay * elapsedYears)
   const calibration = base[category]
   return { mu: calibration.mu * factor, sigma: calibration.sigma * factor }
 }

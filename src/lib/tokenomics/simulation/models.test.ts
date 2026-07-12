@@ -95,6 +95,17 @@ describe('crisisDriftVolAtDay', () => {
     const halfLifeDays = (Math.LN2 / decay) * DAYS_PER_YEAR
     const atHalfLife = crisisDriftVolAtDay('covid', 'payment', 0, halfLifeDays)
     expect(atHalfLife.mu).toBeCloseTo((-23.57 * CRISIS_EXP_MULT) / 2, 8)
+
+    // The shock expires after its full decay length (5 / decay years):
+    // ~15.2 days for the 7-day crisis window, zero afterwards.
+    const cutoffDays = (5 / decay) * DAYS_PER_YEAR
+    expect(
+      crisisDriftVolAtDay('covid', 'payment', 0, cutoffDays - 0.01).mu,
+    ).toBeLessThan(0)
+    expect(crisisDriftVolAtDay('covid', 'payment', 0, cutoffDays)).toEqual({
+      mu: 0,
+      sigma: 0,
+    })
   })
 })
 
