@@ -159,15 +159,17 @@ export function ScenarioLibrary({
                   </Badge>
                 )}
                 <div className="flex items-center gap-1">
+                  {/* Stays actionable on the displayed row: after a reload,
+                      re-loading is how its assumptions (price, depth, sell
+                      shares) get pushed back into the panel's knobs. */}
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={isActive}
                     onClick={() => onLoad(snapshot)}
                   >
                     <FolderOpen className="h-3.5 w-3.5" aria-hidden />
-                    {isActive ? 'Loaded' : 'Load'}
+                    {isActive ? 'Reload' : 'Load'}
                   </Button>
                   <Button
                     type="button"
