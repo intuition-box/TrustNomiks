@@ -67,12 +67,24 @@ interface CrisisDraft {
   type: CrisisType
 }
 
+/** The path counts the studio offers; the engine clamps to [100, 2000]. */
+const PATH_COUNT_OPTIONS = [500, 1000, 2000]
+
+/** Snap an arbitrary saved count onto the closest offered option. */
+const closestPathCount = (value: number | undefined): number => {
+  const target = value ?? 1000
+  return PATH_COUNT_OPTIONS.reduce((best, option) =>
+    Math.abs(option - target) < Math.abs(best - target) ? option : best,
+  )
+}
+
 /** The scenario being composed; everything else about a run derives. */
 export interface ScenarioDraft {
   phases: MacroPhase[]
   liquidityEvents: LiquidityEventDraft[]
   crises: CrisisDraft[]
   seed: string
+  nPaths: number
 }
 
 const defaultDraft = (): ScenarioDraft => ({
@@ -80,6 +92,7 @@ const defaultDraft = (): ScenarioDraft => ({
   liquidityEvents: [],
   crises: [],
   seed: '42',
+  nPaths: 1000,
 })
 
 /** Re-fit a saved scenario into the composer's editable draft. */
@@ -96,6 +109,7 @@ const draftFromSnapshot = (
     type: crisis.type,
   })),
   seed: String(snapshot.scenario.seed),
+  nPaths: closestPathCount(snapshot.scenario.nPaths),
 })
 
 interface SimulationStudioProps {
@@ -189,7 +203,7 @@ export function SimulationStudio({
       const parsedSeed = parseInt(draft.seed, 10)
       const scenario: FactorySimulationScenarioInput = {
         seed: Number.isFinite(parsedSeed) ? parsedSeed : 42,
-        nPaths: 1000,
+        nPaths: draft.nPaths,
         initialPriceUsd: refPriceUsd,
         marketDepthUsd,
         pctSoldByType,
@@ -300,7 +314,7 @@ export function SimulationStudio({
             Monte-Carlo stress test
           </h3>
           <p className="text-xs text-muted-foreground">
-            Compose a scenario and simulate 1,000 price paths over the saved
+            Compose a scenario and simulate its price paths over the saved
             design: hypothetical stress outcomes, not predictions.
           </p>
         </div>
@@ -321,7 +335,7 @@ export function SimulationStudio({
 
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium">Crises and seed</p>
+              <p className="text-sm font-medium">Crises, seed and paths</p>
               <p className="text-xs text-muted-foreground">
                 Replay historical shocks; the seed makes runs reproducible.
               </p>
@@ -426,6 +440,32 @@ export function SimulationStudio({
                   <RefreshCw className="h-4 w-4" aria-hidden />
                 </Button>
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="studio-paths" className="text-sm font-medium">
+                Simulated paths
+              </label>
+              <Select
+                value={String(draft.nPaths)}
+                onValueChange={(value) =>
+                  updateDraft({ nPaths: Number(value) })
+                }
+              >
+                <SelectTrigger id="studio-paths" className="tabular">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="500">500 (fast preview)</SelectItem>
+                  <SelectItem value="1000">1,000 (default)</SelectItem>
+                  <SelectItem value="2000">
+                    2,000 (steadier percentiles)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                More paths smooth the envelope and KPIs; runs take longer.
+              </p>
             </div>
           </div>
         </div>
