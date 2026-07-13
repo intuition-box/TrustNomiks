@@ -8,6 +8,20 @@
  * Same color = same concept, product-wide. See docs/redesign/03-design-tokens-taxonomy.md.
  */
 import type { NodeType, NodeFamily } from '@/lib/knowledge-graph/graph-types'
+import type { SegmentType } from '@/lib/tokenomics/schemas'
+import {
+  CHART_CSS_VAR,
+  chartVarFor,
+  rampStepFor,
+} from '@/lib/tokenomics/colors'
+import {
+  BLACK,
+  hslToRgb,
+  mixOklab,
+  parseHslTriplet,
+  type Rgb,
+  WHITE,
+} from '@/lib/design/color-space'
 import {
   Hexagon,
   Coins,
@@ -164,6 +178,66 @@ export {
   chartColorsFor,
   getSegmentChartColor,
 } from '@/lib/tokenomics/colors'
+
+/* ── Chart space, numeric (canvas) ────────────────────────────────────────── */
+
+/** Dark-theme values of the `--chart-*` tokens (defaultTheme is dark), for SSR
+ *  and for the first canvas paint before a CSS read can happen. Mirrors
+ *  src/app/globals.css — keep in sync. */
+const CHART_HSL_FALLBACK: Record<SegmentType, [number, number, number]> = {
+  'funding-private': [217, 91, 60],
+  'funding-public': [271, 91, 65],
+  'team-founders': [330, 81, 60],
+  treasury: [25, 95, 53],
+  marketing: [142, 71, 45],
+  airdrop: [84, 74, 48],
+  rewards: [48, 92, 50],
+  liquidity: [189, 90, 48],
+}
+
+const NEUTRAL_HSL: [number, number, number] = [240, 5, 68] // --muted-foreground, dark
+
+function readRgbVar(cssVar: string, fallback: [number, number, number]): Rgb {
+  return parseHslTriplet(readVar(cssVar)) ?? hslToRgb(...fallback)
+}
+
+/** The "no data" grey — same token the muted DOM text uses. */
+export const getNeutralRgb = (): Rgb =>
+  readRgbVar('--muted-foreground', NEUTRAL_HSL)
+
+/**
+ * CHART SPACE for canvas — the numeric twin of {@link getSegmentChartColor}.
+ * Same token, same OKLab ramp, resolved to literal channels because a canvas
+ * cannot parse `hsl(var(…))` or `color-mix(…)`.
+ *
+ * Not reactive: getComputedStyle isn't. Re-call when `resolvedTheme` changes.
+ */
+export function getSegmentChartRgb(segmentType: string, occurrence = 0): Rgb {
+  const cssVar = chartVarFor(segmentType, occurrence)
+  const key = cssVar.replace('--chart-', '') as SegmentType
+  const base = readRgbVar(cssVar, CHART_HSL_FALLBACK[key])
+  // Unknown custom types spread via the palette rotation, not the ramp — so
+  // only ramp a type the palette actually names (mirrors getSegmentChartColor).
+  const step = segmentType in CHART_CSS_VAR ? rampStepFor(occurrence) : null
+  if (!step) return base
+  return mixOklab(
+    base,
+    step.toward === 'white' ? WHITE : BLACK,
+    step.share / 100,
+  )
+}
+
+/** Canvas colors for a rendered segment list — the numeric twin of
+ *  {@link chartColorsFor}, counting per-type occurrences the same way so both
+ *  renderers agree slice for slice. */
+export function chartRgbFor(segmentTypes: readonly string[]): Rgb[] {
+  const seen = new Map<string, number>()
+  return segmentTypes.map((t) => {
+    const n = seen.get(t) ?? 0
+    seen.set(t, n + 1)
+    return getSegmentChartRgb(t, n)
+  })
+}
 
 /* ── Glyph & icon taxonomy (non-color cue — AA requirement) ───────────────── */
 

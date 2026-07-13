@@ -53,11 +53,17 @@ export async function proxy(request: NextRequest) {
   // itself, resolved by an anon-granted SECURITY DEFINER function that
   // returns a curated payload (no table access). A revoked slug 404s.
   const isShareRoute = pathname.startsWith('/share/')
+  // TEMPORARY (dither-kit pilot): the design-labs comparison page. Static
+  // sample data, no user or registry data. Dev-only twice over — this check,
+  // and the page itself 404s outside dev. Delete both with the pilot.
+  const isDevLabsRoute =
+    process.env.NODE_ENV !== 'production' && pathname.startsWith('/labs')
   const isPublicRoute =
     isLoginPage ||
     isAuthRoute ||
     isMetadataAsset ||
     isShareRoute ||
+    isDevLabsRoute ||
     publicRoutes.includes(pathname)
   const isProtectedRoute = !isPublicRoute
 
