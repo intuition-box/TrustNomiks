@@ -10,8 +10,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import { StatTile } from '@/components/composite/stat-tile'
-import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
-import { SellPressureChart } from '@/components/charts/sell-pressure-chart'
+import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
+import { SellPressureChartDither } from '@/components/charts/sell-pressure-chart-dither'
 import { getSegmentChartColor } from '@/lib/design/tokens'
 import {
   DEFAULT_EMISSION_SELL_PCT,
@@ -379,7 +379,7 @@ export function ProjectionPanel() {
 
       <div className="space-y-3 rounded-xl border bg-surface-1 px-5 py-4">
         <h3 className="text-sm font-semibold">Circulating supply projection</h3>
-        <UnlockTimelineChart
+        <UnlockTimelineChartDither
           data={supplyChartData}
           segments={chartSegments}
           maxSupply={supply.maxSupply}
@@ -397,7 +397,7 @@ export function ProjectionPanel() {
             the estimated price impact.
           </p>
         )}
-        <SellPressureChart
+        <SellPressureChartDither
           points={pressure.points}
           hasPrice={pressure.hasPrice}
           refPriceUsd={scenario.refPriceUsd}

@@ -1,6 +1,8 @@
 'use client'
 
 import { PriceEnvelopeChart } from '@/components/charts/price-envelope-chart'
+import { PriceEnvelopeChartDither } from '@/components/charts/price-envelope-chart-dither'
+import { PrintOnly } from '@/components/charts/print-only'
 import {
   SIMULATION_KPI_ROWS,
   SimulationKpiTable,
@@ -83,11 +85,23 @@ export function LightpaperStressTest({
           <li key={line}>{line}</li>
         ))}
       </ul>
-      <PriceEnvelopeChart
-        envelope={latest.result.envelope}
-        initialPriceUsd={latest.scenario.initialPriceUsd}
-        height={360}
-      />
+      {/* Canvas on screen, vector on paper — same reason as the donut: the
+          dither is painted at one device-independent pixel per cell, so it
+          cannot gain resolution in the printed lightpaper. */}
+      <div className="print:hidden">
+        <PriceEnvelopeChartDither
+          envelope={latest.result.envelope}
+          initialPriceUsd={latest.scenario.initialPriceUsd}
+          height={360}
+        />
+      </div>
+      <PrintOnly>
+        <PriceEnvelopeChart
+          envelope={latest.result.envelope}
+          initialPriceUsd={latest.scenario.initialPriceUsd}
+          height={360}
+        />
+      </PrintOnly>
       <SimulationKpiTable kpis={latest.result.kpis} />
 
       {snapshots.length >= 2 && (

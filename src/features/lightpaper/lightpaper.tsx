@@ -1,5 +1,8 @@
 import { Logo } from '@/components/brand/logo'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
+import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
+import { PrintOnly } from '@/components/charts/print-only'
+import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import {
   CATEGORY_OPTIONS,
@@ -202,11 +205,25 @@ export function Lightpaper({ design }: { design: FactorySharedDesign }) {
         {donutSegments.length > 0 && (
           <Section kicker="Distribution" title="Token allocation">
             <div className="flex flex-col items-center gap-8 sm:flex-row">
-              <AllocationDonutChart
-                segments={donutSegments}
-                maxSupply={maxSupply || null}
-                size="lg"
-              />
+              {/* The dithered donut is a canvas, and the canvas is painted at
+                  one device-independent pixel per dither cell — that is what
+                  keeps the pattern crisp on screen, and what stops it gaining
+                  any resolution on paper. So the SVG donut takes over for the
+                  print, which is the artifact an investor keeps. */}
+              <div className="print:hidden">
+                <AllocationDonutChartDither
+                  segments={donutSegments}
+                  maxSupply={maxSupply || null}
+                  size="lg"
+                />
+              </div>
+              <PrintOnly>
+                <AllocationDonutChart
+                  segments={donutSegments}
+                  maxSupply={maxSupply || null}
+                  size="lg"
+                />
+              </PrintOnly>
               <div className="w-full flex-1 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -252,16 +269,30 @@ export function Lightpaper({ design }: { design: FactorySharedDesign }) {
         {/* ── Vesting and circulating supply ───────────────────────────── */}
         {hasProjection && (
           <Section kicker="Release" title="Vesting and circulating supply">
-            <UnlockTimelineChart
-              data={supplyChartData}
-              segments={chartSegments}
-              maxSupply={supply.maxSupply}
-              customSegments={supply.customSegments}
-              emissionSeriesKey={
-                supply.emissionActive ? EMISSION_KEY : undefined
-              }
-              height={360}
-            />
+            <div className="print:hidden">
+              <UnlockTimelineChartDither
+                data={supplyChartData}
+                segments={chartSegments}
+                maxSupply={supply.maxSupply}
+                customSegments={supply.customSegments}
+                emissionSeriesKey={
+                  supply.emissionActive ? EMISSION_KEY : undefined
+                }
+                height={360}
+              />
+            </div>
+            <PrintOnly>
+              <UnlockTimelineChart
+                data={supplyChartData}
+                segments={chartSegments}
+                maxSupply={supply.maxSupply}
+                customSegments={supply.customSegments}
+                emissionSeriesKey={
+                  supply.emissionActive ? EMISSION_KEY : undefined
+                }
+                height={360}
+              />
+            </PrintOnly>
             {design.vesting.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
