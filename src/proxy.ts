@@ -49,10 +49,15 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/twitter-image') ||
     pathname.startsWith('/icon') ||
     pathname.startsWith('/apple-icon')
+  // Shared design lightpapers: access control is the unguessable slug
+  // itself, resolved by an anon-granted SECURITY DEFINER function that
+  // returns a curated payload (no table access). A revoked slug 404s.
+  const isShareRoute = pathname.startsWith('/share/')
   const isPublicRoute =
     isLoginPage ||
     isAuthRoute ||
     isMetadataAsset ||
+    isShareRoute ||
     publicRoutes.includes(pathname)
   const isProtectedRoute = !isPublicRoute
 
