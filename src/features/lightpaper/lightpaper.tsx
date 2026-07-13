@@ -1,8 +1,6 @@
 import { Logo } from '@/components/brand/logo'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
-import { StatTile } from '@/components/composite/stat-tile'
-import { Banknote, CalendarClock, Coins } from 'lucide-react'
 import {
   CATEGORY_OPTIONS,
   SECTOR_OPTIONS,
@@ -18,6 +16,7 @@ import {
 } from '@/lib/tokenomics'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 import type { FactorySharedDesign } from '@/types/factory'
+import { LightpaperStats } from './lightpaper-stats'
 import { LightpaperStressTest } from './lightpaper-stress-test'
 import { PrintButton } from './print-button'
 
@@ -188,47 +187,15 @@ export function Lightpaper({ design }: { design: FactorySharedDesign }) {
 
         {/* ── Headline facts ───────────────────────────────────────────── */}
         {hasProjection && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <StatTile
-              label="Max supply"
-              icon={Coins}
-              value={
-                <span className="tabular">
-                  {formatCompactNumber(supply.maxSupply)}
-                </span>
-              }
-              hint={`${project.ticker} hard cap`}
-            />
-            <StatTile
-              label="Circulating at horizon"
-              icon={CalendarClock}
-              value={
-                <span className="tabular">
-                  {supply.finalCirculatingPctOfMax !== null
-                    ? `${supply.finalCirculatingPctOfMax.toFixed(0)}%`
-                    : formatCompactNumber(supply.finalCirculating)}
-                </span>
-              }
-              hint={`of max supply after ${supply.horizonMonths} months`}
-            />
-            <StatTile
-              label="Raised"
-              icon={Banknote}
-              accentVar="--data-wallet"
-              value={
-                totalRaisedUsd > 0 ? (
-                  <span className="tabular">${formatUsd(totalRaisedUsd)}</span>
-                ) : (
-                  'Not disclosed'
-                )
-              }
-              hint={
-                design.funding.length > 0
-                  ? `across ${design.funding.length} round${design.funding.length > 1 ? 's' : ''}`
-                  : 'no funding rounds shared'
-              }
-            />
-          </div>
+          <LightpaperStats
+            ticker={project.ticker}
+            maxSupply={supply.maxSupply}
+            finalCirculating={supply.finalCirculating}
+            finalCirculatingPctOfMax={supply.finalCirculatingPctOfMax}
+            horizonMonths={supply.horizonMonths}
+            totalRaisedUsd={totalRaisedUsd}
+            roundsCount={design.funding.length}
+          />
         )}
 
         {/* ── Allocation ───────────────────────────────────────────────── */}
