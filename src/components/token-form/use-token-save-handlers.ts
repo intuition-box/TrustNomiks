@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { computeScores } from '@/lib/utils/completeness'
+import { toDateOnly } from '@/lib/utils/date'
 import { type StudioSectionKey } from '@/features/studio/studio-spine'
 import type { CoinGeckoProfile } from '@/types/coingecko'
 import {
@@ -703,7 +704,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         document_name: source.document_name,
         url: source.url,
         version: source.version || null,
-        verified_at: source.verified_at || null,
+        // DATE column: normalise to a local calendar day so an ISO instant
+        // cannot land on the previous day once Postgres truncates it.
+        verified_at: toDateOnly(source.verified_at),
       }))
 
       // Flatten attributions to individual claim_source rows with source index
@@ -1389,7 +1392,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           document_name: 'CoinGecko',
           url: cgUrl,
           version: '',
-          verified_at: new Date().toISOString(),
+          // Left unset on purpose: verified_at means a human checked this
+          // source, not that a bot fetched it. Stamping it here would let an
+          // autofill vouch for itself, and it gets minted on-chain as such.
+          verified_at: undefined,
         })
         filled++
       }
