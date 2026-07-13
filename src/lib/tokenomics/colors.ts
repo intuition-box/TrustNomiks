@@ -30,45 +30,29 @@ const CHART_TYPE_ORDER: SegmentType[] = [
 ]
 
 /** Lightness ramp for repeated same-type segments (occurrence 1..n): mixes the
- *  base token toward white/black so five "Team" pools stay tellable apart.
- *  Structured rather than pre-formatted so the canvas resolver in
- *  src/lib/design/tokens.ts can replay the same mix numerically. */
-export const RAMP_STEPS: readonly { share: number; toward: 'white' | 'black' }[] =
-  [
-    { share: 82, toward: 'white' },
-    { share: 82, toward: 'black' },
-    { share: 62, toward: 'white' },
-    { share: 62, toward: 'black' },
-    { share: 46, toward: 'white' },
-  ]
-
-/** The ramp step for an occurrence, or null for the base color (occurrence 0).
- *  Clamps past the last step so a 9th "Team" pool still gets a color. */
-export function rampStepFor(occurrence: number) {
-  if (occurrence <= 0) return null
-  return RAMP_STEPS[Math.min(occurrence - 1, RAMP_STEPS.length - 1)]
-}
-
-/** The token a segment type paints with. Unknown custom types rotate through
- *  the palette, stable per occurrence. */
-export function chartVarFor(segmentType: string, occurrence = 0): string {
-  const cssVar = CHART_CSS_VAR[segmentType as SegmentType]
-  if (cssVar) return cssVar
-  const t = CHART_TYPE_ORDER[occurrence % CHART_TYPE_ORDER.length]
-  return CHART_CSS_VAR[t]
-}
+ *  base token toward white/black so five "Team" pools stay tellable apart. */
+const RAMP_MIX = [
+  '82%, white',
+  '82%, black',
+  '62%, white',
+  '62%, black',
+  '46%, white',
+]
 
 export function getSegmentChartColor(
   segmentType: string,
   occurrence = 0,
 ): string {
-  const known = segmentType in CHART_CSS_VAR
-  const base = `hsl(var(${chartVarFor(segmentType, occurrence)}))`
-  // Unknown types get their spread from the palette rotation, not the ramp.
-  if (!known) return base
-  const step = rampStepFor(occurrence)
-  if (!step) return base
-  return `color-mix(in oklab, ${base} ${step.share}%, ${step.toward})`
+  const cssVar = CHART_CSS_VAR[segmentType as SegmentType]
+  if (!cssVar) {
+    // Unknown custom type: rotate through the chart palette, stable per occurrence
+    const t = CHART_TYPE_ORDER[occurrence % CHART_TYPE_ORDER.length]
+    return `hsl(var(${CHART_CSS_VAR[t]}))`
+  }
+  const base = `hsl(var(${cssVar}))`
+  if (occurrence <= 0) return base
+  const mix = RAMP_MIX[Math.min(occurrence - 1, RAMP_MIX.length - 1)]
+  return `color-mix(in oklab, ${base} ${mix})`
 }
 
 /** Colors for a rendered segment list: counts per-type occurrences in order so
