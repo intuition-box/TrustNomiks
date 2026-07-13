@@ -36,25 +36,44 @@ ramp numerically — a canvas can parse neither `hsl(var(--x))` nor `color-mix()
 - `area.tsx` — the boundary guard is **relaxed** so `<Area>` and `<Line>` can be
   composed in one root. The canvas already painted per `spec.kind`; mixing them
   was only forbidden, never unsupported. This is recharts' `<ComposedChart />`.
+- `dither-paint.ts` — **step curve** (`<Area curve="step" />`). The canvas never
+  draws a path: it carries a `[top, floor]` surface across its backing columns
+  and interpolates. So a step is a resample mode — hold the left value instead
+  of ramping — not a new painter. A vesting cliff is a stair, and interpolated
+  it would draw supply that has not unlocked yet.
+- `dither-paint.ts` — **`paintRow`**, the transpose of `paintColumn`. The engine
+  paints bars column by column, so it can only grow them upward; a horizontal
+  bar needs the fill to run the other way. Used by
+  `src/components/charts/dither-bar-row.tsx`, not by the bar root.
 
-A chart that declares neither a range nor a domain behaves exactly as upstream;
-`scales.test.ts` pins that as hard as it pins the new behaviour.
+### Upstream bugs we fixed
+
+- `resample` indexed `src[Math.floor(t)]` unclamped. A single-point series
+  forces `last` to 1, so the final column read past the array, fell through
+  `?? 0`, and the series collapsed to the floor at its right edge. It hit the
+  linear path too — i.e. every chart.
+- `strokeVariant` is **dead**: every series part registers it, the painter never
+  reads it. `<Area strokeVariant="dashed" />` renders nothing dashed. Use a fill
+  `variant` (`hatched`, `dotted`) for a non-colour cue instead — which is the
+  better cue anyway, since it survives greyscale.
+
+A chart that declares neither a range, a domain nor a curve behaves exactly as
+upstream; the tests pin that as hard as they pin the new behaviour.
 
 ## Where it is used
 
-Wrappers live in `src/components/charts/*-dither.tsx`:
+Wrappers live in `src/components/charts/`:
 
 | Chart | Screens |
 |---|---|
 | allocation donut | data room, token detail, compare board, lightpaper |
+| unlock timeline | data room, token detail, factory projections, lightpaper |
 | sell pressure | factory projections |
 | price envelope | factory simulation studio, lightpaper stress test |
+| allocation breakdown, supply bars | data room (via `dither-bar-row.tsx`) |
 
-The unlock timeline is still on recharts: it needs a **step-after curve** (a
-vesting cliff is a stair, not a ramp — drawn as a smooth ramp the chart lies
-about the schedule), and that means touching the canvas painter, not just the
-seams. The allocation breakdown is also still recharts: its bars are horizontal
-and `bar-canvas.tsx` only paints category-on-x.
+Nothing in the product renders recharts any more **except the print twins** (see
+below).
 
 ## Printing
 
