@@ -13,7 +13,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { AllocationBreakdownChart } from '@/components/charts/allocation-breakdown-chart'
+import { AllocationBreakdownChartDither } from '@/components/charts/allocation-breakdown-chart-dither'
+import { DitherBarRow } from '@/components/charts/dither-bar-row'
 import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
 import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
 import { SupplyBarChart } from '@/components/charts/supply-bar-chart'
@@ -26,7 +27,7 @@ import {
   formatCompactNumber,
   type AllocationWithVesting,
 } from '@/lib/utils/vesting-timeline'
-import { chartColorsFor } from '@/lib/design/tokens'
+import { chartColorsFor, chartRgbFor } from '@/lib/design/tokens'
 import { TokenFace } from '@/components/composite/token-face'
 import { formatSegmentTypeLabel, EMISSION_TYPE_OPTIONS } from '@/types/form'
 import type { ClusterScores } from '@/lib/utils/completeness'
@@ -121,11 +122,21 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
 
   // Chart-space colors assigned in canonical list order, then carried through
   // the percentage sort so swatches, bar and amounts always match the charts.
+  // Two forms of the same colour: the CSS string for the DOM swatches, the
+  // resolved RGB for the canvas bar (which can parse neither var() nor
+  // color-mix). Both walk the same ramp, so they cannot disagree.
   const allocationColors = chartColorsFor(
     token.allocation_segments.map((s) => s.segment_type),
   )
+  const allocationRgb = chartRgbFor(
+    token.allocation_segments.map((s) => s.segment_type),
+  )
   const sortedSegments = token.allocation_segments
-    .map((seg, i) => ({ ...seg, chartColor: allocationColors[i] }))
+    .map((seg, i) => ({
+      ...seg,
+      chartColor: allocationColors[i],
+      chartRgb: allocationRgb[i],
+    }))
     .sort((a, b) => b.percentage - a.percentage)
 
   const emissionLabel = token.emission_models
@@ -281,7 +292,7 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-6 items-start">
-              <AllocationBreakdownChart
+              <AllocationBreakdownChartDither
                 segments={token.allocation_segments}
                 height={Math.max(200, token.allocation_segments.length * 40)}
               />
@@ -336,25 +347,20 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {/* Single stacked bar showing supply distribution by segment */}
-                <div className="h-8 rounded-lg overflow-hidden flex">
-                  {sortedSegments.map((seg) => (
-                    <div
-                      key={seg.id}
-                      className="h-full transition-all duration-300 flex items-center justify-center"
-                      style={{
-                        width: `${Math.max(seg.percentage, 1)}%`,
-                        backgroundColor: seg.chartColor,
-                      }}
-                    >
-                      {seg.percentage >= 8 && (
-                        <span className="text-[10px] font-medium text-white truncate px-1">
-                          {seg.label}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {/* Single stacked bar showing supply distribution by segment.
+                    The in-bar labels are gone: they were `text-white` over
+                    arbitrary chart colours, which fails contrast on the light
+                    theme. Every segment is named in the breakdown right below,
+                    with its swatch. */}
+                <DitherBarRow
+                  segments={sortedSegments.map((seg) => ({
+                    key: seg.id,
+                    value: seg.percentage,
+                    color: seg.chartRgb,
+                  }))}
+                  total={100}
+                  height={32}
+                />
                 {/* Amount breakdown table */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                   {sortedSegments.map((seg) => {

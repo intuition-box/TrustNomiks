@@ -95,6 +95,58 @@ export function paintColumn(
 }
 
 /**
+ * ADDED (fork): the transpose of {@link paintColumn} — fills one backing row
+ * `y` from `left` to `right`, dense at the left (the bar's base, against the
+ * axis) and dissolving toward its tip, then caps the tip with the border
+ * outline. Same ordered dither, same colour-vs-opacity rule; only the axis of
+ * the fade changes.
+ *
+ * The engine paints bars column by column, so it can only ever grow them
+ * upward. A horizontal bar is not a layout flag away — it needs the fill to run
+ * the other way. This is that fill.
+ */
+export function paintRow(
+  octx: CanvasRenderingContext2D,
+  y: number,
+  left: number,
+  right: number,
+  seed: Seed,
+  { variant, intensity, dim, stacked, sparse = 0 }: PaintOpts,
+) {
+  const l = Math.round(left)
+  const r = Math.round(right)
+  const len = r - l
+  if (len <= 0) {
+    octx.fillStyle = rgb(seed.fill, 1, BORDER_ALPHA * dim)
+    octx.fillRect(l, y, 1, 1)
+    return
+  }
+  const bias = (variant === 'dotted' ? 0.12 : 0) + (stacked ? 0.2 : 0) - sparse
+  for (let x = l; x < r; x++) {
+    // Inverted falloff: 1 at the base, 0 at the tip — dense where the bar meets
+    // its axis, thinning as it reaches out.
+    let density = 1 - (x - l) / len
+    if (stacked) density = 0.5 + 0.5 * density
+    if (variant === 'hatched' && ((x + y) & 3) >= 2) continue
+    const lit =
+      variant === 'solid' ||
+      density > BAYER[y & 3][x & 3] - 0.1 * intensity - bias
+    if (variant === 'dotted' && !lit) continue
+    const k = (0.3 + density * 0.7) * (1 + 0.22 * intensity)
+    const alpha = clamp01((lit ? k : k * OFF_TIER) * dim)
+    octx.fillStyle = rgb(seed.fill, 1, alpha)
+    octx.fillRect(x, y, 1, 1)
+  }
+  // Tip outline — the shape's edge, now that the fill fades out here.
+  octx.fillStyle = rgb(seed.fill, 1, BORDER_ALPHA * dim)
+  octx.fillRect(r - 1, y, 1, 1)
+  if (len > 1) {
+    octx.fillStyle = rgb(seed.fill, 1, BORDER_ALPHA * 0.5 * dim)
+    octx.fillRect(r - 2, y, 1, 1)
+  }
+}
+
+/**
  * ADDED (fork): how a series is carried between its data points.
  *
  * `linear` ramps from one point to the next — upstream's only behaviour, and

@@ -1,5 +1,9 @@
 'use client'
 
+import { useMemo } from 'react'
+import { useTheme } from 'next-themes'
+import { DitherBarRow } from '@/components/charts/dither-bar-row'
+import { getTokenRgb } from '@/lib/design/tokens'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 
 interface SupplyBarChartProps {
@@ -7,81 +11,114 @@ interface SupplyBarChartProps {
   circulatingSupply: number
 }
 
+/**
+ * Circulating against the hard cap, as one dithered proportion bar.
+ *
+ * The two halves take the taxonomy tokens that already mean this elsewhere in
+ * the product: circulating is the supply cluster, locked is vesting — because
+ * a locked token is precisely one still under a vesting schedule. (This used to
+ * be `bg-emerald-500` / `bg-amber-500`: colour with no meaning behind it, and
+ * the one chart in the repo that never went through the tokens.)
+ */
 export function SupplyBarChart({
   maxSupply,
   circulatingSupply,
 }: SupplyBarChartProps) {
+  const { resolvedTheme } = useTheme()
+
+  const colors = useMemo(
+    () => ({
+      circulating: getTokenRgb('--data-supply', '187 80% 45%'),
+      locked: getTokenRgb('--data-vesting', '160 84% 39%'),
+      unknown: getTokenRgb('--muted-foreground', '240 5% 68%'),
+    }),
+    // resolvedTheme intentionally in deps to re-resolve on dark/light switch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolvedTheme],
+  )
+
   if (maxSupply <= 0) return null
 
-  const circulatingPct = Math.min((circulatingSupply / maxSupply) * 100, 100)
-  const lockedPct = 100 - circulatingPct
-  const locked = maxSupply - circulatingSupply
-
-  // If no circulating data, show max supply only
+  // No circulating figure: say so, rather than drawing a full bar that would
+  // read as "all of it is circulating".
   if (circulatingSupply <= 0) {
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-muted-foreground text-xs">
           <span>Max Supply</span>
           <span className="font-mono">{formatCompactNumber(maxSupply)}</span>
         </div>
-        <div className="h-5 rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full bg-sky-500/40 rounded-full"
-            style={{ width: '100%' }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
+        <DitherBarRow
+          segments={[
+            {
+              key: 'unknown',
+              value: 1,
+              color: colors.unknown,
+              variant: 'dotted',
+            },
+          ]}
+          total={1}
+          height={20}
+        />
+        <p className="text-muted-foreground text-xs">
           Circulating supply data not available.
         </p>
       </div>
     )
   }
 
+  const circulating = Math.min(circulatingSupply, maxSupply)
+  const locked = maxSupply - circulating
+  const circulatingPct = (circulating / maxSupply) * 100
+
   return (
     <div className="space-y-2">
-      <div className="h-6 rounded-full bg-muted overflow-hidden flex">
-        {circulatingPct > 0 && (
-          <div
-            className="h-full bg-emerald-500 transition-all duration-300 flex items-center justify-center"
-            style={{ width: `${Math.max(circulatingPct, 2)}%` }}
-          >
-            {circulatingPct >= 12 && (
-              <span className="text-[10px] font-medium text-white">
-                {circulatingPct.toFixed(1)}%
-              </span>
-            )}
-          </div>
-        )}
-        {lockedPct > 0 && (
-          <div
-            className="h-full bg-amber-500 transition-all duration-300 flex items-center justify-center"
-            style={{ width: `${Math.max(lockedPct, 2)}%` }}
-          >
-            {lockedPct >= 12 && (
-              <span className="text-[10px] font-medium text-white">
-                {lockedPct.toFixed(1)}%
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      <DitherBarRow
+        segments={[
+          { key: 'circulating', value: circulating, color: colors.circulating },
+          { key: 'locked', value: locked, color: colors.locked },
+        ]}
+        total={maxSupply}
+        height={24}
+      />
       <div className="flex justify-between text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          <span className="text-muted-foreground">Circulating</span>
-          <span className="font-mono font-medium">
-            {formatCompactNumber(circulatingSupply)}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
-          <span className="text-muted-foreground">Locked</span>
-          <span className="font-mono font-medium">
-            {formatCompactNumber(locked)}
-          </span>
-        </div>
+        <Legend
+          label="Circulating"
+          value={formatCompactNumber(circulating)}
+          cssVar="--data-supply"
+          share={`${circulatingPct.toFixed(1)}%`}
+        />
+        <Legend
+          label="Locked"
+          value={formatCompactNumber(locked)}
+          cssVar="--data-vesting"
+          share={`${(100 - circulatingPct).toFixed(1)}%`}
+        />
       </div>
+    </div>
+  )
+}
+
+function Legend({
+  label,
+  value,
+  cssVar,
+  share,
+}: {
+  label: string
+  value: string
+  cssVar: string
+  share: string
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className="inline-block h-2.5 w-2.5 rounded-full"
+        style={{ backgroundColor: `hsl(var(${cssVar}))` }}
+      />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium font-mono">{value}</span>
+      <span className="text-muted-foreground tabular-nums">({share})</span>
     </div>
   )
 }

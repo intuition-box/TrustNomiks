@@ -239,11 +239,15 @@ export function getDataRgb(type: NodeType): Rgb {
 }
 
 /** Any other theme token, for a canvas that needs one outside the two palettes
- *  (`--primary` under an envelope, `--warning` on a breached threshold). The
- *  fallback is what SSR and the first paint use, before a CSS read is possible. */
-export function getTokenRgb(cssVar: string, fallbackHex: string): Rgb {
+ *  (`--primary` under an envelope, `--data-supply` on a circulating bar). The
+ *  fallback is what SSR and the first paint use, before a CSS read is possible;
+ *  it takes either a hex or the bare HSL triplet the tokens are written in, so
+ *  a caller can paste the value straight out of globals.css. */
+export function getTokenRgb(cssVar: string, fallback: string): Rgb {
   return (
-    parseHslTriplet(readVar(cssVar)) ?? hexToRgb(fallbackHex) ?? [148, 163, 184]
+    parseHslTriplet(readVar(cssVar)) ??
+    parseHslTriplet(fallback) ??
+    hexToRgb(fallback) ?? [148, 163, 184]
   )
 }
 
