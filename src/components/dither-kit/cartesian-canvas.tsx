@@ -310,11 +310,18 @@ export function CartesianCanvas() {
       const band = bands[key]
       if (!band) continue
       const line = (seriesSpecs[key]?.kind ?? defaultKind) === 'line'
+      // The curve is applied here, at the resample: the canvas never draws a
+      // path, it carries a [top, floor] surface across the backing columns. So
+      // a step curve is simply "hold the left value" instead of interpolating.
+      const curve = seriesSpecs[key]?.curve ?? 'linear'
       const top = band.map((b) => (y(b[1]) / h) * (rows - 1))
       const floor = band.map((b, i) =>
         line ? Math.min(rows - 1, top[i] + glow) : (y(b[0]) / h) * (rows - 1),
       )
-      out[key] = { top: resample(top, cols), floor: resample(floor, cols) }
+      out[key] = {
+        top: resample(top, cols, curve),
+        floor: resample(floor, cols, curve),
+      }
     }
     return out
   }, [ready, chartType, configKeys, bands, seriesSpecs, y, height, rows, cols])

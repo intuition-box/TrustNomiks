@@ -3,7 +3,7 @@
 import type { ScaleLinear } from 'd3-scale'
 import { createContext, use, useCallback, useMemo, useState } from 'react'
 import type { CommonChart } from './common-context'
-import type { BloomInput } from './dither-paint'
+import type { BloomInput, Curve } from './dither-paint'
 import type { DitherColor, Seed } from './palette'
 import { seedOfColor } from './palette'
 import {
@@ -43,6 +43,8 @@ export type SeriesSpec = {
   kind: SeriesKind
   variant: AreaVariant
   strokeVariant: StrokeVariant
+  /** ADDED (fork). See {@link Curve} — `step` is what a vesting schedule needs. */
+  curve: Curve
 }
 
 export type ChartContextValue = {
@@ -247,7 +249,8 @@ export function useChartController({
       return cur &&
         cur.kind === spec.kind &&
         cur.variant === spec.variant &&
-        cur.strokeVariant === spec.strokeVariant
+        cur.strokeVariant === spec.strokeVariant &&
+        cur.curve === spec.curve
         ? prev
         : { ...prev, [spec.dataKey]: spec }
     })

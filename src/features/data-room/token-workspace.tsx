@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AllocationBreakdownChart } from '@/components/charts/allocation-breakdown-chart'
 import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
-import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
+import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
 import { SupplyBarChart } from '@/components/charts/supply-bar-chart'
 import {
   computeAssetReadiness,
@@ -403,7 +403,7 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <UnlockTimelineChart
+            <UnlockTimelineChartDither
               data={vestingResult.timeline}
               segments={segmentInfos}
               maxSupply={maxSupply}

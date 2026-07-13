@@ -94,16 +94,41 @@ export function paintColumn(
   }
 }
 
-/** Linear-resample a per-index fraction array to `cols` columns. */
-export function resample(src: number[], cols: number): number[] {
+/**
+ * ADDED (fork): how a series is carried between its data points.
+ *
+ * `linear` ramps from one point to the next — upstream's only behaviour, and
+ * the right one for a price path. `step` holds each value until the next point
+ * and then jumps (recharts' `stepAfter`), which is the only honest way to draw
+ * a schedule: a vesting cliff releases tokens on one day, and nothing on the
+ * days before it. Ramping through a cliff draws supply that does not exist.
+ */
+export type Curve = 'linear' | 'step'
+
+/** Resample a per-index fraction array to `cols` columns. */
+export function resample(
+  src: number[],
+  cols: number,
+  curve: Curve = 'linear',
+): number[] {
   const out = new Array<number>(cols)
   const last = Math.max(src.length - 1, 1)
+  const end = Math.max(src.length - 1, 0)
   for (let c = 0; c < cols; c++) {
     const t = (c / Math.max(cols - 1, 1)) * last
-    const i = Math.floor(t)
-    const f = t - i
+    // FIXED (fork): upstream reads `src[Math.floor(t)]` unclamped. A
+    // single-point series forces `last` to 1, so the final column indexes past
+    // the array, falls through `?? 0`, and the series collapses to the floor at
+    // the right edge. Clamping the index costs nothing and changes no
+    // multi-point result (there, floor(t) never exceeds the last index).
+    const i = Math.min(Math.floor(t), end)
     const a = src[i] ?? 0
-    const b = src[Math.min(i + 1, src.length - 1)] ?? a
+    if (curve === 'step') {
+      out[c] = a
+      continue
+    }
+    const f = t - i
+    const b = src[Math.min(i + 1, end)] ?? a
     out[c] = a + (b - a) * f
   }
   return out

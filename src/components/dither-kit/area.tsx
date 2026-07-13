@@ -7,12 +7,17 @@ import {
   type StrokeVariant,
   useChartPart,
 } from './chart-context'
+import type { Curve } from './dither-paint'
 import { SeriesContext } from './series-context'
 
 export type SeriesProps = {
   dataKey: string
   variant?: AreaVariant
   strokeVariant?: StrokeVariant
+  /** ADDED (fork). `step` holds each value until the next point and then jumps,
+   *  which is the only honest shape for a schedule — a vesting cliff is a stair,
+   *  not a ramp. Defaults to the upstream `linear`. */
+  curve?: Curve
   isClickable?: boolean
   children?: ReactNode
 }
@@ -29,6 +34,7 @@ function CartesianSeries({
   dataKey,
   variant = 'gradient',
   strokeVariant = 'solid',
+  curve = 'linear',
   isClickable = false,
   children,
 }: SeriesProps & { part: string; kind: SeriesKind }) {
@@ -47,9 +53,17 @@ function CartesianSeries({
   }
 
   useEffect(() => {
-    registerSeries({ dataKey, kind, variant, strokeVariant })
+    registerSeries({ dataKey, kind, variant, strokeVariant, curve })
     return () => unregisterSeries(dataKey)
-  }, [dataKey, kind, variant, strokeVariant, registerSeries, unregisterSeries])
+  }, [
+    dataKey,
+    kind,
+    variant,
+    strokeVariant,
+    curve,
+    registerSeries,
+    unregisterSeries,
+  ])
 
   const band = ctx.bands[dataKey]
   if (!ctx.ready || !band) return null

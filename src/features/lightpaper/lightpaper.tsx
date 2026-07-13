@@ -2,6 +2,7 @@ import { Logo } from '@/components/brand/logo'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
 import { PrintOnly } from '@/components/charts/print-only'
+import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import {
   CATEGORY_OPTIONS,
@@ -268,16 +269,30 @@ export function Lightpaper({ design }: { design: FactorySharedDesign }) {
         {/* ── Vesting and circulating supply ───────────────────────────── */}
         {hasProjection && (
           <Section kicker="Release" title="Vesting and circulating supply">
-            <UnlockTimelineChart
-              data={supplyChartData}
-              segments={chartSegments}
-              maxSupply={supply.maxSupply}
-              customSegments={supply.customSegments}
-              emissionSeriesKey={
-                supply.emissionActive ? EMISSION_KEY : undefined
-              }
-              height={360}
-            />
+            <div className="print:hidden">
+              <UnlockTimelineChartDither
+                data={supplyChartData}
+                segments={chartSegments}
+                maxSupply={supply.maxSupply}
+                customSegments={supply.customSegments}
+                emissionSeriesKey={
+                  supply.emissionActive ? EMISSION_KEY : undefined
+                }
+                height={360}
+              />
+            </div>
+            <PrintOnly>
+              <UnlockTimelineChart
+                data={supplyChartData}
+                segments={chartSegments}
+                maxSupply={supply.maxSupply}
+                customSegments={supply.customSegments}
+                emissionSeriesKey={
+                  supply.emissionActive ? EMISSION_KEY : undefined
+                }
+                height={360}
+              />
+            </PrintOnly>
             {design.vesting.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

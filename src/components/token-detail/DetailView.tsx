@@ -35,7 +35,7 @@ import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { EmptyState } from '@/components/composite/empty-state'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
-import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
+import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
 import type { VestingTimelineResult } from '@/lib/utils/vesting-timeline'
 import {
   formatNumber,
@@ -790,7 +790,7 @@ export function DetailView({
                     {vestingResult &&
                       vestingSegmentInfos.length > 0 &&
                       maxSupplyNum > 0 && (
-                        <UnlockTimelineChart
+                        <UnlockTimelineChartDither
                           data={vestingResult.timeline}
                           segments={vestingSegmentInfos}
                           maxSupply={maxSupplyNum}

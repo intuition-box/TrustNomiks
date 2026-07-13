@@ -39,7 +39,14 @@ export function Bar({
   }
 
   useEffect(() => {
-    registerSeries({ dataKey, kind: 'bar', variant, strokeVariant })
+    // Bars are discrete already — a curve would mean nothing to them.
+    registerSeries({
+      dataKey,
+      kind: 'bar',
+      variant,
+      strokeVariant,
+      curve: 'linear',
+    })
     return () => unregisterSeries(dataKey)
   }, [dataKey, variant, strokeVariant, registerSeries, unregisterSeries])
 
