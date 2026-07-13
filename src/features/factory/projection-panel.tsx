@@ -30,6 +30,7 @@ import {
   type VestingTimelinePoint,
 } from '@/lib/tokenomics'
 import { useFactoryForm } from './factory-form-context'
+import { StressTestCard } from './stress-test-card'
 
 /** Series key for minted supply; suffixed to dodge a same-named segment. */
 const EMISSION_KEY = 'Emission (minted)'
@@ -41,14 +42,16 @@ const toPositive = (value: string): number | null => {
 }
 
 /**
- * Deterministic projections of the saved design, rendered on the completion
- * screen: circulating-supply curve (unlocks + emission) and the nominal
+ * Deterministic projections of the design's current form state (the panel
+ * lives inside the builder as the Projections section, mounted for the whole
+ * session): circulating-supply curve (unlocks + emission) and the nominal
  * monthly sell pressure the scenario assumptions imply. Assumptions are
  * ephemeral: they describe a hypothesis, not the design, and are not
  * persisted (a future iteration will snapshot them).
  */
 export function ProjectionPanel() {
   const {
+    projectId,
     allocations,
     step4Form,
     step5Form,
@@ -58,18 +61,22 @@ export function ProjectionPanel() {
     selectInputValue,
   } = useFactoryForm()
 
-  // The completion screen renders post-save, so the forms are static here:
-  // read them once per mount instead of subscribing.
+  // Live subscriptions: the panel stays mounted while the user edits other
+  // sections, so it must track the vesting and emission forms, not read
+  // them once (watch() re-renders this component on every form change).
+  const schedulesLive = step4Form.watch('schedules')
+  const emissionLive = step5Form.watch()
+
   const inputs = useMemo(
     () =>
       buildProjectionInputs({
         allocations,
-        schedules: step4Form.getValues('schedules'),
+        schedules: schedulesLive,
         maxSupply,
-        emission: step5Form.getValues(),
+        emission: emissionLive,
         tgeDate: null,
       }),
-    [allocations, maxSupply, step4Form, step5Form],
+    [allocations, maxSupply, schedulesLive, emissionLive],
   )
 
   const supply = useMemo(() => computeSupplyProjection(inputs), [inputs])
@@ -80,20 +87,30 @@ export function ProjectionPanel() {
   const [pctSoldEmission, setPctSoldEmission] = useState(
     DEFAULT_EMISSION_SELL_PCT,
   )
-  const [priceInput, setPriceInput] = useState<string>(() => {
-    const derived = summarizeFundingRounds(_lw6rounds ?? [], maxSupply)
-    return derived.latestPriceUsd !== null ? String(derived.latestPriceUsd) : ''
-  })
+  // The reference price follows the latest funding round until the user
+  // types their own value (rounds are usually added after this panel mounts):
+  // the displayed value is derived, not synced through an effect.
+  const [priceInput, setPriceInput] = useState('')
+  const [priceTouched, setPriceTouched] = useState(false)
+  const derivedPriceUsd = useMemo(
+    () => summarizeFundingRounds(_lw6rounds ?? [], maxSupply).latestPriceUsd,
+    [_lw6rounds, maxSupply],
+  )
+  const effectivePriceInput = priceTouched
+    ? priceInput
+    : derivedPriceUsd !== null
+      ? String(derivedPriceUsd)
+      : ''
   const [depthInput, setDepthInput] = useState('')
 
   const scenario = useMemo<ProjectionScenario>(
     () => ({
       pctSoldByType,
       pctSoldEmission,
-      refPriceUsd: toPositive(priceInput),
+      refPriceUsd: toPositive(effectivePriceInput),
       marketDepthUsd: toPositive(depthInput),
     }),
-    [pctSoldByType, pctSoldEmission, priceInput, depthInput],
+    [pctSoldByType, pctSoldEmission, effectivePriceInput, depthInput],
   )
 
   const pressure = useMemo(
@@ -147,14 +164,24 @@ export function ProjectionPanel() {
     [supply],
   )
 
+  // Fully resolved record (overrides + defaults) for the stress-test route:
+  // the server must see exactly the shares the sliders display.
+  const resolvedPctSoldByType = useMemo(() => {
+    const record: Record<string, number> = {}
+    for (const type of presentTypes) {
+      record[type] =
+        pctSoldByType[type] ??
+        DEFAULT_SELL_PRESSURE_PCT[type as SegmentType] ??
+        0
+    }
+    return record
+  }, [presentTypes, pctSoldByType])
+
   if (inputs.allocations.length === 0 || supply.maxSupply <= 0) {
     return (
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold tracking-tight">Projections</h2>
-        <p className="text-sm text-muted-foreground">
-          Add a max supply, allocations and vesting to project this design.
-        </p>
-      </section>
+      <p className="text-sm text-muted-foreground">
+        Add a max supply, allocations and vesting to project this design.
+      </p>
     )
   }
 
@@ -162,13 +189,10 @@ export function ProjectionPanel() {
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Projections</h2>
-        <p className="text-sm text-muted-foreground">
-          A deterministic read of the saved design: how supply enters
-          circulation, and the sell pressure your assumptions imply.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        A deterministic read of the design as it stands: how supply enters
+        circulation, and the sell pressure your assumptions imply.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatTile
@@ -248,8 +272,11 @@ export function ProjectionPanel() {
               min="0"
               step="0.0001"
               placeholder="e.g. 0.02"
-              value={priceInput}
-              onChange={(e) => setPriceInput(e.target.value)}
+              value={effectivePriceInput}
+              onChange={(e) => {
+                setPriceTouched(true)
+                setPriceInput(e.target.value)
+              }}
               onWheel={preventScrollChange}
               onDoubleClick={selectInputValue}
             />
@@ -342,7 +369,7 @@ export function ProjectionPanel() {
           maxSupply={supply.maxSupply}
           customSegments={supply.customSegments}
           emissionSeriesKey={supply.emissionActive ? EMISSION_KEY : undefined}
-          height={280}
+          height={400}
         />
       </div>
 
@@ -357,10 +384,19 @@ export function ProjectionPanel() {
         <SellPressureChart
           points={pressure.points}
           hasPrice={pressure.hasPrice}
+          refPriceUsd={scenario.refPriceUsd}
           marketDepthUsd={scenario.marketDepthUsd}
-          height={240}
+          height={320}
         />
       </div>
+
+      <StressTestCard
+        projectId={projectId}
+        refPriceUsd={scenario.refPriceUsd}
+        marketDepthUsd={scenario.marketDepthUsd}
+        pctSoldByType={resolvedPctSoldByType}
+        pctSoldEmission={pctSoldEmission}
+      />
     </section>
   )
 }

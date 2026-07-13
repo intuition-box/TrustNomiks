@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { GraphLoader } from '@/components/patterns/graph-loader'
 import {
   StudioSpine,
@@ -35,6 +36,7 @@ import { AllocationStep } from './steps/AllocationStep'
 import { VestingStep } from './steps/VestingStep'
 import { EmissionStep } from './steps/EmissionStep'
 import { FundingStep } from './steps/FundingStep'
+import { ProjectionsStep } from './steps/ProjectionsStep'
 
 /** The Factory builder: same studio grammar as the screener form (spine ·
  *  active section · living graph), over the five tokenomics-core sections. */
@@ -146,6 +148,15 @@ export function FactoryDesigner() {
       max: 0,
       optional: true,
     },
+    {
+      key: 'projections',
+      label: 'Projections',
+      accentVar: '--data-risk',
+      tier: 'enrich',
+      live: allocations.length > 0 ? 1 : 0,
+      max: 0,
+      optional: true,
+    },
   ]
 
   const savedAgoLabel = (() => {
@@ -201,7 +212,7 @@ export function FactoryDesigner() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl pb-16">
+    <div className="mx-auto max-w-screen-2xl pb-16">
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div className="space-y-2">
@@ -303,6 +314,7 @@ export function FactoryDesigner() {
           <VestingStep />
           <EmissionStep />
           <FundingStep />
+          <ProjectionsStep />
 
           {/* ── Studio footer: previous · autosave chip · continue / finish ───── */}
           <div className="glass sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-lg">
@@ -354,8 +366,15 @@ export function FactoryDesigner() {
         </div>
         {/* end active section column */}
 
-        {/* ── Living graph pane (desktop) ─────────────────────────────────────── */}
-        <aside className="sticky top-20 hidden w-72 shrink-0 space-y-4 xl:block">
+        {/* ── Living graph pane (desktop) ─────────────────────────────────────
+             Hidden on the Projections section: its charts ARE the
+             visualization, and they take the rail's width instead. */}
+        <aside
+          className={cn(
+            'sticky top-20 hidden w-72 shrink-0 space-y-4',
+            activeSection !== 'projections' && 'xl:block',
+          )}
+        >
           <BenchmarkPanel />
           <StudioGraphPane
             name={liveTokenName}
