@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { AllocationBreakdownChart } from '@/components/charts/allocation-breakdown-chart'
-import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
+import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import { SupplyBarChart } from '@/components/charts/supply-bar-chart'
 import {
@@ -286,7 +286,7 @@ export function TokenWorkspace({ token }: TokenWorkspaceProps) {
                 height={Math.max(200, token.allocation_segments.length * 40)}
               />
               <div className="flex justify-center">
-                <AllocationDonutChart
+                <AllocationDonutChartDither
                   segments={token.allocation_segments}
                   maxSupply={token.supply_metrics?.max_supply ?? null}
                   size={hasSupplyComposition ? 'lg' : 'sm'}

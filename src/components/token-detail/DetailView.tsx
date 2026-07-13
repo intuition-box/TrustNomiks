@@ -34,7 +34,7 @@ import {
 import { NodeGlyph } from '@/components/patterns/node-glyph'
 import { EmptyState } from '@/components/composite/empty-state'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
-import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
+import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import type { VestingTimelineResult } from '@/lib/utils/vesting-timeline'
 import {
@@ -592,7 +592,7 @@ export function DetailView({
                 {/* Donut + interactive stacked bar */}
                 <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-center">
                   <div className="shrink-0">
-                    <AllocationDonutChart
+                    <AllocationDonutChartDither
                       segments={token.allocation_segments}
                       maxSupply={token.supply_metrics?.max_supply ?? null}
                       size="sm"

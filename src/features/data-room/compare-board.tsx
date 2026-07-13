@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ExternalLink, X } from 'lucide-react'
 import { StatusPill } from '@/components/composite/data-badge'
-import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
+import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
 import { formatCompactNumber } from '@/lib/utils/vesting-timeline'
 import { chartColorsFor } from '@/lib/design/tokens'
 import { formatSegmentTypeLabel } from '@/types/form'
@@ -95,7 +95,7 @@ export function CompareBoard({ tokens, onRemove }: CompareBoardProps) {
             {/* Allocation donut */}
             <div className="flex justify-center border-b px-4 py-4">
               {segments.length > 0 ? (
-                <AllocationDonutChart
+                <AllocationDonutChartDither
                   segments={token.allocation_segments}
                   maxSupply={token.supply_metrics?.max_supply ?? null}
                   size="sm"

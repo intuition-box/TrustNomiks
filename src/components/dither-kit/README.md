@@ -18,6 +18,11 @@ Everything else is upstream, untouched, so the kit's CLI can still diff and
 update it. Keep it that way: adapt at the seams (`palette.ts`, or a wrapper in
 `src/components/charts/`), not inside the engine.
 
+## Where it is used
+
+Only the allocation donut, via `src/components/charts/allocation-donut-chart-dither.tsx`
+(data room, token detail, compare board, and the lightpaper on screen).
+
 ## Known gaps vs. our recharts charts
 
 The engine has no reference line, no step curve, no min/max bands, no free Y
