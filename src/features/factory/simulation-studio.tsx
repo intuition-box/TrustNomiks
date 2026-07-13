@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { PriceEnvelopeChart } from '@/components/charts/price-envelope-chart'
+import { PriceEnvelopeChartDither } from '@/components/charts/price-envelope-chart-dither'
 import {
   MAX_CRISES,
   MAX_SAVED_SCENARIOS,
@@ -528,7 +528,7 @@ export function SimulationStudio({
                 shown. Run again for fresh numbers.
               </p>
             )}
-            <PriceEnvelopeChart
+            <PriceEnvelopeChartDither
               envelope={displayResult.envelope}
               initialPriceUsd={displayScenario.initialPriceUsd}
               height={380}

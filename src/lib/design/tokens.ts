@@ -16,6 +16,7 @@ import {
 } from '@/lib/tokenomics/colors'
 import {
   BLACK,
+  hexToRgb,
   hslToRgb,
   mixOklab,
   parseHslTriplet,
@@ -224,6 +225,25 @@ export function getSegmentChartRgb(segmentType: string, occurrence = 0): Rgb {
     base,
     step.toward === 'white' ? WHITE : BLACK,
     step.share / 100,
+  )
+}
+
+/** GRAPH SPACE for canvas — the numeric twin of {@link getDataColor}. Lets a
+ *  dither chart paint the emission series in the same hue the graph gives an
+ *  emission node. Re-call on theme change. */
+export function getDataRgb(type: NodeType): Rgb {
+  return (
+    parseHslTriplet(readVar(DATA_CSS_VAR[type])) ??
+    hexToRgb(DATA_HEX[type]) ?? [148, 163, 184]
+  )
+}
+
+/** Any other theme token, for a canvas that needs one outside the two palettes
+ *  (`--primary` under an envelope, `--warning` on a breached threshold). The
+ *  fallback is what SSR and the first paint use, before a CSS read is possible. */
+export function getTokenRgb(cssVar: string, fallbackHex: string): Rgb {
+  return (
+    parseHslTriplet(readVar(cssVar)) ?? hexToRgb(fallbackHex) ?? [148, 163, 184]
   )
 }
 

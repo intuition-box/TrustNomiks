@@ -1,6 +1,7 @@
 import { Logo } from '@/components/brand/logo'
 import { AllocationDonutChart } from '@/components/charts/allocation-donut-chart'
 import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
+import { PrintOnly } from '@/components/charts/print-only'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
 import {
   CATEGORY_OPTIONS,
@@ -215,13 +216,13 @@ export function Lightpaper({ design }: { design: FactorySharedDesign }) {
                   size="lg"
                 />
               </div>
-              <div className="hidden print:block">
+              <PrintOnly>
                 <AllocationDonutChart
                   segments={donutSegments}
                   maxSupply={maxSupply || null}
                   size="lg"
                 />
-              </div>
+              </PrintOnly>
               <div className="w-full flex-1 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

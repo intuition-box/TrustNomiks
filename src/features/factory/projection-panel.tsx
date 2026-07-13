@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
 import { StatTile } from '@/components/composite/stat-tile'
 import { UnlockTimelineChart } from '@/components/charts/unlock-timeline-chart'
-import { SellPressureChart } from '@/components/charts/sell-pressure-chart'
+import { SellPressureChartDither } from '@/components/charts/sell-pressure-chart-dither'
 import { getSegmentChartColor } from '@/lib/design/tokens'
 import {
   DEFAULT_EMISSION_SELL_PCT,
@@ -397,7 +397,7 @@ export function ProjectionPanel() {
             the estimated price impact.
           </p>
         )}
-        <SellPressureChart
+        <SellPressureChartDither
           points={pressure.points}
           hasPrice={pressure.hasPrice}
           refPriceUsd={scenario.refPriceUsd}

@@ -23,6 +23,14 @@ export function parseHslTriplet(value: string): Rgb | null {
   return hslToRgb(Number(m[1]), Number(m[2]), Number(m[3]))
 }
 
+/** `#rrggbb` → sRGB 0-255. */
+export function hexToRgb(hex: string): Rgb | null {
+  const m = hex.trim().match(/^#?([0-9a-f]{6})$/i)
+  if (!m) return null
+  const n = Number.parseInt(m[1], 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
 /** HSL (h in degrees, s/l in percent) → sRGB 0-255. */
 export function hslToRgb(h: number, s: number, l: number): Rgb {
   const sat = s / 100
