@@ -5,12 +5,17 @@ import {
   DAYS_PER_YEAR,
   FAST_SELL_DAYS,
   IMPACT_DEPTH_COEFF,
+  SimulationInputError,
   SLOW_SELL_MONTH_DAYS,
   UNLOCK_SELL_PROFILE,
   UNLOCK_SLOW_CUTOFF,
 } from './calibration'
 import { normalizeMacroWindows } from './models'
-import { buildReleaseSchedule, unlockImpactMuAtDay } from './releases'
+import {
+  buildReleaseSchedule,
+  normalizeDepthEvents,
+  unlockImpactMuAtDay,
+} from './releases'
 
 const point = (
   month: number,
@@ -253,5 +258,133 @@ describe('buildReleaseSchedule', () => {
       (5 / bearSlowDecay) * DAYS_PER_YEAR,
       8,
     ) // shorter, sharper profile than bull
+  })
+})
+
+describe('liquidity events', () => {
+  // Two active unlock months (1 and 3): tranches at days 30/45 and 90/105.
+  const twoUnlockSupply = supplyOf(
+    [
+      point(0, {}, 0),
+      point(1, { airdrop: 1_000 }, 1_000),
+      point(2, {}, 1_000),
+      point(3, { airdrop: 1_000 }, 2_000),
+    ],
+    10_000,
+  )
+  const baseArgs = {
+    supply: twoUnlockSupply,
+    pctSoldByType: { airdrop: 100 },
+    pctSoldEmission: 0,
+    marketDepthUsd: 1_000_000,
+    horizonDays: 360,
+    windows: BULL_YEAR,
+  }
+
+  it('leaves the schedule bit-identical when absent or empty', () => {
+    const reference = buildReleaseSchedule(baseArgs)
+    expect(buildReleaseSchedule({ ...baseArgs, liquidityEvents: [] })).toEqual(
+      reference,
+    )
+    expect(
+      buildReleaseSchedule({ ...baseArgs, liquidityEvents: undefined }),
+    ).toEqual(reference)
+  })
+
+  it('steps the depth at the event month: impact scales exactly', () => {
+    const events = buildReleaseSchedule({
+      ...baseArgs,
+      liquidityEvents: [{ month: 2, depthUsd: 500_000 }],
+    })
+    expect(events.map((e) => e.day)).toEqual([30, 45, 90, 105])
+    // Same tokens sold and regime on both months; only the depth differs,
+    // so the closed form scales by exactly the depth ratio (a power of 2).
+    expect(events[2].fastMuPerUsd).toBe(2 * events[0].fastMuPerUsd)
+    expect(events[3].slowMuPerUsd).toBe(2 * events[1].slowMuPerUsd)
+
+    // An event at month 0 is equivalent to replacing the baseline.
+    const viaEvent = buildReleaseSchedule({
+      ...baseArgs,
+      liquidityEvents: [{ month: 0, depthUsd: 250_000 }],
+    })
+    const viaBaseline = buildReleaseSchedule({
+      ...baseArgs,
+      marketDepthUsd: 250_000,
+    })
+    expect(viaEvent).toEqual(viaBaseline)
+  })
+
+  it('handles markets drying up or only listing mid-horizon', () => {
+    const dried = buildReleaseSchedule({
+      ...baseArgs,
+      liquidityEvents: [{ month: 2, depthUsd: 0 }],
+    })
+    expect(dried.filter((e) => e.day < 60).every((e) => !e.inert)).toBe(true)
+    expect(
+      dried
+        .filter((e) => e.day >= 60)
+        .every((e) => e.inert && e.fastMuPerUsd === 0),
+    ).toBe(true)
+
+    const listedLater = buildReleaseSchedule({
+      ...baseArgs,
+      marketDepthUsd: null,
+      liquidityEvents: [{ month: 2, depthUsd: 250_000 }],
+    })
+    expect(listedLater.filter((e) => e.day < 60).every((e) => e.inert)).toBe(
+      true,
+    )
+    expect(listedLater.filter((e) => e.day >= 60).every((e) => !e.inert)).toBe(
+      true,
+    )
+  })
+
+  it('never reactivates a month that is inert by supply facts', () => {
+    // Month 1 dilutes 0.5% < 1%: inert regardless of how deep the market is.
+    const events = buildReleaseSchedule({
+      supply: supplyOf(
+        [
+          point(0, { treasury: 10_000 }, 10_000),
+          point(1, { treasury: 50 }, 10_050),
+        ],
+        100_000,
+      ),
+      pctSoldByType: { treasury: 100 },
+      pctSoldEmission: 0,
+      marketDepthUsd: 1_000_000,
+      liquidityEvents: [{ month: 1, depthUsd: 100_000_000 }],
+      horizonDays: 60,
+      windows: BULL_YEAR,
+    })
+    expect(events.filter((e) => e.day >= 30).every((e) => e.inert)).toBe(true)
+  })
+
+  it('normalizes and validates the event list', () => {
+    expect(normalizeDepthEvents(undefined)).toEqual([])
+    expect(normalizeDepthEvents([])).toEqual([])
+    expect(
+      normalizeDepthEvents([
+        { month: 6, depthUsd: 1 },
+        { month: 2, depthUsd: 3 },
+      ]),
+    ).toEqual([
+      { day: 60, depthUsd: 3 },
+      { day: 180, depthUsd: 1 },
+    ])
+    expect(() =>
+      normalizeDepthEvents([
+        { month: 2, depthUsd: 1 },
+        { month: 2, depthUsd: 2 },
+      ]),
+    ).toThrow(SimulationInputError)
+    expect(() => normalizeDepthEvents([{ month: -1, depthUsd: 1 }])).toThrow(
+      SimulationInputError,
+    )
+    expect(() => normalizeDepthEvents([{ month: 1.5, depthUsd: 1 }])).toThrow(
+      SimulationInputError,
+    )
+    expect(() => normalizeDepthEvents([{ month: 1, depthUsd: NaN }])).toThrow(
+      SimulationInputError,
+    )
   })
 })

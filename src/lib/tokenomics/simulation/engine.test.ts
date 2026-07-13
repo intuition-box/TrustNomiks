@@ -35,6 +35,32 @@ const EMPTY_SUPPLY: SupplyProjection = {
   finalCirculatingPctOfMax: null,
 }
 
+/** Real projection: 1M team tokens, 10% TGE then linear over 10 months. */
+const teamSupply = () =>
+  computeSupplyProjection(
+    buildProjectionInputs({
+      allocations: [
+        {
+          id: 'a',
+          segment_type: 'team-founders',
+          label: 'Team',
+          percentage: '0',
+          token_amount: '1,000,000',
+        },
+      ],
+      schedules: {
+        a: {
+          tge_percentage: '10',
+          duration_months: '10',
+          frequency: 'monthly',
+        },
+      },
+      maxSupply: '1,000,000',
+      emission: null,
+      tgeDate: null,
+    }),
+  )
+
 const scenarioOf = (
   overrides: Partial<SimulationScenario> = {},
 ): SimulationScenario => ({
@@ -132,28 +158,7 @@ describe('runSimulation', () => {
   })
 
   it('runs end-to-end on a real projection with ordered envelope bands', () => {
-    const inputs = buildProjectionInputs({
-      allocations: [
-        {
-          id: 'a',
-          segment_type: 'team-founders',
-          label: 'Team',
-          percentage: '0',
-          token_amount: '1,000,000',
-        },
-      ],
-      schedules: {
-        a: {
-          tge_percentage: '10',
-          duration_months: '10',
-          frequency: 'monthly',
-        },
-      },
-      maxSupply: '1,000,000',
-      emission: null,
-      tgeDate: null,
-    })
-    const supply = computeSupplyProjection(inputs)
+    const supply = teamSupply()
     const scenario = scenarioOf({
       nPaths: 100,
       marketDepthUsd: 50_000,
@@ -193,6 +198,39 @@ describe('runSimulation', () => {
       }),
     )
     expect(result.kpis.finalPrice.p50).toBeLessThan(noSales.kpis.finalPrice.p50)
+  })
+
+  it('treats liquidity events as a pure extension of the scenario', () => {
+    const supply = teamSupply()
+    const scenario = scenarioOf({
+      nPaths: 100,
+      marketDepthUsd: 50_000,
+      pctSoldByType: { 'team-founders': 100 },
+      macroWindows: [{ fromMonth: 0, toMonth: 12, condition: 'bear' }],
+    })
+    const baseline = runSimulation(supply, scenario)
+
+    // No events, an empty list and a day-0 restatement of the baseline
+    // depth are all bit-identical: the extension cannot drift the engine.
+    const empty = runSimulation(supply, { ...scenario, liquidityEvents: [] })
+    const restated = runSimulation(supply, {
+      ...scenario,
+      liquidityEvents: [{ month: 0, depthUsd: 50_000 }],
+    })
+    expect(empty.envelope).toEqual(baseline.envelope)
+    expect(empty.kpis).toEqual(baseline.kpis)
+    expect(restated.envelope).toEqual(baseline.envelope)
+    expect(restated.kpis).toEqual(baseline.kpis)
+
+    // Halving the depth mid-horizon steepens the unlock impact: lower
+    // median at identical noise (releases consume no randomness).
+    const halved = runSimulation(supply, {
+      ...scenario,
+      liquidityEvents: [{ month: 6, depthUsd: 25_000 }],
+    })
+    expect(halved.kpis.finalPrice.p50).toBeLessThan(
+      baseline.kpis.finalPrice.p50,
+    )
   })
 
   it('validates its inputs and clamps nPaths', () => {
