@@ -14,6 +14,7 @@ import {
   Minus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { parseDateOnly } from '@/lib/utils/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -232,8 +233,11 @@ export function Step6Sources() {
                                             'text-muted-foreground',
                                         )}
                                       >
-                                        {field.value ? (
-                                          format(new Date(field.value), 'PPP')
+                                        {parseDateOnly(field.value) ? (
+                                          format(
+                                            parseDateOnly(field.value)!,
+                                            'PPP',
+                                          )
                                         ) : (
                                           <span>Pick a date</span>
                                         )}
@@ -251,12 +255,17 @@ export function Step6Sources() {
                                     <Calendar
                                       mode="single"
                                       selected={
-                                        field.value
-                                          ? new Date(field.value)
-                                          : undefined
+                                        parseDateOnly(field.value) ?? undefined
                                       }
+                                      // The column is a DATE. Emitting an ISO
+                                      // instant here would shift the picked day
+                                      // back by one east of Greenwich.
                                       onSelect={(date) =>
-                                        field.onChange(date?.toISOString())
+                                        field.onChange(
+                                          date
+                                            ? format(date, 'yyyy-MM-dd')
+                                            : undefined,
+                                        )
                                       }
                                       captionLayout="dropdown"
                                       fromYear={2000}

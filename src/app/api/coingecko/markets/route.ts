@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/coingecko/rate-limiter'
+import { coingeckoFetch } from '@/lib/coingecko/client'
 import type { CoinGeckoPriceResponse } from '@/types/coingecko'
 
-const COINGECKO_BASE = 'https://api.coingecko.com/api/v3'
 // Market pulse, not a trading terminal: 5 minutes is fresh enough and keeps
 // the whole registry to one upstream call per window.
 const CACHE_TTL_MS = 5 * 60 * 1000
@@ -58,9 +58,7 @@ export async function GET(request: NextRequest) {
       vs_currencies: 'usd',
       include_24hr_change: 'true',
     })
-    const res = await fetch(`${COINGECKO_BASE}/simple/price?${params}`, {
-      headers: { Accept: 'application/json' },
-    })
+    const res = await coingeckoFetch('/simple/price', params)
     if (!res.ok) {
       return NextResponse.json(
         { error: 'CoinGecko API error' },

@@ -26,6 +26,13 @@ export function humanizeWriteError(err: unknown, fallback?: string): string {
     return "You do not have permission to make this change. Only the token's creator, as a contributor, can edit it."
   }
 
+  // 23505 unique_violation: the registry holds one entry per CoinGecko coin and
+  // one per deployed contract (20260720_add_token_uniqueness_indexes.sql).
+  // Without this branch the user would get the raw Postgres constraint message.
+  if (code === '23505' || /duplicate key value/i.test(message)) {
+    return 'This token is already in the registry. Open the existing entry instead of creating a second one.'
+  }
+
   return fallback ?? 'Something went wrong. Please try again.'
 }
 

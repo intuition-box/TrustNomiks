@@ -1,15 +1,23 @@
 /**
  * Simple in-memory sliding-window rate limiter for CoinGecko API calls.
- * CoinGecko free tier: 30 req/min. We cap at 25 for safety margin.
+ *
+ * The budget comes from the resolved tier (see `client.ts`), so it tracks the
+ * key we actually send instead of a hardcoded guess: a keyless call gets a
+ * deliberately small budget, a Demo key gets close to its published 100/min.
+ * The window is per server instance, so on serverless it bounds a single
+ * lambda, not the fleet.
  */
 
-const MAX_REQUESTS = 25
+import { resolveCoinGeckoConfig } from './client'
+
 const WINDOW_MS = 60_000
 
 const timestamps: number[] = []
 
-export function checkRateLimit(): { allowed: boolean; retryAfterMs?: number } {
-  const now = Date.now()
+export function checkRateLimit(
+  maxRequests: number = resolveCoinGeckoConfig().requestsPerMinute,
+  now: number = Date.now(),
+): { allowed: boolean; retryAfterMs?: number } {
   const windowStart = now - WINDOW_MS
 
   // Prune expired timestamps
@@ -17,11 +25,16 @@ export function checkRateLimit(): { allowed: boolean; retryAfterMs?: number } {
     timestamps.shift()
   }
 
-  if (timestamps.length >= MAX_REQUESTS) {
+  if (timestamps.length >= maxRequests) {
     const retryAfterMs = timestamps[0] + WINDOW_MS - now
     return { allowed: false, retryAfterMs }
   }
 
   timestamps.push(now)
   return { allowed: true }
+}
+
+/** Test seam: drops the window so suites do not leak state into each other. */
+export function resetRateLimitWindow(): void {
+  timestamps.length = 0
 }

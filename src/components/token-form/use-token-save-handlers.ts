@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { computeScores } from '@/lib/utils/completeness'
+import { toDateOnly } from '@/lib/utils/date'
+import { humanizeWriteError } from '@/lib/utils/supabase-error'
 import { type StudioSectionKey } from '@/features/studio/studio-spine'
 import type { CoinGeckoProfile } from '@/types/coingecko'
 import {
@@ -107,6 +109,15 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       )
       return true
     }
+    // Unique violation on coingecko_id or (chain, contract_address). Reuses the
+    // shared copy so the create and edit paths word it identically.
+    if (
+      error.code === '23505' ||
+      error.message?.includes('duplicate key value')
+    ) {
+      toast.error(humanizeWriteError(error))
+      return true
+    }
     return false
   }
 
@@ -189,7 +200,13 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           .select()
           .single()
 
-        if (error) throw error
+        // Goes through handleRpcError like every other write: a duplicate token
+        // must read as "already in the registry", not as a raw Postgres
+        // constraint message.
+        if (error) {
+          if (handleRpcError(error)) return false
+          throw error
+        }
 
         setTokenId(tokenData.id)
         setInitialUpdatedAt(tokenData.updated_at)
@@ -703,7 +720,9 @@ export function useTokenSaveHandlers(state: TokenFormState) {
         document_name: source.document_name,
         url: source.url,
         version: source.version || null,
-        verified_at: source.verified_at || null,
+        // DATE column: normalise to a local calendar day so an ISO instant
+        // cannot land on the previous day once Postgres truncates it.
+        verified_at: toDateOnly(source.verified_at),
       }))
 
       // Flatten attributions to individual claim_source rows with source index
@@ -1389,7 +1408,10 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           document_name: 'CoinGecko',
           url: cgUrl,
           version: '',
-          verified_at: new Date().toISOString(),
+          // Left unset on purpose: verified_at means a human checked this
+          // source, not that a bot fetched it. Stamping it here would let an
+          // autofill vouch for itself, and it gets minted on-chain as such.
+          verified_at: undefined,
         })
         filled++
       }
