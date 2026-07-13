@@ -3,10 +3,12 @@
 import { ArrowRight, FlaskConical, Plus, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFactoryForm } from './factory-form-context'
+import { ShareDesignCard } from './share-design-card'
 
 /** Post-save "Design saved" screen, shown once Finish is pressed on the
- *  last section. A design is private, so there is no publish moment; the
- *  projections and stress test live in the builder's Projections section. */
+ *  last section. A design stays private by default; the share card mints a
+ *  public lightpaper link when the owner wants one. Projections and stress
+ *  tests live in the builder's Simulation studio section. */
 export function FactoryCompletionScreen() {
   const {
     router,
@@ -51,6 +53,8 @@ export function FactoryCompletionScreen() {
               </span>
             </div>
           </div>
+
+          {projectId && <ShareDesignCard projectId={projectId} />}
 
           <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
             {projectId && (
