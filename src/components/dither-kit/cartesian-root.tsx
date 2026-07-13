@@ -16,7 +16,7 @@ import {
 import { CommonChartContext } from './common-context'
 import type { BloomInput } from './dither-paint'
 import { cn } from './lib'
-import type { StackType } from './scales'
+import type { RangeKeys, StackType } from './scales'
 import { useChartDimensions } from './use-chart-dimensions'
 
 // `object` rather than `Record<string, unknown>`: interfaces don't get an
@@ -36,6 +36,12 @@ export type CartesianChartProps<TData extends Row> = {
   config: ChartConfig
   children: ReactNode
   stackType?: StackType
+  /** ADDED (fork). Series whose band is read off two row fields rather than the
+   *  floor or the stack — `{ p05_95: ['p05', 'p95'] }`. Memoize it. */
+  ranges?: RangeKeys
+  /** ADDED (fork). Pins the y axis instead of anchoring it at zero — a price
+   *  envelope needs this, a supply chart must not use it. Memoize it. */
+  yDomain?: [number, number]
   margins?: Partial<Margins>
   className?: string
   animate?: boolean
@@ -81,6 +87,8 @@ export function CartesianRoot<TData extends Row>({
   config,
   children,
   stackType = 'default',
+  ranges,
+  yDomain,
   margins: marginsProp,
   className,
   animate = true,
@@ -107,6 +115,8 @@ export function CartesianRoot<TData extends Row>({
     data: data as Record<string, unknown>[],
     config,
     stackType,
+    ranges,
+    yDomain,
     dimensions: size,
     margins,
     animate,

@@ -13,6 +13,7 @@ import {
   computeBands,
   indexAtBand,
   nearestIndex,
+  type RangeKeys,
   type StackType,
 } from './scales'
 import type { Dimensions } from './use-chart-dimensions'
@@ -181,6 +182,8 @@ export function useChartController({
   data,
   config,
   stackType,
+  ranges,
+  yDomain,
   dimensions,
   margins,
   animate = true,
@@ -197,6 +200,10 @@ export function useChartController({
   data: Row[]
   config: ChartConfig
   stackType: StackType
+  /** ADDED (fork). Memoize it: it is a dep of the band computation. */
+  ranges?: RangeKeys
+  /** ADDED (fork). Memoize it. */
+  yDomain?: [number, number]
   dimensions: Dimensions
   margins: Margins
   animate?: boolean
@@ -295,9 +302,9 @@ export function useChartController({
   // Memoized: the priciest derivation in the render path — it walks every
   // row × series to build the stack bands. Hover/cursor state changes must not
   // recompute it, only a real data/series/stack change.
-  const { bands, max } = useMemo(
-    () => computeBands(data, configKeys, stackType),
-    [data, configKeys, stackType],
+  const { bands, max, min } = useMemo(
+    () => computeBands(data, configKeys, stackType, ranges),
+    [data, configKeys, stackType, ranges],
   )
 
   const isBar = chartType === 'bar'
@@ -341,7 +348,10 @@ export function useChartController({
     },
     [xCenter, stacked, bandwidth],
   )
-  const y = useMemo(() => buildYScale(max, plotHeight), [max, plotHeight])
+  const y = useMemo(
+    () => buildYScale(min, max, plotHeight, yDomain),
+    [min, max, plotHeight, yDomain],
+  )
 
   // Stable so `common` and the value stay stable; re-created only on config.
   const seedOf = useCallback(
