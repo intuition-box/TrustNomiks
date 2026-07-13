@@ -28,6 +28,8 @@ interface StressTestCardProps {
   marketDepthUsd: number | null
   pctSoldByType: Record<string, number>
   pctSoldEmission: number
+  /** Design horizon, in months: the single macro window spans it. */
+  horizonMonths: number
 }
 
 const CRISIS_OPTIONS: Array<{ value: CrisisType; label: string }> = [
@@ -86,6 +88,7 @@ export function StressTestCard({
   marketDepthUsd,
   pctSoldByType,
   pctSoldEmission,
+  horizonMonths,
 }: StressTestCardProps) {
   const [macroCondition, setMacroCondition] = useState<MacroCondition>('bear')
   const [crisisEnabled, setCrisisEnabled] = useState(false)
@@ -126,7 +129,13 @@ export function StressTestCard({
             marketDepthUsd,
             pctSoldByType,
             pctSoldEmission,
-            macroCondition,
+            macroWindows: [
+              {
+                fromMonth: 0,
+                toMonth: horizonMonths,
+                condition: macroCondition,
+              },
+            ],
             crises,
           },
         }),
@@ -144,7 +153,7 @@ export function StressTestCard({
         )
         return
       }
-      setResult(json as SimulationResult)
+      setResult(json.result as SimulationResult)
     } catch {
       toast.error('The simulation failed')
     } finally {

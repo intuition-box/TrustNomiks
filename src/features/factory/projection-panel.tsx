@@ -396,6 +396,7 @@ export function ProjectionPanel() {
         marketDepthUsd={scenario.marketDepthUsd}
         pctSoldByType={resolvedPctSoldByType}
         pctSoldEmission={pctSoldEmission}
+        horizonMonths={supply.horizonMonths}
       />
     </section>
   )
