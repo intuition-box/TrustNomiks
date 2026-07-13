@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { computeScores } from '@/lib/utils/completeness'
 import { toDateOnly } from '@/lib/utils/date'
+import { humanizeWriteError } from '@/lib/utils/supabase-error'
 import { type StudioSectionKey } from '@/features/studio/studio-spine'
 import type { CoinGeckoProfile } from '@/types/coingecko'
 import {
@@ -108,6 +109,15 @@ export function useTokenSaveHandlers(state: TokenFormState) {
       )
       return true
     }
+    // Unique violation on coingecko_id or (chain, contract_address). Reuses the
+    // shared copy so the create and edit paths word it identically.
+    if (
+      error.code === '23505' ||
+      error.message?.includes('duplicate key value')
+    ) {
+      toast.error(humanizeWriteError(error))
+      return true
+    }
     return false
   }
 
@@ -190,7 +200,13 @@ export function useTokenSaveHandlers(state: TokenFormState) {
           .select()
           .single()
 
-        if (error) throw error
+        // Goes through handleRpcError like every other write: a duplicate token
+        // must read as "already in the registry", not as a raw Postgres
+        // constraint message.
+        if (error) {
+          if (handleRpcError(error)) return false
+          throw error
+        }
 
         setTokenId(tokenData.id)
         setInitialUpdatedAt(tokenData.updated_at)

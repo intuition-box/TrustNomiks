@@ -4,6 +4,43 @@ import { humanizeWriteError } from './supabase-error'
 const DENIED_MESSAGE =
   "You do not have permission to make this change. Only the token's creator, as a contributor, can edit it."
 
+const DUPLICATE_MESSAGE =
+  'This token is already in the registry. Open the existing entry instead of creating a second one.'
+
+describe('humanizeWriteError — duplicate token', () => {
+  it('maps a PostgrestError-like object with code 23505 to the duplicate message', () => {
+    expect(
+      humanizeWriteError({
+        code: '23505',
+        message:
+          'duplicate key value violates unique constraint "tokens_coingecko_id_key"',
+      }),
+    ).toBe(DUPLICATE_MESSAGE)
+  })
+
+  it('maps a raw "duplicate key value" message with no code', () => {
+    expect(
+      humanizeWriteError(
+        new Error(
+          'duplicate key value violates unique constraint "tokens_chain_contract_address_key"',
+        ),
+      ),
+    ).toBe(DUPLICATE_MESSAGE)
+  })
+
+  it('does not swallow the duplicate case behind a caller fallback', () => {
+    expect(humanizeWriteError({ code: '23505' }, 'Failed to save token')).toBe(
+      DUPLICATE_MESSAGE,
+    )
+  })
+
+  it('still prefers the denial message when a write is both denied and conflicting', () => {
+    expect(
+      humanizeWriteError({ code: '42501', message: 'duplicate key value' }),
+    ).toBe(DENIED_MESSAGE)
+  })
+})
+
 describe('humanizeWriteError', () => {
   it('maps a PostgrestError-like object with code 42501 to the denied message', () => {
     expect(
