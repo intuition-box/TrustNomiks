@@ -14,36 +14,25 @@ import {
 } from '@/lib/tokenomics/schemas'
 import type { AllocationWithId } from '@/lib/tokenomics/math'
 import {
+  MAX_SAVED_SCENARIOS,
   SimulationInputError,
+  factorySimulationScenarioSchema,
   runSimulation,
 } from '@/lib/tokenomics/simulation'
 
 /**
  * The client only sends scenario ASSUMPTIONS (price, depth, sell shares,
- * regime, crises, seed). The design itself is reloaded from the database
- * under RLS: the server never trusts client-provided tokenomics.
+ * macro windows, liquidity events, crises, seed). The design itself is
+ * reloaded from the database under RLS: the server never trusts
+ * client-provided tokenomics. When `persist` is present the run is also
+ * saved as a named snapshot, so persisted results are always
+ * server-computed - and this route stays the single choke point for any
+ * future run accounting.
  */
-const scenarioSchema = z.object({
-  seed: z.number().int(),
-  nPaths: z.number().int().optional(),
-  initialPriceUsd: z.number().positive().finite(),
-  marketDepthUsd: z.number().finite().nullable(),
-  pctSoldByType: z.record(z.string(), z.number()),
-  pctSoldEmission: z.number(),
-  macroCondition: z.enum(['bull', 'bear']),
-  crises: z
-    .array(
-      z.object({
-        month: z.number().int().min(0).max(120),
-        type: z.enum(['covid', 'ftx', 'terra']),
-      }),
-    )
-    .max(3),
-})
-
 const bodySchema = z.object({
   projectId: z.string().uuid(),
-  scenario: scenarioSchema,
+  scenario: factorySimulationScenarioSchema,
+  persist: z.object({ name: z.string().trim().min(1).max(80) }).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -73,16 +62,19 @@ export async function POST(request: NextRequest) {
     const parsed = bodySchema.safeParse(await request.json())
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid simulation request' },
+        {
+          error:
+            parsed.error.issues[0]?.message ?? 'Invalid simulation request',
+        },
         { status: 400 },
       )
     }
-    const { projectId, scenario } = parsed.data
+    const { projectId, scenario, persist } = parsed.data
 
     // Owner-only RLS: a foreign or unknown project id reads as absent.
     const { data: project, error: projectErr } = await supabase
       .from('factory_projects')
-      .select('id, category')
+      .select('id, category, updated_at')
       .eq('id', projectId)
       .maybeSingle()
     if (projectErr) {
@@ -95,6 +87,41 @@ export async function POST(request: NextRequest) {
       // Same shape as the benchmarks route's no-sector gate: an explicit
       // reason, not an error (the panel routes the user to Identity).
       return NextResponse.json({ result: null, reason: 'no-category' })
+    }
+
+    // Persist pre-checks run BEFORE the simulation: the user never waits
+    // for a run that cannot be saved. The DB (unique constraint + cap
+    // trigger) remains the invariant; this is the friendly path.
+    if (persist) {
+      const { data: existing, error: existingErr } = await supabase
+        .from('factory_simulation_snapshots')
+        .select('name')
+        .eq('project_id', projectId)
+      if (existingErr) {
+        return NextResponse.json(
+          { error: existingErr.message },
+          { status: 500 },
+        )
+      }
+      const rows = existing ?? []
+      if (rows.length >= MAX_SAVED_SCENARIOS) {
+        return NextResponse.json(
+          {
+            error: `Scenario library is full (${MAX_SAVED_SCENARIOS} saved)`,
+            reason: 'cap-reached',
+          },
+          { status: 409 },
+        )
+      }
+      if (rows.some((row) => row.name === persist.name)) {
+        return NextResponse.json(
+          {
+            error: 'A scenario with that name already exists',
+            reason: 'duplicate-name',
+          },
+          { status: 409 },
+        )
+      }
     }
 
     const [supplyResult, allocationsResult, emissionResult] = await Promise.all(
@@ -206,18 +233,41 @@ export async function POST(request: NextRequest) {
       category: project.category,
       pctSoldByType: scenario.pctSoldByType,
       pctSoldEmission: scenario.pctSoldEmission,
-      macroWindows: [
-        {
-          fromMonth: 0,
-          toMonth: supply.horizonMonths,
-          condition: scenario.macroCondition,
-        },
-      ],
+      macroWindows: scenario.macroWindows,
       crises: scenario.crises,
+      liquidityEvents: scenario.liquidityEvents,
       horizonMonths: supply.horizonMonths,
     })
 
-    return NextResponse.json(result)
+    if (persist) {
+      const { data: snapshot, error: insertErr } = await supabase
+        .from('factory_simulation_snapshots')
+        .insert({
+          project_id: projectId,
+          name: persist.name,
+          scenario,
+          result,
+          engine_version: result.meta.engineVersion,
+          design_updated_at: project.updated_at,
+        })
+        .select()
+        .single()
+      if (insertErr) {
+        // Residual race past the pre-checks (23505 unique name, 23514 cap
+        // trigger): the run itself is fine, so return it with the reason
+        // instead of discarding server work.
+        const persistError =
+          insertErr.code === '23505'
+            ? 'duplicate-name'
+            : insertErr.code === '23514'
+              ? 'cap-reached'
+              : 'insert-failed'
+        return NextResponse.json({ result, snapshot: null, persistError })
+      }
+      return NextResponse.json({ result, snapshot })
+    }
+
+    return NextResponse.json({ result, snapshot: null })
   } catch (err) {
     if (err instanceof SimulationInputError) {
       return NextResponse.json({ error: err.message }, { status: 400 })

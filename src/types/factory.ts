@@ -1,5 +1,7 @@
 import type { FactoryBenchmarkSnapshot } from '@/lib/tokenomics/benchmarks'
 import type { FactoryClusterScores } from '@/lib/tokenomics/factory-score'
+import type { SimulationResult } from '@/lib/tokenomics/simulation/engine'
+import type { FactorySimulationScenarioInput } from '@/lib/tokenomics/simulation/scenario'
 
 /** Design lifecycle: a private draft, or promoted into a real screener token. */
 export type FactoryProjectStatus = 'draft' | 'promoted'
@@ -26,4 +28,21 @@ export interface FactoryProject {
   created_at: string
   updated_at: string
   created_by: string
+}
+
+/**
+ * A saved stress-test run (factory_simulation_snapshots row): the scenario
+ * assumptions plus the full server-computed result. design_updated_at is
+ * the design's optimistic-lock timestamp at run time; a mismatch with the
+ * current one means the design changed since this run.
+ */
+export interface FactorySimulationSnapshot {
+  id: string
+  project_id: string
+  name: string
+  scenario: FactorySimulationScenarioInput
+  result: SimulationResult
+  engine_version: string
+  design_updated_at: string
+  created_at: string
 }

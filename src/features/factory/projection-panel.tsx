@@ -25,12 +25,13 @@ import {
   parseDecimal,
   summarizeFundingRounds,
   summarizeProjection,
+  type FactorySimulationScenarioInput,
   type ProjectionScenario,
   type SegmentType,
   type VestingTimelinePoint,
 } from '@/lib/tokenomics'
 import { useFactoryForm } from './factory-form-context'
-import { StressTestCard } from './stress-test-card'
+import { SimulationStudio } from './simulation-studio'
 
 /** Series key for minted supply; suffixed to dodge a same-named segment. */
 const EMISSION_KEY = 'Emission (minted)'
@@ -163,6 +164,21 @@ export function ProjectionPanel() {
         .map(({ key, segment_type }) => ({ label: key, segment_type })),
     [supply],
   )
+
+  // Loading a saved scenario pushes its assumptions back into the panel's
+  // knobs, so the deterministic charts and the studio agree again (plain
+  // event-handler setState, same no-effect discipline as the prefill).
+  const applyScenarioAssumptions = (
+    saved: FactorySimulationScenarioInput,
+  ): void => {
+    setPriceTouched(true)
+    setPriceInput(String(saved.initialPriceUsd))
+    setDepthInput(
+      saved.marketDepthUsd !== null ? String(saved.marketDepthUsd) : '',
+    )
+    setPctSoldByType(saved.pctSoldByType)
+    setPctSoldEmission(saved.pctSoldEmission)
+  }
 
   // Fully resolved record (overrides + defaults) for the stress-test route:
   // the server must see exactly the shares the sliders display.
@@ -390,12 +406,14 @@ export function ProjectionPanel() {
         />
       </div>
 
-      <StressTestCard
+      <SimulationStudio
         projectId={projectId}
         refPriceUsd={scenario.refPriceUsd}
         marketDepthUsd={scenario.marketDepthUsd}
         pctSoldByType={resolvedPctSoldByType}
         pctSoldEmission={pctSoldEmission}
+        horizonMonths={supply.horizonMonths}
+        applyScenarioAssumptions={applyScenarioAssumptions}
       />
     </section>
   )

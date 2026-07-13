@@ -29,7 +29,11 @@ import {
   type CrisisEventInput,
   type MacroWindowInput,
 } from './models'
-import { buildReleaseSchedule, type ReleaseEvent } from './releases'
+import {
+  buildReleaseSchedule,
+  type DepthEventInput,
+  type ReleaseEvent,
+} from './releases'
 import {
   aggregateKpis,
   buildEnvelope,
@@ -52,6 +56,8 @@ export interface SimulationScenario {
   /** Must tile the horizon from month 0; the tail regime is extended. */
   macroWindows: MacroWindowInput[]
   crises: CrisisEventInput[]
+  /** Dated market-depth changes; absent or empty keeps the baseline. */
+  liquidityEvents?: DepthEventInput[]
   horizonMonths: number
 }
 
@@ -211,6 +217,7 @@ export function runSimulation(
     pctSoldByType: scenario.pctSoldByType,
     pctSoldEmission: scenario.pctSoldEmission,
     marketDepthUsd: scenario.marketDepthUsd,
+    liquidityEvents: scenario.liquidityEvents,
     horizonDays,
     windows,
   }).filter((release) => !release.inert)

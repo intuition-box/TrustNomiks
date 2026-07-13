@@ -6,9 +6,11 @@ import { useFactoryForm } from '../factory-form-context'
 import { ProjectionPanel } from '../projection-panel'
 import { FactoryNotReadySection } from './factory-not-ready'
 
-/** Section 7: Projections — deterministic supply/sell-pressure curves and
- *  the Monte-Carlo stress test. A derived view of the design (factory-only,
- *  optional, unscored): nothing here is a form and nothing is persisted. */
+/** Section 7: Simulation studio (key 'projections') — deterministic
+ *  supply/sell-pressure curves that follow the live form, plus the
+ *  Monte-Carlo scenario builder that runs against the saved design. A
+ *  derived view (factory-only, optional, unscored): not a form; only
+ *  scenario snapshots persist, in their own table. */
 export function ProjectionsStep() {
   const { projectId, activeSection, allocations } = useFactoryForm()
 
@@ -23,8 +25,8 @@ export function ProjectionsStep() {
     >
       <SectionHeader
         accentVar="--data-risk"
-        label="Projections"
-        desc="· Stress-test the design"
+        label="Simulation studio"
+        desc="· Stress-test and compare scenarios"
         liveScore={allocations.length > 0 ? 1 : 0}
         maxScore={0}
         saved={false}

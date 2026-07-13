@@ -66,6 +66,18 @@ describe('normalizeMacroWindows', () => {
     )
     expect(extended[0].toDay).toBe(720)
     expect(macroConditionAtDay(extended, 700)).toBe('bear')
+
+    // Windows past the horizon are tolerated (never truncated): a saved
+    // scenario stays valid when the design's horizon shrinks.
+    const overlong = normalizeMacroWindows(
+      [
+        { fromMonth: 0, toMonth: 6, condition: 'bull' },
+        { fromMonth: 6, toMonth: 24, condition: 'bear' },
+      ],
+      360,
+    )
+    expect(overlong[1].toDay).toBe(720)
+    expect(macroConditionAtDay(overlong, 359)).toBe('bear')
   })
 })
 
