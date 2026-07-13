@@ -1,11 +1,19 @@
 /**
  * Design tokens — the ONE bridge between JS ↔ CSS variables.
  *
- * Canvas (react-force-graph) and SVG (recharts) can't use Tailwind classes, so
- * they resolve colors here. DOM should prefer the Tailwind classes
- * (`bg-data-token`, `text-data-vesting`) — these resolvers exist for canvas/SVG.
+ * Canvas (the force graph, the dither charts) and SVG (the recharts print
+ * twins) can't use Tailwind classes, so they resolve colors here. DOM should
+ * prefer the Tailwind classes (`bg-data-token`, `text-data-vesting`).
  *
- * Same color = same concept, product-wide. See docs/redesign/03-design-tokens-taxonomy.md.
+ * The bridge has two halves; pick by what consumes the value:
+ *   - CSS strings (SVG, DOM): getDataColor / getSegmentChartColor / chartColorsFor
+ *   - numeric [r,g,b] (canvas): getDataRgb / chartRgbFor / getTokenRgb
+ * A canvas can parse neither `hsl(var(--x))` nor `color-mix()`, so it needs
+ * channels. Both halves replay the same OKLab ramp, so they cannot drift apart.
+ * getComputedStyle is NOT reactive: re-resolve on `resolvedTheme` change.
+ *
+ * Same color = same concept, product-wide. See docs/redesign/DESIGN-RULES.md §2-§3
+ * and docs/redesign/03-design-tokens-taxonomy.md.
  */
 import type { NodeType, NodeFamily } from '@/lib/knowledge-graph/graph-types'
 import type { SegmentType } from '@/lib/tokenomics/schemas'

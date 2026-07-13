@@ -6,6 +6,14 @@ I have everything I need: the 16-color node taxonomy, the 8-color segment palett
 
 # DATA-VIZ & GRAPH MOTION SYSTEM
 
+> ⚠ **Read this first — the doc is half shipped, half proposal.**
+> **§1 (charts) was rewritten on 2026-07-13 and describes what actually ships**: the dither-kit canvas engine.
+> **§2 (knowledge graph) and §3-§4 (motion) are still the original proposal** and were never fully built.
+> Anywhere below outside §1, the accessor names are aspirational: `getGraphColor` and `getChartColor` **do not
+> exist**. The real bridge is `src/lib/design/tokens.ts` — `getDataColor`/`getDataRgb` for graph space,
+> `getSegmentChartColor`/`chartRgbFor` for chart space. Do not copy a symbol out of this doc without grepping for it.
+> The binding rules are `DESIGN-RULES.md`; this file is the "why" and the per-chart spec.
+
 > Governing principle: **two color spaces, one token layer.** "Graph space" (the knowledge graph, node families, the indexer aesthetic) and "chart space" (allocation/supply/emission analytics) are deliberately separated so a color never means two things on screen at once. The current code proves the need: `node-config.ts` and `chart-colors.ts` both hardcode `#6366f1` (hub *and* rewards) and `#14b8a6` (export *and* airdrop). We resolve this by giving each space its own token namespace and never letting `getGraphColor` leak into a chart or `getChartColor` leak onto a node. Everything below reads from CSS variables authored in OKLCH in `globals.css`; canvas (force-graph), SVG (recharts), and DOM (badges/legends) all resolve the **same** variable so they can never drift.
 
 ---
@@ -92,53 +100,61 @@ export const getChartColor = (s: SegmentType | 'unallocated'): string =>
 
 ## 1. CHART TAXONOMY & STYLING SPEC
 
-All charts are **recharts**, re-skinned (no new chart lib). Shared rules first, then per-chart.
+> **Rewritten 2026-07-13 to describe what shipped.** The original section specified a re-skinned recharts and named
+> tokens (`--chart-grid`, `--chart-axis`, `--chart-cursor`, `--chart-unallocated`) and accessors (`getChartColor`,
+> `chart-colors.ts`) that were never built. It was a proposal; this is the system. The binding short form is
+> `DESIGN-RULES.md` §3; the engine's own maintenance notes are `src/components/dither-kit/README.md`.
+
+**Every chart on screen is [dither-kit](https://tripwire.sh/dither-kit)** — a small canvas engine that paints with an
+ordered dither, vendored (MIT) into `src/components/dither-kit/` and forked. Wrappers live in
+`src/components/charts/`. **recharts survives for exactly one reason: print.**
+
+### 1.0 Why a canvas engine, and why recharts still exists
+
+The dither is a material, not a filter: each series is painted as a scatter of single pixels whose *density* carries
+the value, so a fill fades out toward its own edge instead of stopping at a hard line. That is what makes the charts
+read as one family with the knowledge graph (also a canvas) rather than as generic SVG business charts.
+
+The cost is the same thing as the benefit. The canvas is painted at **one device-independent pixel per dither cell**
+and deliberately does **not** scale to `devicePixelRatio` — the pattern has to be pixel-exact to look like anything.
+So it cannot gain resolution on paper. The lightpaper is the investor-facing artifact and must print vector, so every
+chart it prints keeps a recharts twin, revealed only in `print` media through `<PrintOnly>`.
+
+`<PrintOnly>` is subtler than it looks and must not be "simplified" back to `hidden print:block`: recharts sizes
+itself from its container, so inside `display: none` it measures 0×0 and paints nothing, and `window.print()` freezes
+the paint before a resize observer can rescue it. A headless `page.pdf()` re-renders leniently and shows the chart
+anyway — which is exactly how a blank chart reaches a PDF while every automated check is green. The twin therefore
+stays **mounted and measured**, clipped to zero height.
 
 ### 1.1 Universal chart rules
 
 | Aspect | Spec |
 |---|---|
-| **Palette** | Series colors come **only** from chart-space tokens via `getChartColor(segment)`. Stable mapping by `SegmentType` (already the intent in `chart-colors.ts`) so the same segment is the same color across every token → cross-token comparison reads instantly. Never `getGraphColor` in a chart. |
-| **Grid** | `--chart-grid`, horizontal-only on bar/line, `strokeDasharray="3 3"`, no vertical grid (reduces ink). Donut/pie: no grid. |
-| **Axes** | `--chart-axis`, 1px, no tick lines, 12px label, `tabular-nums`. Y-axis on supply/emission only; X always labeled. Hide the axis line itself, keep ticks as text. |
-| **Numbers** | Every numeric uses `tabular-nums` + a single formatter: `formatCompact` (1.2B, 340M), `formatPct` (1 decimal, trailing-zero-trimmed), `formatToken` (thousands sep). Percent and token amount both shown in tooltips. |
-| **Tooltip** | Custom component on `--surface-2`, 1px `border`, `--radius`, shadow-md, 8px pad. Row = swatch (6px rounded-full, series color) + label (foreground) + value (`tabular-nums`, right-aligned, font-medium). Title = category. Animation `--dur-fast` fade+2px-rise. Cursor = `--chart-cursor` fill (bar) or 1px dashed line (line). |
-| **Legend** | Below chart, wrap, interactive: click toggles series (recharts `onClick`), hover dims others to 30% opacity over `--dur-fast`. Swatch shapes mirror chart type. |
-| **Empty** | Never a blank box. Graph-motif empty card (§3.4): faint node-cluster glyph + "No allocation data yet — add it" deep-linked to the exact missing form section. One sentence, one CTA. |
-| **Loading** | Skeleton that **mirrors the final chart geometry** (§3.2) — donut ring skeleton for the donut, stacked-bar skeleton for the bar — gated at 300ms (spinner only if exceeded). No layout shift on resolve; chart crystallizes in via §3.1 ingest stagger. |
-| **Motion** | Mount: series draw in with `--stagger-ingest` per segment, `--ease-out`, `--dur-base`. Donut sweeps clockwise; bars grow from baseline; lines draw left→right (`strokeDashoffset`). Disabled entirely under `prefers-reduced-motion` (render final state immediately). |
-| **A11y** | Each chart has a visually-hidden `<table>` data fallback (`role="img"` + `aria-label` summary on the SVG). Color is never the only encoder: donut/bar segments get a **leader label** with name+%, legend carries the text. Tooltips keyboard-reachable via focusable segments. |
-| **Color-blind** | The 8 segment hues are ordered to maximize CVD separation (blue/purple/pink are the risk trio — verify with deuteranopia sim); where adjacency is ambiguous, add a subtle pattern overlay (see donut). |
+| **Engine** | dither-kit. Never recharts (except a print twin), never a third library, never raw `<div>` bars — a stacked proportion bar is `<DitherBarRow>`. |
+| **Palette** | Series colors resolve through the **numeric** half of the JS↔CSS bridge in `src/lib/design/tokens.ts`: `chartRgbFor` (allocation segments, with the repeat ramp), `getDataRgb` (taxonomy concepts, e.g. emission), `getTokenRgb` (anything else). A canvas cannot parse `hsl(var(--x))` or `color-mix()`, so it needs channels; these replay the *same* OKLab ramp as the CSS half, so the two can never drift. Never a hex, never a raw color prop. |
+| **Theme** | `getComputedStyle` is not reactive. Every chart re-resolves its colors on `resolvedTheme` change, or it keeps the old theme's palette. |
+| **Shape honesty** | Interpolation is a claim about the data. A schedule steps (`curve="step"`); a price path ramps. An axis is zero-based unless the data forbids it (`yDomain`). A threshold that matters is drawn (`<ReferenceLine>`). Axis ticks sit at their true fraction of the track, never at whatever spacing looks right. |
+| **Grid / axes** | `<Grid />` (horizontal, `3 3` dashed, `stroke-border`), `<XAxis />` / `<YAxis />` from the kit. Mono, 10px, `text-muted-foreground`, no axis line, no tick line. |
+| **Numbers** | `formatCompactNumber` for supply/amounts, one decimal for percentages, `font-mono` + `tabular` everywhere. |
+| **Tooltip** | The kit's `<Tooltip />` renders a fixed label/value list. Where that would drop what makes the chart a *decision* — per-allocation breakdown, price impact, stack total, a breached threshold — write your own on the kit's DOM layer (`chartLayer = 'dom'`), reading `ctx.hoverIndex` and indexing back into the real points. `bg-popover` / `border-border`, never a bespoke surface. |
+| **Non-color cue** | A **fill texture**, not a stroke: `variant="hatched"` / `"dotted"` (emission against allocations). Texture survives grayscale and CVD; a hue does not. The kit's `strokeVariant` is dead code upstream — registered by the series, never read by the painter — so a dashed stroke renders nothing. |
+| **Motion** | The kit's own entrance (left-to-right reveal for areas, a staggered grow wave for bars) and its `prefers-reduced-motion` check. Do not add a second animation layer on top. |
+| **Empty** | Never a blank canvas. Say what is missing and deep-link the form section (see §3.4). A bar with no data reads as a *fact* about the data (`variant="dotted"` + "not available"), never as an accident. |
 
-### 1.2 Per-chart specs
+### 1.2 Per-chart specs (as shipped)
 
-**Allocation donut** (token detail, comparison)
-- Donut not pie: `innerRadius 62%`, `outerRadius 88%`, `paddingAngle 1.5°`, `cornerRadius 3`. Center hole holds the **headline**: total supply (`formatCompact`, display weight) + "Total Supply" caption.
-- Segments sorted descending; the **Unallocated** remainder (kills the hard 100% gate, see brief §2.4) renders in `--chart-unallocated` with a 6px diagonal hatch `<pattern>` so it reads as "to be filled," not a real category.
-- Active segment: scale 1.04 from centroid, 2px ring in its own color, others dim to 55%.
-- Reduced data (<3 segments): switch to a single labeled bar, not a near-circle.
-
-**Allocation breakdown** (horizontal stacked bar — the one that exists today on `/tokens/[id]`)
-- One full-width stacked bar, segments = chart-space colors, 28px tall, `--radius` on outer corners only. In-bar labels show % when segment ≥ 8% width; below that, label moves to legend only.
-- Hover a segment → tooltip + that segment lifts to full opacity, siblings to 60%.
-- This is the canonical "scan one token's distribution" view; donut is the "feel the proportion" view. Same colors, different geometry — never both competing on one screen.
-
-**Supply bar** (max / initial / TGE / circulating)
-- Grouped vertical bars, **not** stacked (these are independent measures, not parts of a whole). Single neutral series color = `--primary` at 0.9, since these aren't segment-typed. `barCategoryGap 28%`, `radius=[4,4,0,0]`.
-- Y-axis `formatCompact`, horizontal grid only. Circulating bar gets a subtle `--success` tint to signal "live."
-- Reference line at max supply (dashed `--chart-axis`) so TGE/circulating read as a fraction of cap.
-
-**Unlock / vesting timeline** (area + step line over time)
-- X = months from TGE (`tabular-nums`), Y = cumulative circulating %. **Stacked area per allocation segment** using chart-space colors → you see *which* cohorts unlock when. Cliffs render as vertical step risers (the data is stepwise; use `type="stepAfter"`).
-- TGE marker = `--primary` vertical reference line labeled "TGE." Cliff dates = small diamond markers (echoing the triple glyph) on each segment's edge.
-- Brush/zoom along X for long schedules; default window = first 48 months. Tooltip at an X shows the full cohort breakdown at that month + cumulative total.
-- Light gradient fill under each area (color → transparent, 0.25→0 alpha).
-
-**Emission chart** (future — supply curve over time)
-- Single line/area, `type="monotone"`, color by emission model semantics (inflationary = `--graph-emission` family hue but **expressed through the chart-space `--chart-treasury`/neutral** to stay in chart space — document the mapping; do not import the graph red into a chart). Burn/buyback events = downward markers. Net-supply line overlaid dashed.
+| Chart | Component | Where | Notes |
+|---|---|---|---|
+| **Allocation donut** | `allocation-donut-chart-dither.tsx` | data room, token detail, compare, lightpaper | `gradient` fill (Léo's call over `solid`). Max supply in the center hole as a DOM overlay — the kit has no `<Label>`. Slice key must be unique, so a repeated pool label becomes "Team (2)". |
+| **Allocation breakdown** | `allocation-breakdown-chart-dither.tsx` | data room | One `<DitherBarRow>` per allocation, sorted by share, on a fixed 0-100% axis: a share only means something against the whole. The kit has no horizontal bar (its painter grows bars upward only), hence `paintRow`. |
+| **Supply bars** | `supply-bar-chart.tsx`, and the supply-allocation strip in `token-workspace.tsx` | data room | `<DitherBarRow>`. Circulating = `--data-supply`, locked = `--data-vesting`, because a locked token is precisely one still under a vesting schedule. |
+| **Token-detail allocation bar** | `<DitherBarRow>` in `DetailView.tsx` | token detail | Interactive: the row owns its own hit test (it owns the spans it paints), spotlighting the hovered segment and dimming the rest. |
+| **Unlock timeline** | `unlock-timeline-chart-dither.tsx` | data room, token detail, factory, lightpaper | Stacked areas, **`curve="step"`** — a cliff releases on one day and nothing before it; ramped, the chart draws supply that has not unlocked. `<ReferenceLine>` at max supply. Emission stacks on top in `--data-emission` with a **hatched** fill. Custom schedules are named in a badge as "not plotted", never silently dropped. |
+| **Sell pressure** | `sell-pressure-chart-dither.tsx` | factory projections | Bars stacked by allocation, emission on top, `<ReferenceLine>` at the 2% market depth. Custom tooltip: breakdown + price impact + the depth warning. |
+| **Price envelope** | `price-envelope-chart-dither.tsx` | factory studio, lightpaper | Four nested percentile **range bands** (`ranges`) with the median line through them, on a `yDomain` fitted to the envelope — zero-based, an envelope around $1.20 flattens into a sliver. Bands share one hue at rising intensity: they are one concept, "simulated dispersion". |
 
 **Comparison charts** (future — the explorer promise)
-- **Small multiples**, not overlaid spaghetti: a grid of mini-donuts (one per token, shared color scale + shared legend) for allocation; a single grouped/100%-stacked bar for side-by-side allocation; a multi-line unlock chart capped at ~4 tokens with a per-token line style (solid/dashed/dotted) **in addition** to color (CVD + overlap safety). Selected tokens get a persistent color assigned at selection time and reused across every comparison chart in the session.
+- **Small multiples**, not overlaid spaghetti: a grid of mini-donuts (one per token, shared color scale + shared legend) for allocation; a multi-line unlock chart capped at ~4 tokens with a per-token **fill variant** (`gradient`/`hatched`/`dotted`) **in addition** to color (CVD + overlap safety). Selected tokens get a persistent color assigned at selection time and reused across every comparison chart in the session.
 
 ---
 

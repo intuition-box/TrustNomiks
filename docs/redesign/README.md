@@ -36,6 +36,7 @@ A complete redesign of TrustNomiks from a generic shadcn MVP into a **world-clas
 - **Both journeys, welded by onboarding:** one shell serves the **contributor** (structure tokens → publish) and the **explorer** (browse → compare → graph), bridged by a progressive Getting-Started spine and explicit contributor↔explorer handoffs.
 - **The signature gradient:** indigo `#6366F1` → violet `#8B5CF6` (graph-root → token) — used sparingly (hero, primary CTA, the living-graph set-piece, loaders).
 - **Motion vocabulary:** *spawn-at-hub*, *particle-salvo*, *swell-and-glow* (= $TRUST stake rendered as node mass + halo), *focus-dim*, *breathe* — all gated on `prefers-reduced-motion`.
+- **The chart engine (locked 2026-07-13):** **dither-kit**, a vendored + forked canvas engine that paints with an ordered dither, replaces recharts on every screen. It makes the charts the same *material* as the knowledge graph (also a canvas) instead of generic SVG business charts. Its cost is inseparable from its benefit: the dither is pixel-exact and does not scale to `devicePixelRatio`, so it cannot gain resolution on paper — **anything printed keeps a recharts SVG twin behind `<PrintOnly>`**. Rules: `DESIGN-RULES.md` §3. Specs: `06-dataviz-graph-system.md` §1. Engine: `src/components/dither-kit/README.md`.
 
 ---
 

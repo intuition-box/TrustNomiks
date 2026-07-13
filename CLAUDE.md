@@ -33,6 +33,8 @@ All UI work must follow `docs/redesign/DESIGN-RULES.md` (the "Data Observatory" 
 
 The most critical absolutes for all agents: all colors come from CSS tokens in `src/app/globals.css` (no hardcoded hex, no `bg-[#...]`); dark-first (`:root`=light, `.dark`=dark, `defaultTheme="dark"`, never invert); reuse existing components in `src/components/{ui,composite,patterns,brand}` and add missing primitives via `npx shadcn@latest add <name>` rather than hand-rolling Radix; never use the em-dash character in copy; color is always paired with a glyph/icon, never alone.
 
+**Charts** (DESIGN-RULES §3, engine notes in `src/components/dither-kit/README.md`): every chart on screen is the vendored, forked **dither-kit** canvas engine, wrapped in `src/components/charts/`; never recharts, never a third library, never raw `<div>` bars. Canvas colors come from the numeric half of the token bridge (`chartRgbFor`/`getDataRgb`/`getTokenRgb`) and must re-resolve on theme change. The chart must not lie about the data's shape: a schedule steps, thresholds are drawn, an axis is zero-based unless the data forbids it. **Anything that prints keeps a recharts SVG twin behind `<PrintOnly>`** (the dither cannot gain resolution on paper, and the obvious `hidden print:block` ships a blank chart while still passing a headless PDF check). **Never re-run the kit's installer** — it silently overwrites the fork.
+
 ## Supabase / security
 
 - RLS is mandatory on every table; any new table ships its policies in the same migration. Latest audit: `docs/rls-audit-*.md` — read it before schema work.

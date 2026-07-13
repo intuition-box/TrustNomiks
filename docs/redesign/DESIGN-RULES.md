@@ -48,16 +48,60 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
   - **Chart space** = allocation *segment* → the `--chart-*` tokens via `getSegmentChartColor` / `chartColorsFor`
     in `src/lib/design/tokens.ts` (same-type repeats get a lightness ramp).
     These are different ontologies; do not color a chart segment with a `--data-*` token, or a node with a segment color.
-- **JS ↔ CSS bridge is `src/lib/design/tokens.ts` only.** Canvas (react-force-graph) and SVG (recharts) resolve colors
-  via `getDataColor(nodeType)` / `getSegmentChartColor(segment)`. DOM should prefer Tailwind classes (`bg-data-token`,
-  `text-data-vesting`) or inline `hsl(var(--data-x))` via `DATA_CSS_VAR`. No fourth color source may appear.
+- **JS ↔ CSS bridge is `src/lib/design/tokens.ts` only.** Nothing else may resolve a token. It has two halves, and you
+  must pick by what consumes the value:
+  - **CSS-string half** (SVG, DOM): `getDataColor(nodeType)` / `getSegmentChartColor(segment)` return
+    `hsl(var(--x))` and `color-mix(...)`. Theme-aware and SSR-stable, because the browser resolves them.
+  - **Numeric half** (canvas): `getDataRgb` / `chartRgbFor` / `getTokenRgb` return literal `[r,g,b]`. A canvas can
+    parse neither `hsl(var(--x))` nor `color-mix()`, so it needs channels. These read the live token and replay the
+    same OKLab ramp, so the two halves cannot drift apart.
+  - `getComputedStyle` is **not reactive**: any canvas must re-resolve on `resolvedTheme` change.
+
+  DOM should prefer Tailwind classes (`bg-data-token`, `text-data-vesting`) or inline `hsl(var(--data-x))` via
+  `DATA_CSS_VAR`. No fourth color source may appear.
 - **Color is never alone (AA).** Every data category pairs its color with a **shape**: `◎` hub (ring), `●` atom (circle),
   `◆` triple (diamond), `▪` source (square), via `<NodeGlyph>`. Status/risk pills pair color with an icon. Meaning must
   survive grayscale and color-blindness.
 
 ---
 
-## 3. Typography
+## 3. Charts (the dither engine)
+
+**Every chart on screen is dither-kit.** The vendored canvas engine in `src/components/dither-kit/` (MIT, forked)
+is the chart renderer, product-wide. Wrappers live in `src/components/charts/`. recharts survives for exactly one
+reason: the print path (see below). Nothing else may render it, and no third chart library may enter.
+
+- **Never build a chart from raw `<div>`s.** A stacked proportion bar is `<DitherBarRow>`; a cartesian chart composes
+  the kit's parts. Flat CSS bars read as a different material and drift from the tokens the moment someone edits them.
+- **Series color comes from the numeric bridge** (`chartRgbFor` for allocation segments, `getDataRgb` for taxonomy
+  concepts like emission, `getTokenRgb` for anything else). Never a hex, never a raw color prop.
+- **The chart must not lie about the data's shape.** Interpolation is a claim:
+  - A schedule steps. A vesting cliff releases on one day and nothing before it, so the unlock timeline uses
+    `curve="step"`. Ramped, it draws circulating supply that has not unlocked.
+  - An axis that is not zero-based must say so, and one that is zero-based must be able to be. A price envelope
+    needs `yDomain`; a supply chart must never use it.
+  - A threshold that matters is drawn (`<ReferenceLine>`): the hard cap, the market depth, the launch price.
+  - An axis places its ticks at their true fraction of the track, never by even spacing that happens to look right.
+- **Non-color cue = fill texture.** Where a series must be tellable apart without color (emission against
+  allocations), use `variant="hatched"` / `"dotted"`. A texture survives grayscale and CVD; a hue does not.
+  (The kit's `strokeVariant` is dead code upstream: registered by the series, never read by the painter.)
+- **Print renders SVG, not canvas.** The dither is painted at one device-independent pixel per cell — that is what
+  keeps it crisp on screen and what stops it gaining any resolution on paper. Anything that prints (the lightpaper)
+  renders the recharts twin through **`<PrintOnly>`** (`src/components/charts/print-only.tsx`). Read that file before
+  touching the print path: the obvious `hidden print:block` measures 0×0, ships a blank chart, and still passes a
+  headless PDF check.
+- **A tooltip carries the judgement, not just the value.** Where the kit's fixed label/value list would drop what
+  makes the chart a decision (per-allocation breakdown, price impact, stack total, a breached threshold), write the
+  tooltip on the kit's DOM layer (`chartLayer = 'dom'`).
+- **Do not re-run the kit's installer.** `npx shadcn add .../dither-kit` overwrites the whole folder, our fork
+  included. If you must, commit first and restore the forked files. See `src/components/dither-kit/README.md`.
+
+The engine's capabilities, what we added to it, and the upstream bugs we fixed are documented in
+`src/components/dither-kit/README.md`. The per-chart specs are in `06-dataviz-graph-system.md`.
+
+---
+
+## 4. Typography
 
 - **Fonts:** Geist (UI) and Geist Mono, loaded in `layout.tsx`. Use `font-mono` for addresses, tx hashes, contract IDs,
   triple IDs, and token amounts.
@@ -66,7 +110,7 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 
 ---
 
-## 4. Surfaces, elevation & motion
+## 5. Surfaces, elevation & motion
 
 - **Elevation by lightness lift, not borders alone:** `bg-surface-1` (cards), `bg-surface-2` (raised/hover),
   `bg-surface-3` (overlays/dialogs). Borders are hairline (`border`). Never go back to a 1px-border-only "wireframe" look.
@@ -81,7 +125,7 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 
 ---
 
-## 5. Component nomenclature (tiers, dependency goes down only)
+## 6. Component nomenclature (tiers, dependency goes down only)
 
 | Tier | Folder | What | Examples (exist today) |
 |---|---|---|---|
@@ -99,7 +143,7 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 
 ---
 
-## 6. Accessibility (baked in, not bolted on)
+## 7. Accessibility (baked in, not bolted on)
 
 - One strong `:focus-visible` ring on every focusable element (already global in `globals.css`); do not remove it.
 - `aria-current` on active nav; focus-trap + `aria-live` on dialogs/drawers and progress.
@@ -108,7 +152,7 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 
 ---
 
-## 7. Copy & product framing
+## 8. Copy & product framing
 
 - **Never use the em-dash "—".** Use commas, colons, parentheses, periods, or rephrase. Empty values render as
   `Not set`, never `—`.
@@ -119,7 +163,7 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 
 ---
 
-## 8. Acceptance checklist (every UI PR must pass)
+## 9. Acceptance checklist (every UI PR must pass)
 
 - [ ] No hardcoded hex / `bg-[#...]`; colors come from tokens, Tailwind `*-data-*`/`*-surface-*` classes, or the
       `tokens.ts` accessors.
@@ -132,15 +176,25 @@ text weights `--foreground`/`--muted-foreground`/`--faint-foreground`, the 14 `-
 - [ ] Zero em-dash; copy is TrustNomiks-centric.
 - [ ] `npm run build` and `npm run lint` are green (baseline: pre-existing `<img>` LCP warnings only).
 
+If the PR touches a chart, also:
+
+- [ ] It renders on dither-kit, not recharts and not raw `<div>`s (§3).
+- [ ] Colors come from the numeric bridge, and re-resolve on theme switch.
+- [ ] The shape is honest: steps where the data steps, thresholds drawn, axis ticks at their true fraction.
+- [ ] If the chart can be printed, its SVG twin is wired through `<PrintOnly>` — and you **looked at the printed
+      output**, not just a green check. A headless PDF pass is not evidence here (§3).
+
 ---
 
-## 9. Where to go deeper
+## 10. Where to go deeper
 
 - `README.md` — index of the whole proposal + what is coded.
 - `00-executive-summary-roadmap.md` — vision, principles, the phased roadmap (Phase 2+ still to build).
 - `02-brand-language.md` — color/type/elevation/motion rationale.
 - `03-design-tokens-taxonomy.md` — full token sets, naming law, the typed accessors, migration map (the detailed governance).
-- `04-ia-onboarding.md` / `05-hero-screens.md` / `06-dataviz-graph-system.md` — IA, screen directions, graph/motion system.
+- `04-ia-onboarding.md` / `05-hero-screens.md` / `06-dataviz-graph-system.md` — IA, screen directions, chart specs, graph/motion system.
+- `src/components/dither-kit/README.md` — the chart engine: what we forked, what we added, the upstream bugs we fixed,
+  and why re-running its installer will silently undo all of it.
 
 When in doubt, match the three reference screens already built: the landing (`src/app/page.tsx`), the dashboard
 (`src/app/(authenticated)/dashboard/page.tsx`), and the token detail (`src/app/(authenticated)/tokens/[id]/page.tsx`).

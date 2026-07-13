@@ -55,7 +55,7 @@ screens. A screen whose primary CTA competes with another gradient button is wro
   particle-salvo, swell-and-glow, focus-dim, breathe) fires only at reveal/celebration moments,
   gated on `prefers-reduced-motion`.
 
-**New shared components this plan requires** (tier placement per DESIGN-RULES §5):
+**New shared components this plan requires** (tier placement per DESIGN-RULES §6):
 
 | Component | Tier | Job |
 |---|---|---|
@@ -289,5 +289,5 @@ padlock wall.
 6. **Profile + error boundaries**, em-dash/`.tabular`/`aria` sweep app-wide.
 7. Motion polish pass (spawn/salvo/swell moments, reduced-motion audit).
 
-Every step ships only if the DESIGN-RULES §8 checklist passes (tokens only, both themes, tabular,
+Every step ships only if the DESIGN-RULES §9 checklist passes (tokens only, both themes, tabular,
 glyph pairing, surfaces, motion gating, tier placement, zero em-dash, lint+test+build green).

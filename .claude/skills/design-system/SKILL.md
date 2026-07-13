@@ -21,13 +21,31 @@ it rather than working around them.
 - Same color always means the same concept, product-wide. Never recolor a concept.
 - Two color spaces, never mixed: **graph space** (entity type) uses the `--data-*` taxonomy
   (token=violet, allocation=amber, vesting=emerald, emission=red, risk=orange, source=blue,
-  chain=sky, sector=purple, hub=indigo, ...); **chart space** (allocation segment) uses
-  `getChartColor`. Do not color a chart segment with a `--data-*` token, or a graph node with a
+  chain=sky, sector=purple, hub=indigo, ...); **chart space** (allocation segment) uses the
+  `--chart-*` tokens. Do not color a chart segment with a `--data-*` token, or a graph node with a
   segment color.
-- The only JS to CSS color bridge is `src/lib/design/tokens.ts` (`getDataColor`, `getChartColor`,
-  `DATA_CSS_VAR`). No fourth color source may appear.
+- The only JS to CSS color bridge is `src/lib/design/tokens.ts`. It has two halves, and you pick by
+  what consumes the value: **CSS strings** for SVG/DOM (`getDataColor`, `getSegmentChartColor`,
+  `chartColorsFor`, `DATA_CSS_VAR`), and **numeric `[r,g,b]`** for canvas (`getDataRgb`,
+  `chartRgbFor`, `getTokenRgb`) — a canvas can parse neither `hsl(var(--x))` nor `color-mix()`.
+  Both halves replay the same ramp, so they cannot drift. No fourth color source may appear.
+  `getComputedStyle` is not reactive: any canvas re-resolves on `resolvedTheme` change.
 - Color is never alone (AA): every data category pairs its color with a glyph/shape/icon
   (`<NodeGlyph>` for graph entities, an icon on status/risk pills). Meaning must survive grayscale.
+
+**Charts** (full rules: DESIGN-RULES §3)
+- Every chart on screen is **dither-kit** (`src/components/dither-kit/`, vendored + forked), wrapped
+  in `src/components/charts/`. Never recharts, never a third library, never raw `<div>` bars — a
+  stacked proportion bar is `<DitherBarRow>`.
+- The chart must not lie about the data's shape: a schedule steps (`curve="step"`), a threshold that
+  matters is drawn (`<ReferenceLine>`), an axis is zero-based unless the data forbids it (`yDomain`),
+  and axis ticks sit at their true fraction of the track.
+- Non-color cue is a **fill texture** (`variant="hatched"`/`"dotted"`), not a stroke — the kit's
+  `strokeVariant` is dead code upstream and renders nothing.
+- **Anything that prints keeps a recharts SVG twin behind `<PrintOnly>`.** The dither cannot gain
+  resolution on paper. Do not "simplify" `<PrintOnly>` to `hidden print:block`: it measures 0×0,
+  ships a blank chart, and still passes a headless PDF check.
+- Never re-run the kit's installer — it overwrites the fork. See `src/components/dither-kit/README.md`.
 
 **Typography**
 - Geist (UI) and Geist Mono, loaded in `layout.tsx`. `font-mono` for addresses, tx hashes,
@@ -79,6 +97,6 @@ it rather than working around them.
 
 - `npm run lint` and `npm test` pass; `npm run build` passes (required for any UI/route change).
 - Visual check in both dark and light themes.
-- Run the acceptance checklist in `docs/redesign/DESIGN-RULES.md` section 8 (tokens only, both
+- Run the acceptance checklist in `docs/redesign/DESIGN-RULES.md` section 9 (tokens only, both
   themes, `.tabular`/`font-mono`, non-color cues, surfaces/elevation, motion + reduced-motion,
   component tier/reuse, zero em-dash).
