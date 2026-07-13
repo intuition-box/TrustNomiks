@@ -62,10 +62,10 @@ import {
  * Stripped relative to the screener (do NOT re-add): sources/risk forms,
  * challenge pre-fill, CoinGecko autofill, claim attributions.
  * Factory-only additions (assumed divergence, not screener drift): the
- * step-5 inflation_schedule field array + its load hydration (the screener
- * saves the same field but has no UI for it and its step-5 reset drops it),
- * and the formless Projections section (a derived view; every save path
- * guards on it via FactoryFormSectionKey).
+ * step-5 inflation_schedule field array (the screener now hydrates the
+ * stored schedule on load too, so its saves stopped wiping it, but it
+ * still has no editor UI there), and the formless Projections section (a
+ * derived view; every save path guards on it via FactoryFormSectionKey).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 

@@ -489,6 +489,21 @@ export function useTokenFormState() {
           type: emissionData.type,
           annual_inflation_rate:
             emissionData.annual_inflation_rate?.toString() || '',
+          // Hydrate the stored schedule even though the screener has no UI
+          // for it (only Factory edits it): without this, the reset drops
+          // the field and the next emission save overwrites the stored
+          // jsonb with null. Same fix as the factory twin.
+          inflation_schedule: Array.isArray(emissionData.inflation_schedule)
+            ? (
+                emissionData.inflation_schedule as Array<{
+                  year: number
+                  rate: number
+                }>
+              ).map((item) => ({
+                year: String(item.year),
+                rate: String(item.rate),
+              }))
+            : [],
           has_burn: emissionData.has_burn || false,
           burn_details: emissionData.burn_details || '',
           has_buyback: emissionData.has_buyback || false,

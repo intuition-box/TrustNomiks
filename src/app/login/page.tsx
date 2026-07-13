@@ -23,6 +23,11 @@ function humanAuthError(raw: string, mode: AuthMode): string {
     return 'This email already has an account. Log in instead.'
   if (msg.includes('rate limit') || msg.includes('too many'))
     return 'Too many attempts. Wait a minute, then try again.'
+  if (
+    msg.includes('sending confirmation email') ||
+    msg.includes('sending email')
+  )
+    return 'We could not send the confirmation email. This is on our side: please try again later.'
   if (msg.includes('network') || msg.includes('fetch'))
     return 'Connection problem. Check your network and retry.'
   return mode === 'login'
