@@ -137,17 +137,30 @@ export async function POST(
 
     // Excluded accounts: the token owner, plus (best-effort) the wallet that
     // most recently published this token, resolved to its linked user.
+    //
+    // Resolving OTHER users' wallets is the one legitimately cross-user read
+    // in the app, and wallet_links is owner-only: it runs on the service-role
+    // client, which is server-only. The mapping never leaves this function -
+    // it exists to EXCLUDE interested parties from the stake tally.
+    const svc = createServiceRoleClient()
     const excludedUserIds: string[] = []
 
-    const { data: tokenRow } = await supabase
+    // The owner MUST be excluded from the stake tally: silently missing them
+    // (an unreadable row, a query error) would not fail the request, it would
+    // produce a wrong verdict that counts the owner's own stake. Fail loudly.
+    const { data: tokenRow, error: tokenErr } = await supabase
       .from('tokens')
       .select('created_by')
       .eq('id', challenge.token_id)
       .maybeSingle()
 
-    if (tokenRow?.created_by) {
-      excludedUserIds.push(tokenRow.created_by)
+    if (tokenErr || !tokenRow?.created_by) {
+      return NextResponse.json(
+        { error: 'Cannot evaluate: the challenged token is unreadable' },
+        { status: 500 },
+      )
     }
+    excludedUserIds.push(tokenRow.created_by)
 
     try {
       const { data: publishRun } = await supabase
@@ -159,7 +172,7 @@ export async function POST(
         .maybeSingle()
 
       if (publishRun?.wallet_address) {
-        const { data: walletLink } = await supabase
+        const { data: walletLink } = await svc
           .from('wallet_links')
           .select('user_id')
           .eq('wallet_address', publishRun.wallet_address.toLowerCase())
@@ -179,8 +192,10 @@ export async function POST(
 
     const dedupedExcludedUserIds = Array.from(new Set(excludedUserIds))
 
+    // Same reason: this resolves the STAKERS' wallets (other users) to weigh
+    // their stakes. Server-side trust computation, service-role read.
     const accounts = await gatherDisputeAccounts(
-      supabase,
+      svc,
       {
         challengeId: id,
         counterTermId: resolved.counterTermId,
@@ -197,7 +212,6 @@ export async function POST(
     // the auto-adopt state machine from a server-verified on-chain read, not
     // anything the caller supplies. Signature is unchanged (no actor param
     // needed — it never reads auth.uid()).
-    const svc = createServiceRoleClient()
     const { data: rpcData, error: rpcError } = await svc.rpc(
       'evaluate_stake_threshold_tx',
       {
