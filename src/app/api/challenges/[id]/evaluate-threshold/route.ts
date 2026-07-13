@@ -139,15 +139,22 @@ export async function POST(
     // most recently published this token, resolved to its linked user.
     const excludedUserIds: string[] = []
 
-    const { data: tokenRow } = await supabase
+    // The owner MUST be excluded from the stake tally: silently missing them
+    // (an unreadable row, a query error) would not fail the request, it would
+    // produce a wrong verdict that counts the owner's own stake. Fail loudly.
+    const { data: tokenRow, error: tokenErr } = await supabase
       .from('tokens')
       .select('created_by')
       .eq('id', challenge.token_id)
       .maybeSingle()
 
-    if (tokenRow?.created_by) {
-      excludedUserIds.push(tokenRow.created_by)
+    if (tokenErr || !tokenRow?.created_by) {
+      return NextResponse.json(
+        { error: 'Cannot evaluate: the challenged token is unreadable' },
+        { status: 500 },
+      )
     }
+    excludedUserIds.push(tokenRow.created_by)
 
     try {
       const { data: publishRun } = await supabase
