@@ -1,9 +1,10 @@
 /**
  * Factory's studio sections: the screener's tokenomics core (same order),
  * without the attestation sections (Sources, Risk) that only make sense for
- * real, deployed tokens, plus the factory-only Funding and Projections
- * sections (optional, unscored). Projections is a derived view of the
- * design, not a form: it has no save path and no persistence of its own.
+ * real, deployed tokens, plus the factory-only Funding and Simulation
+ * studio sections (optional, unscored). The studio (key 'projections') is
+ * a derived view of the design, not a form: it has no save path; only its
+ * scenario snapshots persist, in their own table.
  */
 export type FactorySectionKey =
   | 'identity'
@@ -34,5 +35,5 @@ export const FACTORY_SECTION_LABELS: Record<FactorySectionKey, string> = {
   vesting: 'Vesting',
   emission: 'Emission',
   funding: 'Funding',
-  projections: 'Projections',
+  projections: 'Simulation studio',
 }

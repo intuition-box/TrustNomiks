@@ -150,7 +150,7 @@ export function FactoryDesigner() {
     },
     {
       key: 'projections',
-      label: 'Projections',
+      label: 'Simulation studio',
       accentVar: '--data-risk',
       tier: 'enrich',
       live: allocations.length > 0 ? 1 : 0,

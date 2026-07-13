@@ -30,7 +30,7 @@ import {
   type VestingTimelinePoint,
 } from '@/lib/tokenomics'
 import { useFactoryForm } from './factory-form-context'
-import { StressTestCard } from './stress-test-card'
+import { SimulationStudio } from './simulation-studio'
 
 /** Series key for minted supply; suffixed to dodge a same-named segment. */
 const EMISSION_KEY = 'Emission (minted)'
@@ -390,7 +390,7 @@ export function ProjectionPanel() {
         />
       </div>
 
-      <StressTestCard
+      <SimulationStudio
         projectId={projectId}
         refPriceUsd={scenario.refPriceUsd}
         marketDepthUsd={scenario.marketDepthUsd}

@@ -63,7 +63,7 @@ export function FactoryCompletionScreen() {
                 }}
               >
                 <FlaskConical className="h-4 w-4" aria-hidden />
-                View projections
+                Open simulation studio
               </Button>
             )}
             {projectId && (
