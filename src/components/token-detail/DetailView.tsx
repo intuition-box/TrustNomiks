@@ -36,6 +36,8 @@ import { EmptyState } from '@/components/composite/empty-state'
 import { LiveGraph, type LiveGraphData } from '@/components/brand/live-graph'
 import { AllocationDonutChartDither } from '@/components/charts/allocation-donut-chart-dither'
 import { UnlockTimelineChartDither } from '@/components/charts/unlock-timeline-chart-dither'
+import { DitherBarRow } from '@/components/charts/dither-bar-row'
+import { chartRgbFor } from '@/lib/design/tokens'
 import type { VestingTimelineResult } from '@/lib/utils/vesting-timeline'
 import {
   formatNumber,
@@ -179,8 +181,13 @@ export function DetailView({
   const [hoveredAllocationIndex, setHoveredAllocationIndex] = useState<
     number | null
   >(null)
-  // One color per segment, canonical list order (matches donut + breakdown)
+  // One color per segment, canonical list order (matches donut + breakdown).
+  // Two forms of the same colour: the CSS string for the DOM swatches and
+  // labels, the resolved RGB for the canvas bar. Both walk the same ramp.
   const segColors = allocationColors(token.allocation_segments)
+  const segRgb = chartRgbFor(
+    token.allocation_segments.map((s) => s.segment_type),
+  )
   // 7-day completeness movement from the stat-history ledger
   const { data: completenessDelta = 0 } = useTokenCompletenessDelta(token.id)
   const [enrichOpen, setEnrichOpen] = useState(false)
@@ -600,27 +607,22 @@ export function DetailView({
                   </div>
 
                   <div className="w-full space-y-1">
-                    {/* Stacked bar */}
-                    <div className="flex h-6 w-full overflow-hidden rounded-lg border">
-                      {token.allocation_segments.map((segment, index) => (
-                        <div
-                          key={segment.id}
-                          className={cn(
-                            'cursor-pointer transition-opacity duration-75',
-                            hoveredAllocationIndex !== null &&
-                              hoveredAllocationIndex !== index
-                              ? 'opacity-25'
-                              : 'opacity-100',
-                          )}
-                          style={{
-                            width: `${segment.percentage}%`,
-                            backgroundColor: segColors[index],
-                          }}
-                          onMouseEnter={() => setHoveredAllocationIndex(index)}
-                          onMouseLeave={() => setHoveredAllocationIndex(null)}
-                        />
-                      ))}
-                    </div>
+                    {/* Stacked bar — same dithered material as the donut beside
+                        it, and the same hover: the row owns the hit test, so
+                        the spans it paints and the spans it tests cannot drift
+                        apart. */}
+                    <DitherBarRow
+                      segments={token.allocation_segments.map((segment, i) => ({
+                        key: segment.id,
+                        value: segment.percentage,
+                        color: segRgb[i],
+                      }))}
+                      total={100}
+                      height={24}
+                      activeIndex={hoveredAllocationIndex}
+                      onSegmentHover={setHoveredAllocationIndex}
+                      className="cursor-pointer"
+                    />
 
                     {/* Percentage labels below bar */}
                     <div className="flex w-full">

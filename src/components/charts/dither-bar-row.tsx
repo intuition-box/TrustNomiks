@@ -21,6 +21,10 @@ interface DitherBarRowProps {
   height?: number
   /** Index of the segment to lift; the rest dim. */
   activeIndex?: number | null
+  /** Fires with the segment under the pointer (null on leave). The row owns the
+   *  hit test because it owns the spans — a caller would have to recompute them
+   *  to place overlay divs, and the two would drift. */
+  onSegmentHover?: (index: number | null) => void
   className?: string
 }
 
@@ -42,6 +46,7 @@ export function DitherBarRow({
   total,
   height = 24,
   activeIndex = null,
+  onSegmentHover,
   className,
 }: DitherBarRowProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -100,11 +105,30 @@ export function DitherBarRow({
     // caller from CSS tokens, so a theme flip hands us new ones.
   }, [segments, total, activeIndex, resolvedTheme])
 
+  /** Which segment sits under a pointer x, in the row's own span arithmetic. */
+  const segmentAt = (clientX: number): number | null => {
+    const wrap = wrapRef.current
+    if (!wrap || total <= 0) return null
+    const rect = wrap.getBoundingClientRect()
+    if (rect.width <= 0) return null
+    const target = ((clientX - rect.left) / rect.width) * total
+    let cursor = 0
+    for (let i = 0; i < segments.length; i++) {
+      cursor += Math.max(segments[i].value, 0)
+      if (target <= cursor) return i
+    }
+    return null
+  }
+
   return (
     <div
       ref={wrapRef}
       className={className}
       style={{ height, position: 'relative' }}
+      onPointerMove={
+        onSegmentHover ? (e) => onSegmentHover(segmentAt(e.clientX)) : undefined
+      }
+      onPointerLeave={onSegmentHover ? () => onSegmentHover(null) : undefined}
     >
       <canvas
         ref={canvasRef}
