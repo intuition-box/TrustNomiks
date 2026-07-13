@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/coingecko/rate-limiter'
+import { coingeckoFetch } from '@/lib/coingecko/client'
 import { toCoinGeckoPlatform } from '@/lib/coingecko/chain-map'
 import type { CoinGeckoResolveResult } from '@/types/coingecko'
 
-const COINGECKO_BASE = 'https://api.coingecko.com/api/v3'
 const CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutes (contract mapping is stable)
 
 const cache = new Map<string, { data: ResolvedCoin; timestamp: number }>()
@@ -48,9 +48,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(
-      `${COINGECKO_BASE}/coins/${platform}/contract/${contractAddress.toLowerCase()}`,
-      { headers: { Accept: 'application/json' } },
+    const res = await coingeckoFetch(
+      `/coins/${platform}/contract/${contractAddress.toLowerCase()}`,
     )
 
     if (!res.ok) {

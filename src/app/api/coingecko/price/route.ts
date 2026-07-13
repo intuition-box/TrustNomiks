@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/coingecko/rate-limiter'
+import { coingeckoFetch } from '@/lib/coingecko/client'
 import type { CoinGeckoPriceResponse } from '@/types/coingecko'
 
-const COINGECKO_BASE = 'https://api.coingecko.com/api/v3'
 const CACHE_TTL_MS = 60 * 1000 // 60 seconds
 
 const cache = new Map<
@@ -45,9 +45,7 @@ export async function GET(request: NextRequest) {
       include_24hr_vol: 'true',
     })
 
-    const res = await fetch(`${COINGECKO_BASE}/simple/price?${params}`, {
-      headers: { Accept: 'application/json' },
-    })
+    const res = await coingeckoFetch('/simple/price', params)
 
     if (!res.ok) {
       return NextResponse.json(

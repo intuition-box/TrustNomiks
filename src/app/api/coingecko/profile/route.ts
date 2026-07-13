@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/coingecko/rate-limiter'
+import { coingeckoFetch } from '@/lib/coingecko/client'
 import type { CoinGeckoProfile } from '@/types/coingecko'
 
-const COINGECKO_BASE = 'https://api.coingecko.com/api/v3'
 const CACHE_TTL_MS = 10 * 60 * 1000 // profile data moves slowly
 
 const cache = new Map<string, { data: CoinGeckoProfile; timestamp: number }>()
@@ -61,12 +61,7 @@ export async function GET(request: NextRequest) {
       sparkline: 'false',
     })
 
-    const res = await fetch(
-      `${COINGECKO_BASE}/coins/${encodeURIComponent(id)}?${params}`,
-      {
-        headers: { Accept: 'application/json' },
-      },
-    )
+    const res = await coingeckoFetch(`/coins/${encodeURIComponent(id)}`, params)
 
     if (!res.ok) {
       return NextResponse.json(
