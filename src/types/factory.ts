@@ -46,3 +46,66 @@ export interface FactorySimulationSnapshot {
   design_updated_at: string
   created_at: string
 }
+
+/** A revocable public link to a design (factory_share_links row). */
+export interface FactoryShareLink {
+  id: string
+  project_id: string
+  slug: string
+  created_by: string
+  created_at: string
+  revoked_at: string | null
+}
+
+/**
+ * Curated payload of get_shared_factory_design (the anon-callable RPC
+ * behind /share/[slug]): the design's substance, no internal scoring, no
+ * ownership metadata. Numeric columns arrive as JSON numbers.
+ */
+export interface FactorySharedDesign {
+  project: {
+    name: string
+    ticker: string
+    category: string | null
+    sector: string | null
+    notes: string | null
+    tge_date: string | null
+    updated_at: string
+  }
+  supply: { max_supply: number | null } | null
+  allocations: Array<{
+    id: string
+    segment_type: string | null
+    label: string
+    percentage: number | null
+    token_amount: number | null
+  }>
+  vesting: Array<{
+    allocation_id: string
+    cliff_months: number | null
+    duration_months: number | null
+    frequency: string | null
+    tge_percentage: number | null
+    cliff_unlock_percentage: number | null
+  }>
+  emission: {
+    type: string | null
+    annual_inflation_rate: number | null
+    inflation_schedule: Array<{ year: number; rate: number }> | null
+  } | null
+  funding: Array<{
+    round_type: string
+    label: string | null
+    round_date: string | null
+    token_price_usd: number | null
+    tokens_sold: number | null
+    amount_usd: number | null
+  }>
+  snapshots: Array<{
+    name: string
+    scenario: FactorySimulationScenarioInput
+    result: SimulationResult
+    engine_version: string
+    created_at: string
+  }>
+}
