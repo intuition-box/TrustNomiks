@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     // Owner-only RLS: a foreign or unknown project id reads as absent.
     const { data: project, error: projectErr } = await supabase
       .from('factory_projects')
-      .select('id, category, updated_at')
+      .select('id, category, status, updated_at')
       .eq('id', projectId)
       .maybeSingle()
     if (projectErr) {
@@ -82,6 +82,18 @@ export async function POST(request: NextRequest) {
     }
     if (!project) {
       return NextResponse.json({ error: 'Design not found' }, { status: 404 })
+    }
+    // A promoted design is a read-only archive: computing is harmless, but
+    // persisting a new scenario would mutate it (the draft-only RLS policy
+    // would reject the insert anyway; this is the friendly path).
+    if (persist && project.status === 'promoted') {
+      return NextResponse.json(
+        {
+          error: 'This design has been promoted and is read-only',
+          reason: 'promoted-readonly',
+        },
+        { status: 409 },
+      )
     }
     if (!project.category) {
       // Same shape as the benchmarks route's no-sector gate: an explicit
