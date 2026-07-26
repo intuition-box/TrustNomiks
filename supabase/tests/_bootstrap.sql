@@ -317,20 +317,33 @@ CREATE TABLE IF NOT EXISTS public.intuition_pin_cache (
 
 DO $$
 DECLARE
-  t text;
-  all_tables text[] := ARRAY[
-    'profiles', 'tokens', 'allocation_segments', 'vesting_schedules',
-    'supply_metrics', 'emission_models', 'data_sources', 'claim_sources',
-    'risk_flags', 'intuition_publish_runs', 'intuition_atom_mappings',
-    'intuition_claim_mappings', 'intuition_provenance_mappings',
-    'intuition_pin_cache'
+  pair text[];
+  -- Baseline read policies carry the EXACT production names, because later
+  -- migrations drop them BY NAME (20260723 scopes reads by dropping these).
+  -- A mismatched name here leaves a stale USING (true) policy OR-ing with
+  -- the scoped one, silently defeating the migration under test.
+  all_tables text[][] := ARRAY[
+    ARRAY['profiles', 'profiles: authenticated can read'],
+    ARRAY['tokens', 'Authenticated users can read all tokens'],
+    ARRAY['allocation_segments', 'allocation_segments: authenticated read'],
+    ARRAY['vesting_schedules', 'vesting_schedules: authenticated read'],
+    ARRAY['supply_metrics', 'supply_metrics: authenticated read'],
+    ARRAY['emission_models', 'emission_models: authenticated read'],
+    ARRAY['data_sources', 'data_sources: authenticated read'],
+    ARRAY['claim_sources', 'claim_sources: authenticated users can read'],
+    ARRAY['risk_flags', 'risk_flags: authenticated users can read'],
+    ARRAY['intuition_publish_runs', 'Authenticated users can read publish runs'],
+    ARRAY['intuition_atom_mappings', 'intuition_atom_mappings: authenticated can read'],
+    ARRAY['intuition_claim_mappings', 'intuition_claim_mappings: authenticated can read'],
+    ARRAY['intuition_provenance_mappings', 'intuition_provenance_mappings: authenticated can read'],
+    ARRAY['intuition_pin_cache', 'intuition_pin_cache: authenticated can read']
   ];
 BEGIN
-  FOREACH t IN ARRAY all_tables LOOP
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+  FOREACH pair SLICE 1 IN ARRAY all_tables LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', pair[1]);
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)',
-      t || ': authenticated can read', t
+      pair[2], pair[1]
     );
   END LOOP;
 END $$;

@@ -628,23 +628,12 @@ export const vestingSchedulesSchema = z
   })
   .superRefine((data, ctx) => {
     for (const [allocId, schedule] of Object.entries(data.schedules)) {
-      // Validate cliff_months <= duration_months
-      if (
-        schedule.cliff_months &&
-        schedule.cliff_months.trim() !== '' &&
-        schedule.duration_months &&
-        schedule.duration_months.trim() !== ''
-      ) {
-        const cliff = parseInt(schedule.cliff_months, 10)
-        const duration = parseInt(schedule.duration_months, 10)
-        if (!isNaN(cliff) && !isNaN(duration) && cliff > duration) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Cliff period cannot exceed vesting duration',
-            path: ['schedules', allocId, 'cliff_months'],
-          })
-        }
-      }
+      // NOTE: no cliff <= duration rule here. duration_months is the vesting
+      // period AFTER the cliff (the canonical engine in vesting.ts computes
+      // end = cliff + duration), so a long cliff with a shorter tail is a
+      // perfectly real schedule (e.g. Worldcoin community year 10: 108-month
+      // cliff, 72-month vesting). The old rule only made sense under a
+      // from-TGE reading and rejected legitimate data.
       // Validate tge_percentage + cliff_unlock_percentage <= 100
       if (
         schedule.tge_percentage &&

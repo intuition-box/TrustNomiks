@@ -40,6 +40,7 @@ import { SEGMENT_TYPE_OPTIONS } from '@/types/form'
 import { calculateTokenAmount, calculatePercentage } from '../form-helpers'
 import { useTokenForm } from '../token-form-context'
 import { SectionHeader, NotReadySection } from '../section-chrome'
+import { ImportFromDocument } from '../import/import-dialog'
 
 /** Section 3: Allocation — segment table with a live sum bar (soft 100% gate) and a segment-type guide sheet. */
 export function Step3Allocation() {
@@ -394,16 +395,19 @@ export function Step3Allocation() {
                 </SheetContent>
               </Sheet>
 
-              {/* Add Segment Button */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addSegment}
-                className="w-full"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Segment
-              </Button>
+              {/* Add Segment + Import */}
+              <div className="flex flex-col gap-2 @lg/form:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addSegment}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Segment
+                </Button>
+                <ImportFromDocument />
+              </div>
             </form>
           </Form>
         </div>
