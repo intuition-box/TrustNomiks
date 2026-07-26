@@ -157,7 +157,7 @@ export function FundingStep() {
                           <X className="h-4 w-4" />
                         </Button>
 
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 @lg/form:grid-cols-2">
                           {/* Round type */}
                           <FormField
                             control={step6Form.control}
@@ -374,7 +374,7 @@ export function FundingStep() {
                             control={step6Form.control}
                             name={`rounds.${index}.notes`}
                             render={({ field }) => (
-                              <FormItem className="md:col-span-2">
+                              <FormItem className="@lg/form:col-span-2">
                                 <FormLabel>Notes</FormLabel>
                                 <FormControl>
                                   <Input

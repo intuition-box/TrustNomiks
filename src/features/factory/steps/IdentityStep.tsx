@@ -123,7 +123,7 @@ export function IdentityStep() {
               )}
             />
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 @lg/form:grid-cols-2">
               {/* Category */}
               <FormField
                 control={step1Form.control}
