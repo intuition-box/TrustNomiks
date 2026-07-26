@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { buildPromotedTokenScore } from '@/lib/tokenomics/promote'
 import {
   computeFactoryScore,
   toSupportedCategory,
@@ -61,6 +62,8 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     setFinalScore,
     initialUpdatedAt,
     setInitialUpdatedAt,
+    setProjectStatus,
+    setPromotedTokenId,
     setCurrentStep,
     setIdentityGuideTarget,
     segmentGuideRowIndex,
@@ -101,6 +104,16 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     if (error.message?.includes('CONFLICT') || error.code === '40001') {
       toast.error(
         'This design was modified in another session. Please refresh and try again.',
+      )
+      return true
+    }
+    if (error.message?.includes('READONLY') || error.code === '55000') {
+      toast.error('This design has been promoted and is read-only.')
+      return true
+    }
+    if (error.message?.includes('INCOMPLETE')) {
+      toast.error(
+        'The design must be fully complete (100/100) before promotion.',
       )
       return true
     }
@@ -1084,8 +1097,82 @@ export function useFactorySaveHandlers(state: FactoryFormState) {
     }, 1200)
   }
 
+  /**
+   * Promote the finished design into a screener token. Irreversible: the RPC
+   * re-verifies the 100/100 gate from data, mints the token + children
+   * transactionally, and flips the design to read-only 'promoted'. The
+   * screener-scale score for the minted token is built here through
+   * buildPromotedTokenScore (the shared computeScores) and persisted by the
+   * RPC. Returns the new token id, or null on failure.
+   */
+  const handlePromote = async (): Promise<string | null> => {
+    if (!projectId) return null
+    try {
+      setLoading(true)
+
+      const s1 = step1Form.getValues()
+      const s3segments = step3Form.getValues('segments')
+      const s5 = step5Form.getValues()
+      const maxSupplyValue = step2Form.getValues('max_supply') || ''
+      const tgeUnlock = deriveTgeUnlock(
+        s3segments,
+        step4Form.getValues('schedules'),
+        maxSupplyValue,
+      )
+      const { clusterScores, totalScore } = buildPromotedTokenScore({
+        name: s1.name || null,
+        ticker: s1.ticker || null,
+        hasMaxSupply: Boolean(maxSupplyValue),
+        hasTgeSupply: tgeUnlock.tokens > 0,
+        allocations: s3segments.map((s) => ({
+          id: s.id ?? '',
+          percentage: parseDecimal(s.percentage) || 0,
+        })),
+        vestingCount: completedSteps.includes(4) ? 1 : 0,
+        emission: s5.type
+          ? {
+              type: s5.type,
+              annual_inflation_rate: s5.annual_inflation_rate ? 1 : null,
+              has_burn: s5.has_burn,
+              has_buyback: s5.has_buyback,
+            }
+          : null,
+      })
+
+      const { data, error } = await supabase.rpc('promote_factory_project_tx', {
+        p_project_id: projectId,
+        p_expected_updated_at: initialUpdatedAt,
+        p_token_completeness: totalScore,
+        p_token_cluster_scores: clusterScores,
+      })
+
+      if (error) {
+        if (handleRpcError(error)) return null
+        throw error
+      }
+
+      const result = data as {
+        token_id: string
+        updated_at: string
+        promoted_at: string
+      }
+      setInitialUpdatedAt(result.updated_at)
+      setProjectStatus('promoted')
+      setPromotedTokenId(result.token_id)
+      toast.success('Design promoted: the token now lives in the screener')
+      return result.token_id
+    } catch (error) {
+      console.error('Error promoting design:', error)
+      toast.error('Failed to promote the design')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return {
     handleRpcError,
+    handlePromote,
     onSubmitStep1,
     onSubmitStep2,
     onSubmitStep3,

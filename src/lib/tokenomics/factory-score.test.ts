@@ -28,7 +28,9 @@ const completeDesign = {
     { id: 'a3', percentage: 25 },
   ],
   vestingCount: 3,
-  emission: { type: 'fixed_cap', has_burn: true },
+  // Deliberately a PURE fixed cap (no burn, no buyback): the type alone must
+  // complete the emission cluster, or a BTC-style design can never reach 100.
+  emission: { type: 'fixed_cap' },
 }
 
 describe('computeFactoryScore', () => {
@@ -73,6 +75,19 @@ describe('computeFactoryScore', () => {
       ],
     })
     expect(clusterScores.allocation).toBe(10)
+  })
+
+  it('holds back the second emission point until a mechanic is declared', () => {
+    const bare = computeFactoryScore({
+      ...emptyDesign,
+      emission: { type: 'inflationary' },
+    })
+    expect(bare.clusterScores.emission).toBe(5)
+    const declared = computeFactoryScore({
+      ...emptyDesign,
+      emission: { type: 'inflationary', annual_inflation_rate: 4 },
+    })
+    expect(declared.clusterScores.emission).toBe(10)
   })
 
   it('keeps the cluster maxes summing to the raw ceiling', () => {

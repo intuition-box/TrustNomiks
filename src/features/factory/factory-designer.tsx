@@ -4,10 +4,12 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   Loader2,
   AlertCircle,
   CheckCircle2,
   Clock,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { GraphLoader } from '@/components/patterns/graph-loader'
@@ -74,7 +76,15 @@ export function FactoryDesigner() {
     nextSectionKey,
     handleContinue,
     handleFinish,
+    projectStatus,
+    promotedTokenId,
   } = useFactoryForm()
+
+  // A promoted design is a read-only archive: forms are disabled wholesale
+  // (fieldset), the autosave footer gives way to a lock notice, and the
+  // benchmark panel (a write surface) is hidden. The DB enforces the same
+  // lock server-side (readonly-guard trigger + draft-only write policies).
+  const isPromoted = projectStatus === 'promoted'
 
   // Show loading state while loading design data
   if (loadingProjectData) {
@@ -282,6 +292,27 @@ export function FactoryDesigner() {
         </div>
       </div>
 
+      {/* Read-only notice: the design was promoted into a screener token */}
+      {isPromoted && (
+        <div className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-success/30 bg-surface-1 px-4 py-3">
+          <p className="flex min-w-0 items-center gap-2 text-sm">
+            <Lock className="h-4 w-4 shrink-0 text-success" aria-hidden />
+            <span>
+              This design was promoted into a screener token and is now a
+              read-only archive.
+            </span>
+          </p>
+          {promotedTokenId && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/tokens/new?id=${promotedTokenId}`}>
+                Open token
+                <ArrowUpRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Mobile section rail */}
       <div className="mb-4 lg:hidden">
         <StudioSpine
@@ -308,13 +339,17 @@ export function FactoryDesigner() {
 
         {/* ── Active section ──────────────────────────────────────────────────── */}
         <div className="action-bar-clearance min-w-0 flex-1 space-y-5">
-          <IdentityStep />
-          <SupplyStep />
-          <AllocationStep />
-          <VestingStep />
-          <EmissionStep />
-          <FundingStep />
-          <ProjectionsStep />
+          {/* display:contents keeps the section spacing; disabled propagates
+              to every form control of every step when the design is promoted */}
+          <fieldset disabled={isPromoted} className="contents">
+            <IdentityStep />
+            <SupplyStep />
+            <AllocationStep />
+            <VestingStep />
+            <EmissionStep />
+            <FundingStep />
+            <ProjectionsStep />
+          </fieldset>
 
           {/* ── Studio footer: previous · autosave chip · continue / finish ───── */}
           <div className="glass sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 shadow-lg">
@@ -332,8 +367,40 @@ export function FactoryDesigner() {
                   : 'Back'}
               </span>
             </Button>
-            {autosaveChip}
-            {nextSectionKey ? (
+            {isPromoted ? (
+              <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock
+                  className="h-3.5 w-3.5 shrink-0 text-success"
+                  aria-hidden
+                />
+                Promoted: read-only archive
+              </span>
+            ) : (
+              autosaveChip
+            )}
+            {isPromoted ? (
+              nextSectionKey ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goSection(nextSectionKey, { skipSave: true })}
+                >
+                  <span className="hidden sm:inline">
+                    Next: {FACTORY_SECTION_LABELS[nextSectionKey]}
+                  </span>
+                  <span className="sm:hidden">Next</span>
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              ) : promotedTokenId ? (
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link href={`/tokens/new?id=${promotedTokenId}`}>
+                    Open token
+                    <ArrowUpRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                </Button>
+              ) : null
+            ) : nextSectionKey ? (
               <Button
                 type="button"
                 size="sm"
@@ -375,7 +442,7 @@ export function FactoryDesigner() {
             activeSection !== 'projections' && 'xl:block',
           )}
         >
-          <BenchmarkPanel />
+          {!isPromoted && <BenchmarkPanel />}
           <StudioGraphPane
             name={liveTokenName}
             ticker={liveTokenTicker}

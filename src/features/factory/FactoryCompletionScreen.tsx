@@ -3,6 +3,7 @@
 import { ArrowRight, FlaskConical, Plus, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useFactoryForm } from './factory-form-context'
+import { PromoteDesignCard } from './promote-design-card'
 import { ShareDesignCard } from './share-design-card'
 
 /** Post-save "Design saved" screen, shown once Finish is pressed on the
@@ -53,6 +54,8 @@ export function FactoryCompletionScreen() {
               </span>
             </div>
           </div>
+
+          {projectId && <PromoteDesignCard />}
 
           {projectId && <ShareDesignCard projectId={projectId} />}
 

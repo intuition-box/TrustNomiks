@@ -315,6 +315,18 @@ describe('computeScores', () => {
       expect(totalScore - clusterSum).toBe(10)
     })
 
+    it('adds +10 for a pure fixed cap (the type alone is the whole decision)', () => {
+      const d = emptyData()
+      d.emission = { type: 'fixed_cap' }
+      const { totalScore, clusterScores } = computeScores(d)
+      const clusterSum =
+        clusterScores.identity +
+        clusterScores.supply +
+        clusterScores.allocation +
+        clusterScores.vesting
+      expect(totalScore - clusterSum).toBe(10)
+    })
+
     it('adds +10 when emission.type and has_buyback present', () => {
       const d = emptyData()
       d.emission = { type: 'mixed', has_buyback: true }

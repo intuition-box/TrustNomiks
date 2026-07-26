@@ -25,6 +25,10 @@ export interface FactoryProject {
   benchmark_snapshot: FactoryBenchmarkSnapshot | null
   benchmark_snapshot_at: string | null
   notes: string | null
+  /** The screener token minted by promote_factory_project_tx (null until
+   *  promoted; SET NULL if that token is later deleted). */
+  promoted_token_id: string | null
+  promoted_at: string | null
   created_at: string
   updated_at: string
   created_by: string

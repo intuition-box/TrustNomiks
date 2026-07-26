@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { CheckCircle2, Clock, PlusCircle } from 'lucide-react'
+import { ArrowUpRight, CheckCircle2, Clock, PlusCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/composite/empty-state'
@@ -92,10 +92,13 @@ function FactoryHubInner() {
       ) : (
         <ul className="space-y-2">
           {projects.map((p) => (
-            <li key={p.id}>
+            <li
+              key={p.id}
+              className="flex items-center gap-2 rounded-xl border bg-surface-1 transition-colors hover:bg-surface-2"
+            >
               <Link
                 href={`/factory/new?id=${p.id}`}
-                className="flex items-center justify-between gap-4 rounded-xl border bg-surface-1 px-4 py-3 transition-colors hover:bg-surface-2"
+                className="flex min-w-0 flex-1 items-center justify-between gap-4 px-4 py-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="truncate font-medium">{p.name}</span>
@@ -113,6 +116,21 @@ function FactoryHubInner() {
                   </span>
                 </div>
               </Link>
+              {/* A promoted design links to the token it minted. Sibling of
+                  the row link: nested anchors are invalid HTML. */}
+              {p.status === 'promoted' && p.promoted_token_id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mr-2 shrink-0"
+                  asChild
+                >
+                  <Link href={`/tokens/new?id=${p.promoted_token_id}`}>
+                    Token
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                  </Link>
+                </Button>
+              )}
             </li>
           ))}
         </ul>

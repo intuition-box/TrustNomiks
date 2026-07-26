@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createClient } from '@/lib/supabase/client'
+import type { FactoryProjectStatus } from '@/types/factory'
 import {
   tokenIdentitySchema,
   supplyMetricsSchema,
@@ -103,6 +104,11 @@ export function useFactoryFormState() {
     useState<FactoryBenchmarkSnapshot | null>(null)
   const [initialUpdatedAt, setInitialUpdatedAt] = useState<string | null>(null)
   const [ownershipDenied, setOwnershipDenied] = useState(false)
+  // Promote lifecycle: a promoted design renders read-only and links to the
+  // screener token it minted.
+  const [projectStatus, setProjectStatus] =
+    useState<FactoryProjectStatus>('draft')
+  const [promotedTokenId, setPromotedTokenId] = useState<string | null>(null)
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [identityGuideTarget, setIdentityGuideTarget] = useState<
     'category' | 'sector' | null
@@ -360,6 +366,14 @@ export function useFactoryFormState() {
 
       // Store initial updated_at for optimistic locking
       setInitialUpdatedAt(projectData.updated_at)
+
+      // Promote lifecycle (a promoted design mounts read-only)
+      setProjectStatus(
+        (projectData.status as FactoryProjectStatus | null) ?? 'draft',
+      )
+      setPromotedTokenId(
+        (projectData.promoted_token_id as string | null) ?? null,
+      )
 
       // Hydrate the persisted benchmark snapshot (the design renders from it)
       setBenchmarkSnapshot(
@@ -715,6 +729,10 @@ export function useFactoryFormState() {
     setBenchmarkSnapshot,
     initialUpdatedAt,
     setInitialUpdatedAt,
+    projectStatus,
+    setProjectStatus,
+    promotedTokenId,
+    setPromotedTokenId,
     ownershipDenied,
     setOwnershipDenied,
     completedSteps,
