@@ -140,8 +140,10 @@ function vestingSummary(vesting: SuggestedVesting | null): string {
 export function ImportFromDocument() {
   const {
     append,
+    remove,
     appendSource,
     allocations,
+    step3Form,
     step4Form,
     step6Form,
     enqueueSave,
@@ -342,6 +344,23 @@ export function ImportFromDocument() {
       sourceIndex: null,
     }
 
+    // Sweep rows the user never touched (the seed row a fresh form starts
+    // with) so imported segments don't land behind an empty, invalid first
+    // row. Anything partially filled is the user's work and stays.
+    const existingSegments = step3Form.getValues('segments') ?? []
+    const untouched = existingSegments
+      .map((seg, index) => ({ seg, index }))
+      .filter(
+        ({ seg }) =>
+          !seg.label?.trim() &&
+          !seg.percentage?.trim() &&
+          !seg.segment_type &&
+          !seg.token_amount?.trim() &&
+          !seg.wallet_address?.trim(),
+      )
+      .map(({ index }) => index)
+    if (untouched.length > 0) remove(untouched)
+
     for (const segment of chosen) {
       append({
         id: crypto.randomUUID(),
@@ -384,7 +403,9 @@ export function ImportFromDocument() {
     selected,
     sourceUrl,
     append,
+    remove,
     appendSource,
+    step3Form,
     step6Form,
     queueAutosave,
     resetInputs,
