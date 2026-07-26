@@ -194,8 +194,12 @@ export function normalizeExtraction(
   }
 
   // R2: percentages relative to something other than a hard max supply must
-  // be flagged so the Supply section is filled accordingly.
-  if (raw.supply_basis === 'genesis') {
+  // be flagged so the Supply section is filled accordingly. Irrelevant when
+  // the source stated no percentages at all (e.g. a vesting-only complement).
+  const hasNewPercentages = newRaw.some((s) => s.percentage != null)
+  if (!hasNewPercentages) {
+    // nothing percentage-shaped to qualify
+  } else if (raw.supply_basis === 'genesis') {
     warnings.push(
       'Percentages are relative to the genesis/initial supply (no hard max supply in the source); fill Supply accordingly.',
     )

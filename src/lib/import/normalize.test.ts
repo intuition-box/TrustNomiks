@@ -191,13 +191,49 @@ describe('normalizeExtraction', () => {
       token_ticker: 'TIA',
       supply_basis: 'genesis',
       base_supply: 1_000_000_000,
-      segments: [],
+      segments: [
+        {
+          label: 'Public Allocation',
+          percentage: 20,
+          token_amount: null,
+          data_unavailable: false,
+          confidence: 'high',
+          matched_label: '',
+          vesting: null,
+          notes: '',
+        },
+      ],
       warnings: [],
     })
     expect(
       suggestions.warnings.some((w) => w.includes('genesis/initial supply')),
     ).toBe(true)
     expect(suggestions.baseSupply).toBe('1000000000')
+  })
+
+  it('stays silent about supply basis when no percentages were extracted', () => {
+    const suggestions = normalizeExtraction({
+      token_name: '',
+      token_ticker: '',
+      supply_basis: 'unknown',
+      base_supply: null,
+      segments: [
+        {
+          label: 'R&D & Ecosystem',
+          percentage: null,
+          token_amount: null,
+          data_unavailable: false,
+          confidence: 'high',
+          matched_label: '',
+          vesting: null,
+          notes: '',
+        },
+      ],
+      warnings: [],
+    })
+    expect(suggestions.warnings.some((w) => w.includes('which supply'))).toBe(
+      false,
+    )
   })
 })
 
