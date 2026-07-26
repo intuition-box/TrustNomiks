@@ -12,11 +12,13 @@ import {
 } from '@/lib/import/schemas'
 import { createClient } from '@/lib/supabase/server'
 
-// A vision extraction with adaptive thinking can run well past the default
-// serverless ceiling; give it room.
+// A vision extraction over a dense image can run past the default serverless
+// ceiling; give it room.
 export const maxDuration = 60
 
-const EXTRACT_MODEL = process.env.IMPORT_EXTRACT_MODEL ?? 'claude-opus-4-8'
+// Transcription from an image is a vision/OCR task, not a reasoning one, so
+// the lite tier without thinking is the right default; override per deploy.
+const EXTRACT_MODEL = process.env.IMPORT_EXTRACT_MODEL ?? 'claude-haiku-4-5'
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -92,7 +94,6 @@ export async function POST(request: Request) {
     const response = await anthropic.messages.parse({
       model: EXTRACT_MODEL,
       max_tokens: 16000,
-      thinking: { type: 'adaptive' },
       system: EXTRACTION_SYSTEM_PROMPT,
       messages: [{ role: 'user', content }],
       output_config: {
