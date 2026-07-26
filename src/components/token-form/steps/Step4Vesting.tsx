@@ -145,7 +145,7 @@ export function Step4Vesting() {
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="pt-4 pb-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 @lg/form:grid-cols-2 gap-4">
                             {/* Frequency */}
                             <FormField
                               control={step4Form.control}
@@ -303,7 +303,7 @@ export function Step4Vesting() {
                               control={step4Form.control}
                               name={`${scheduleKey}.notes` as any}
                               render={({ field }) => (
-                                <FormItem className="md:col-span-2">
+                                <FormItem className="@lg/form:col-span-2">
                                   <FormLabel>Notes</FormLabel>
                                   <FormControl>
                                     <Input

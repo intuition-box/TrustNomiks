@@ -225,7 +225,7 @@ function NewTokenPageInner() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl pb-16">
+    <div className="@container/studio mx-auto max-w-6xl pb-16">
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div className="space-y-2">
@@ -286,7 +286,7 @@ function NewTokenPageInner() {
         </div>
 
         {/* Mobile score (compact) */}
-        <div className="flex-shrink-0 rounded-xl border bg-surface-1 px-4 py-2.5 text-center lg:hidden">
+        <div className="flex-shrink-0 rounded-xl border bg-surface-1 px-4 py-2.5 text-center @4xl/studio:hidden">
           <div className="relative inline-block">
             <span className="tabular text-xl font-semibold">
               {liveTotalScore}
@@ -306,7 +306,7 @@ function NewTokenPageInner() {
       </div>
 
       {/* Mobile section rail */}
-      <div className="mb-4 lg:hidden">
+      <div className="mb-4 @4xl/studio:hidden">
         <StudioSpine
           orientation="horizontal"
           sections={spineSections}
@@ -319,7 +319,7 @@ function NewTokenPageInner() {
       {/* ── Studio layout: spine · active section · living graph ─────────────── */}
       <div className="flex items-start gap-6">
         {/* Spine (desktop) */}
-        <aside className="sticky top-20 hidden w-60 shrink-0 lg:block">
+        <aside className="sticky top-20 hidden w-60 shrink-0 @4xl/studio:block">
           <StudioSpine
             sections={spineSections}
             active={activeSection}
@@ -330,7 +330,7 @@ function NewTokenPageInner() {
         </aside>
 
         {/* ── Active section ──────────────────────────────────────────────────── */}
-        <div className="action-bar-clearance min-w-0 flex-1 space-y-5">
+        <div className="@container/form action-bar-clearance min-w-0 flex-1 space-y-5">
           {/* ── Section 1: Identity ───────────────────────────────────────────── */}
           <Step1Identity />
 
@@ -401,7 +401,7 @@ function NewTokenPageInner() {
         {/* end active section column */}
 
         {/* ── Living graph pane (desktop) ─────────────────────────────────────── */}
-        <aside className="sticky top-20 hidden w-72 shrink-0 xl:block">
+        <aside className="sticky top-20 hidden w-72 shrink-0 @[68rem]/studio:block">
           <StudioGraphPane
             name={liveTokenName}
             ticker={liveTokenTicker}

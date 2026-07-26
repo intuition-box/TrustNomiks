@@ -125,7 +125,7 @@ export function Step6Sources() {
                           <X className="h-4 w-4" />
                         </Button>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 @lg/form:grid-cols-2 gap-4">
                           {/* Source Type */}
                           <FormField
                             control={step6Form.control}
@@ -181,7 +181,7 @@ export function Step6Sources() {
                             control={step6Form.control}
                             name={`sources.${index}.url`}
                             render={({ field }) => (
-                              <FormItem className="md:col-span-2">
+                              <FormItem className="@lg/form:col-span-2">
                                 <FormLabel>URL *</FormLabel>
                                 <FormControl>
                                   <Input
@@ -363,7 +363,8 @@ export function Step6Sources() {
                                 })
                                 queueAutosave()
                               }}
-                              className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+                              title={srcLabel}
+                              className={`max-w-[11rem] truncate rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
                                 isSelected
                                   ? 'border-primary bg-primary text-primary-foreground'
                                   : 'border-border text-muted-foreground hover:border-primary/50'
@@ -403,6 +404,7 @@ export function Step6Sources() {
                               key={sf.id}
                               type="button"
                               aria-pressed={state === 'all'}
+                              title={srcLabel}
                               onClick={() => {
                                 const current =
                                   step6Form.getValues('attributions') ?? []
@@ -433,7 +435,9 @@ export function Step6Sources() {
                               {state === 'some' && (
                                 <Minus className="h-3 w-3" aria-hidden="true" />
                               )}
-                              {srcLabel}
+                              <span className="max-w-[10rem] truncate">
+                                {srcLabel}
+                              </span>
                             </button>
                           )
                         })}

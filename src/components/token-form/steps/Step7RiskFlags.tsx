@@ -117,7 +117,7 @@ export function Step7RiskFlags() {
                             <X className="h-4 w-4" />
                           </Button>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 @lg/form:grid-cols-2 gap-4">
                             {/* Risk Type */}
                             <FormField
                               control={step7Form.control}
@@ -196,7 +196,7 @@ export function Step7RiskFlags() {
                               control={step7Form.control}
                               name={`flags.${index}.justification`}
                               render={({ field }) => (
-                                <FormItem className="md:col-span-2">
+                                <FormItem className="@lg/form:col-span-2">
                                   <FormLabel>
                                     Justification (optional)
                                   </FormLabel>
@@ -217,7 +217,7 @@ export function Step7RiskFlags() {
                               control={step7Form.control}
                               name={`flags.${index}.is_flagged`}
                               render={({ field }) => (
-                                <FormItem className="md:col-span-2 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <FormItem className="@lg/form:col-span-2 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                                   <div className="space-y-0.5">
                                     <FormLabel className="text-base">
                                       Active Flag
