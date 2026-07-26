@@ -17,7 +17,7 @@ const emptyVesting: ExtractedVesting = {
   rate_percent_per_period: null,
   rate_period: null,
   start_offset_months: null,
-  notes: null,
+  notes: '',
 }
 
 describe('formatFormNumber', () => {
@@ -128,13 +128,13 @@ describe('normalizeSegment', () => {
       token_amount: 492_850_000,
       data_unavailable: true,
       confidence: 'high',
-      matched_label: null,
+      matched_label: '',
       vesting: {
         ...emptyVesting,
         // Even if the model hallucinated a schedule, data_unavailable wins.
         duration_months: 12,
       },
-      notes: null,
+      notes: '',
     })
     expect(segment.vesting).toBeNull()
     expect(segment.warnings.some((w) => w.includes('undocumented'))).toBe(true)
@@ -148,9 +148,9 @@ describe('normalizeSegment', () => {
       token_amount: null,
       data_unavailable: false,
       confidence: 'low',
-      matched_label: null,
+      matched_label: '',
       vesting: null,
-      notes: null,
+      notes: '',
     })
     expect(
       segment.warnings.some((w) => w.includes('low extraction confidence')),
@@ -172,9 +172,9 @@ describe('normalizeExtraction', () => {
           token_amount: null,
           data_unavailable: false,
           confidence: 'high',
-          matched_label: null,
+          matched_label: '',
           vesting: null,
-          notes: null,
+          notes: '',
         },
       ],
       warnings: [],
@@ -208,7 +208,7 @@ describe('enrichment matching (S1.1)', () => {
     data_unavailable: false,
     confidence: 'high' as const,
     vesting: null,
-    notes: null,
+    notes: '',
   }
   const existing = [
     { label: 'Team & Advisors', percentage: 20 },
@@ -262,8 +262,8 @@ describe('enrichment matching (S1.1)', () => {
   it('sums only NEW segments when enrichment rows are present', () => {
     const suggestions = normalizeExtraction(
       {
-        token_name: null,
-        token_ticker: null,
+        token_name: '',
+        token_ticker: '',
         supply_basis: 'max',
         base_supply: null,
         segments: [
@@ -277,7 +277,7 @@ describe('enrichment matching (S1.1)', () => {
             ...baseSeg,
             label: 'Liquidity',
             percentage: 5,
-            matched_label: null,
+            matched_label: '',
           },
         ],
         warnings: [],

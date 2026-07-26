@@ -21,7 +21,8 @@ export const extractedVestingSchema = z.object({
   rate_percent_per_period: z.number().nullable(),
   rate_period: z.enum(['day', 'month', 'year']).nullable(),
   start_offset_months: z.number().nullable(),
-  notes: z.string().nullable(),
+  /** Empty string when there is nothing to note (keeps the union count low). */
+  notes: z.string(),
 })
 
 export const extractedSegmentSchema = z.object({
@@ -33,16 +34,20 @@ export const extractedSegmentSchema = z.object({
   /**
    * When existing segment labels were provided with the request, the EXACT
    * existing label this round corresponds to (closed list, so the model can
-   * only point at a real segment), else null. Enrichment mode hangs on this.
+   * only point at a real segment), else the EMPTY STRING. A sentinel rather
+   * than null: the structured-output API caps union-typed fields at 16 and
+   * every nullable counts as one.
    */
-  matched_label: z.string().nullable(),
+  matched_label: z.string(),
   vesting: extractedVestingSchema.nullable(),
-  notes: z.string().nullable(),
+  /** Empty string when there is nothing to note. */
+  notes: z.string(),
 })
 
 export const extractionResultSchema = z.object({
-  token_name: z.string().nullable(),
-  token_ticker: z.string().nullable(),
+  /** Empty string when the source does not name the token. */
+  token_name: z.string(),
+  token_ticker: z.string(),
   supply_basis: z.enum(['max', 'genesis', 'unknown']),
   base_supply: z.number().nullable(),
   segments: z.array(extractedSegmentSchema),

@@ -122,7 +122,7 @@ export function normalizeSegment(
   // Enrichment guard: the model may only point at a label that is really in
   // the form (closed list). Anything else downgrades to a new segment.
   let matchedLabel: string | null = null
-  if (raw.matched_label != null) {
+  if (raw.matched_label) {
     const target = existing.find((e) => e.label === raw.matched_label)
     if (target) {
       matchedLabel = target.label
@@ -206,8 +206,8 @@ export function normalizeExtraction(
   }
 
   return {
-    tokenName: raw.token_name,
-    tokenTicker: raw.token_ticker,
+    tokenName: raw.token_name || null,
+    tokenTicker: raw.token_ticker || null,
     supplyBasis: raw.supply_basis,
     baseSupply:
       raw.base_supply != null ? formatFormNumber(raw.base_supply) : null,
