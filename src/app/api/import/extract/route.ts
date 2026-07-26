@@ -72,11 +72,19 @@ export async function POST(request: Request) {
       },
     })
   }
+  const existingBlock =
+    body.existing_segments && body.existing_segments.length > 0
+      ? `\n\nEXISTING allocation labels already in the analyst's form (for matched_label; use these exact strings or null):\n${body.existing_segments
+          .map((s) => `- ${s.label}`)
+          .join('\n')}`
+      : ''
   content.push({
     type: 'text',
-    text: body.text?.trim()
-      ? `Extract the tokenomics data from the following pasted content:\n\n${body.text}`
-      : 'Extract the tokenomics data from the attached image.',
+    text:
+      (body.text?.trim()
+        ? `Extract the tokenomics data from the following pasted content:\n\n${body.text}`
+        : 'Extract the tokenomics data from the attached image.') +
+      existingBlock,
   })
 
   const anthropic = new Anthropic()
@@ -99,7 +107,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      suggestions: normalizeExtraction(response.parsed_output),
+      suggestions: normalizeExtraction(
+        response.parsed_output,
+        body.existing_segments ?? [],
+      ),
     })
   } catch (err) {
     // Credential resolution is the SDK's job (env key, auth token, or an

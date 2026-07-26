@@ -8,7 +8,9 @@ import {
   FileUp,
   HelpCircle,
   ImageIcon,
+  Link2,
   Loader2,
+  Plus,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -137,7 +139,11 @@ function vestingSummary(vesting: SuggestedVesting | null): string {
   return parts.length > 0 ? parts.join(' · ') : 'No vesting suggested'
 }
 
-export function ImportFromDocument() {
+export function ImportFromDocument({
+  triggerLabel = 'Import from a document',
+}: {
+  triggerLabel?: string
+}) {
   const {
     append,
     remove,
@@ -162,108 +168,122 @@ export function ImportFromDocument() {
   const pendingRef = useRef<PendingImport | null>(null)
 
   /**
-   * Post-save bridge. Vesting rows and attribution rows only exist once the
-   * allocation section has been saved and rows carry their DB ids (the save
-   * resets Step 4's schedules from the DB, wiping anything set earlier). So
-   * the dialog parks vesting and attribution intents here and applies them
-   * when the saved allocations come back, matched by label.
+   * Bridge between the dialog and the saved allocations. Vesting rows and
+   * attribution rows only exist for allocations that carry their DB ids (the
+   * allocation save resets Step 4's schedules from the DB, wiping anything
+   * set earlier). Parked intents are applied against `allocs`, matched by
+   * label. Runs from two places: the effect below (new segments arriving
+   * after a save) and directly from apply (enriching already-saved segments,
+   * where no state change would re-fire the effect). Idempotent: applied
+   * intents are consumed.
    */
+  const runBridge = useCallback(
+    (allocs: typeof allocations) => {
+      const pending = pendingRef.current
+      if (!pending || allocs.length === 0) return
+
+      const matchedSegmentIds: string[] = []
+      const matchedVestingIds: string[] = []
+      let vestingApplied = false
+
+      for (const alloc of allocs) {
+        if (pending.segmentLabels.has(alloc.label)) {
+          matchedSegmentIds.push(alloc.id)
+        }
+        if (pending.vestingLabels.has(alloc.label)) {
+          matchedVestingIds.push(alloc.id)
+        }
+        const vesting = pending.vestingByLabel.get(alloc.label)
+        if (!vesting) continue
+
+        const base = `schedules.${alloc.id}` as const
+        /* eslint-disable @typescript-eslint/no-explicit-any -- record paths are dynamic, same pattern as Step4 */
+        step4Form.setValue(`${base}.allocation_id` as any, alloc.id, {
+          shouldDirty: true,
+        })
+        step4Form.setValue(`${base}.frequency` as any, vesting.frequency, {
+          shouldDirty: true,
+        })
+        step4Form.setValue(
+          `${base}.tge_percentage` as any,
+          vesting.tge_percentage,
+          {
+            shouldDirty: true,
+          },
+        )
+        step4Form.setValue(
+          `${base}.cliff_months` as any,
+          vesting.cliff_months,
+          {
+            shouldDirty: true,
+          },
+        )
+        step4Form.setValue(
+          `${base}.duration_months` as any,
+          vesting.duration_months,
+          {
+            shouldDirty: true,
+          },
+        )
+        step4Form.setValue(
+          `${base}.cliff_unlock_percentage` as any,
+          vesting.cliff_unlock_percentage,
+          { shouldDirty: true },
+        )
+        step4Form.setValue(`${base}.notes` as any, vesting.notes, {
+          shouldDirty: true,
+        })
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+        pending.vestingByLabel.delete(alloc.label)
+        vestingApplied = true
+      }
+
+      if (matchedSegmentIds.length === 0 && !vestingApplied) return
+
+      // D3: pre-check the imported source on the claims it documents. Rebuild
+      // with the same helper the provider effect uses so both converge.
+      if (pending.sourceIndex != null && matchedSegmentIds.length > 0) {
+        const idxStr = String(pending.sourceIndex)
+        const current = step6Form.getValues('attributions') ?? []
+        const rebuilt = buildDefaultAttributions(allocs, current)
+        const updated = rebuilt.map((row) => {
+          const documented =
+            (row.claim_type === 'allocation_segment' &&
+              row.claim_id != null &&
+              matchedSegmentIds.includes(row.claim_id)) ||
+            (row.claim_type === 'vesting_schedule' &&
+              row.claim_id != null &&
+              matchedVestingIds.includes(row.claim_id))
+          if (!documented || row.data_source_ids.includes(idxStr)) return row
+          return { ...row, data_source_ids: [...row.data_source_ids, idxStr] }
+        })
+        step6Form.setValue('attributions', updated, { shouldDirty: true })
+      }
+
+      const sourcesTouched = pending.sourceIndex != null
+      if (pending.vestingByLabel.size === 0) {
+        pendingRef.current = null
+      } else {
+        pending.segmentLabels.clear()
+      }
+
+      void (async () => {
+        if (vestingApplied) {
+          const valid = await step4Form.trigger()
+          if (valid) await enqueueSave(() => saveSectionRef.current('vesting'))
+        }
+        if (sourcesTouched) {
+          const valid = await step6Form.trigger()
+          if (valid) await enqueueSave(() => saveSectionRef.current('sources'))
+        }
+      })()
+    },
+    [step4Form, step6Form, enqueueSave, saveSectionRef],
+  )
+
   useEffect(() => {
-    const pending = pendingRef.current
-    if (!pending || allocations.length === 0) return
-
-    const matchedSegmentIds: string[] = []
-    const matchedVestingIds: string[] = []
-    let vestingApplied = false
-
-    for (const alloc of allocations) {
-      if (pending.segmentLabels.has(alloc.label)) {
-        matchedSegmentIds.push(alloc.id)
-      }
-      if (pending.vestingLabels.has(alloc.label)) {
-        matchedVestingIds.push(alloc.id)
-      }
-      const vesting = pending.vestingByLabel.get(alloc.label)
-      if (!vesting) continue
-
-      const base = `schedules.${alloc.id}` as const
-      /* eslint-disable @typescript-eslint/no-explicit-any -- record paths are dynamic, same pattern as Step4 */
-      step4Form.setValue(`${base}.allocation_id` as any, alloc.id, {
-        shouldDirty: true,
-      })
-      step4Form.setValue(`${base}.frequency` as any, vesting.frequency, {
-        shouldDirty: true,
-      })
-      step4Form.setValue(
-        `${base}.tge_percentage` as any,
-        vesting.tge_percentage,
-        {
-          shouldDirty: true,
-        },
-      )
-      step4Form.setValue(`${base}.cliff_months` as any, vesting.cliff_months, {
-        shouldDirty: true,
-      })
-      step4Form.setValue(
-        `${base}.duration_months` as any,
-        vesting.duration_months,
-        {
-          shouldDirty: true,
-        },
-      )
-      step4Form.setValue(
-        `${base}.cliff_unlock_percentage` as any,
-        vesting.cliff_unlock_percentage,
-        { shouldDirty: true },
-      )
-      step4Form.setValue(`${base}.notes` as any, vesting.notes, {
-        shouldDirty: true,
-      })
-      /* eslint-enable @typescript-eslint/no-explicit-any */
-      pending.vestingByLabel.delete(alloc.label)
-      vestingApplied = true
-    }
-
-    if (matchedSegmentIds.length === 0 && !vestingApplied) return
-
-    // D3: pre-check the imported source on the claims it documents. Rebuild
-    // with the same helper the provider effect uses so both converge.
-    if (pending.sourceIndex != null && matchedSegmentIds.length > 0) {
-      const idxStr = String(pending.sourceIndex)
-      const current = step6Form.getValues('attributions') ?? []
-      const rebuilt = buildDefaultAttributions(allocations, current)
-      const updated = rebuilt.map((row) => {
-        const documented =
-          (row.claim_type === 'allocation_segment' &&
-            row.claim_id != null &&
-            matchedSegmentIds.includes(row.claim_id)) ||
-          (row.claim_type === 'vesting_schedule' &&
-            row.claim_id != null &&
-            matchedVestingIds.includes(row.claim_id))
-        if (!documented || row.data_source_ids.includes(idxStr)) return row
-        return { ...row, data_source_ids: [...row.data_source_ids, idxStr] }
-      })
-      step6Form.setValue('attributions', updated, { shouldDirty: true })
-    }
-
-    const sourcesTouched = pending.sourceIndex != null
-    if (pending.vestingByLabel.size === 0) {
-      pendingRef.current = null
-    } else {
-      pending.segmentLabels.clear()
-    }
-
-    void (async () => {
-      if (vestingApplied) {
-        const valid = await step4Form.trigger()
-        if (valid) await enqueueSave(() => saveSectionRef.current('vesting'))
-      }
-      if (sourcesTouched) {
-        const valid = await step6Form.trigger()
-        if (valid) await enqueueSave(() => saveSectionRef.current('sources'))
-      }
-    })()
-  }, [allocations, step4Form, step6Form, enqueueSave, saveSectionRef])
+    runBridge(allocations)
+  }, [allocations, runBridge])
 
   const attachImageFile = useCallback(async (file: File) => {
     const png = await fileToPngBase64(file)
@@ -312,6 +332,17 @@ export function ImportFromDocument() {
           text: text.trim() || undefined,
           image: image ?? undefined,
           source_url: sourceUrl.trim() || undefined,
+          // Segments already in the form let the extractor propose
+          // enrichments (vesting attached to an existing round) instead of
+          // duplicating it as a new segment.
+          existing_segments: (step3Form.getValues('segments') ?? [])
+            .filter((seg) => seg.label?.trim())
+            .map((seg) => ({
+              label: seg.label,
+              percentage: seg.percentage?.trim()
+                ? Number(seg.percentage)
+                : null,
+            })),
         }),
       })
       const payload = await response.json().catch(() => ({}))
@@ -330,12 +361,17 @@ export function ImportFromDocument() {
     } finally {
       setExtracting(false)
     }
-  }, [text, image, sourceUrl])
+  }, [text, image, sourceUrl, step3Form])
 
   const handleApply = useCallback(() => {
     if (!suggestions) return
     const chosen = suggestions.segments.filter((_, i) => selected.has(i))
     if (chosen.length === 0) return
+
+    // Enrichments attach vesting to segments already in the form and never
+    // touch their allocation fields; fresh rows become new segments.
+    const enrichments = chosen.filter((s) => s.matchedLabel != null)
+    const fresh = chosen.filter((s) => s.matchedLabel == null)
 
     const pending: PendingImport = {
       vestingByLabel: new Map(),
@@ -344,24 +380,26 @@ export function ImportFromDocument() {
       sourceIndex: null,
     }
 
-    // Sweep rows the user never touched (the seed row a fresh form starts
-    // with) so imported segments don't land behind an empty, invalid first
-    // row. Anything partially filled is the user's work and stays.
-    const existingSegments = step3Form.getValues('segments') ?? []
-    const untouched = existingSegments
-      .map((seg, index) => ({ seg, index }))
-      .filter(
-        ({ seg }) =>
-          !seg.label?.trim() &&
-          !seg.percentage?.trim() &&
-          !seg.segment_type &&
-          !seg.token_amount?.trim() &&
-          !seg.wallet_address?.trim(),
-      )
-      .map(({ index }) => index)
-    if (untouched.length > 0) remove(untouched)
+    if (fresh.length > 0) {
+      // Sweep rows the user never touched (the seed row a fresh form starts
+      // with) so imported segments don't land behind an empty, invalid first
+      // row. Anything partially filled is the user's work and stays.
+      const existingSegments = step3Form.getValues('segments') ?? []
+      const untouched = existingSegments
+        .map((seg, index) => ({ seg, index }))
+        .filter(
+          ({ seg }) =>
+            !seg.label?.trim() &&
+            !seg.percentage?.trim() &&
+            !seg.segment_type &&
+            !seg.token_amount?.trim() &&
+            !seg.wallet_address?.trim(),
+        )
+        .map(({ index }) => index)
+      if (untouched.length > 0) remove(untouched)
+    }
 
-    for (const segment of chosen) {
+    for (const segment of fresh) {
       append({
         id: crypto.randomUUID(),
         segment_type: '',
@@ -374,6 +412,15 @@ export function ImportFromDocument() {
       if (segment.vesting) {
         pending.vestingByLabel.set(segment.label, segment.vesting)
         pending.vestingLabels.add(segment.label)
+      }
+    }
+
+    for (const segment of enrichments) {
+      const target = segment.matchedLabel as string
+      pending.segmentLabels.add(target)
+      if (segment.vesting) {
+        pending.vestingByLabel.set(target, segment.vesting)
+        pending.vestingLabels.add(target)
       }
     }
 
@@ -392,10 +439,23 @@ export function ImportFromDocument() {
     }
 
     pendingRef.current = pending
+    // Enriched segments are usually saved already, so no allocations-state
+    // change will re-fire the effect: run the bridge against them now. New
+    // segments are picked up later, when their save brings the DB ids back.
+    runBridge(allocations)
     queueAutosave()
-    toast.info(
-      `${chosen.length} segment${chosen.length > 1 ? 's' : ''} imported. Set each segment type to save them.`,
-    )
+    const parts: string[] = []
+    if (fresh.length > 0) {
+      parts.push(
+        `${fresh.length} segment${fresh.length > 1 ? 's' : ''} imported (set each segment type to save them)`,
+      )
+    }
+    if (enrichments.length > 0) {
+      parts.push(
+        `${enrichments.length} existing segment${enrichments.length > 1 ? 's' : ''} enriched with vesting`,
+      )
+    }
+    toast.info(parts.join(' · '))
     setOpen(false)
     resetInputs()
   }, [
@@ -405,6 +465,8 @@ export function ImportFromDocument() {
     append,
     remove,
     appendSource,
+    allocations,
+    runBridge,
     step3Form,
     step6Form,
     queueAutosave,
@@ -422,7 +484,7 @@ export function ImportFromDocument() {
       <DialogTrigger asChild>
         <Button type="button" variant="outline" className="w-full">
           <FileUp className="mr-2 h-4 w-4" aria-hidden />
-          Import from a document
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
@@ -563,6 +625,17 @@ export function ImportFromDocument() {
                         </span>
                       )}
                       {confidenceBadge(segment.confidence)}
+                      {segment.matchedLabel ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs">
+                          <Link2 className="h-3 w-3" aria-hidden />
+                          enriches &quot;{segment.matchedLabel}&quot;
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                          <Plus className="h-3 w-3" aria-hidden />
+                          new segment
+                        </span>
+                      )}
                     </span>
                     <span className="block text-xs text-muted-foreground">
                       {segment.dataUnavailable

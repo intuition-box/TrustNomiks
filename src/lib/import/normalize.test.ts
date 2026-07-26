@@ -128,6 +128,7 @@ describe('normalizeSegment', () => {
       token_amount: 492_850_000,
       data_unavailable: true,
       confidence: 'high',
+      matched_label: null,
       vesting: {
         ...emptyVesting,
         // Even if the model hallucinated a schedule, data_unavailable wins.
@@ -147,6 +148,7 @@ describe('normalizeSegment', () => {
       token_amount: null,
       data_unavailable: false,
       confidence: 'low',
+      matched_label: null,
       vesting: null,
       notes: null,
     })
@@ -170,6 +172,7 @@ describe('normalizeExtraction', () => {
           token_amount: null,
           data_unavailable: false,
           confidence: 'high',
+          matched_label: null,
           vesting: null,
           notes: null,
         },
@@ -195,5 +198,93 @@ describe('normalizeExtraction', () => {
       suggestions.warnings.some((w) => w.includes('genesis/initial supply')),
     ).toBe(true)
     expect(suggestions.baseSupply).toBe('1000000000')
+  })
+})
+
+describe('enrichment matching (S1.1)', () => {
+  const baseSeg = {
+    percentage: null,
+    token_amount: null,
+    data_unavailable: false,
+    confidence: 'high' as const,
+    vesting: null,
+    notes: null,
+  }
+  const existing = [
+    { label: 'Team & Advisors', percentage: 20 },
+    { label: 'Early Backers: Seed', percentage: 15.9 },
+  ]
+
+  it('accepts a model match against the closed list and keeps the form %', () => {
+    const seg = normalizeSegment(
+      {
+        ...baseSeg,
+        label: 'Core Contributors',
+        percentage: 19.67,
+        matched_label: 'Team & Advisors',
+      },
+      existing,
+    )
+    expect(seg.matchedLabel).toBe('Team & Advisors')
+    expect(seg.warnings.some((w) => w.includes('is kept'))).toBe(false)
+  })
+
+  it('surfaces a rounding gap above tolerance without reconciling it', () => {
+    const seg = normalizeSegment(
+      {
+        ...baseSeg,
+        label: 'Core Contributors',
+        percentage: 17.6,
+        matched_label: 'Team & Advisors',
+      },
+      existing,
+    )
+    expect(seg.matchedLabel).toBe('Team & Advisors')
+    expect(
+      seg.warnings.some((w) => w.includes('your allocation figure is kept')),
+    ).toBe(true)
+  })
+
+  it('downgrades a match pointing outside the closed list to a new segment', () => {
+    const seg = normalizeSegment(
+      {
+        ...baseSeg,
+        label: 'Marketing',
+        percentage: 5,
+        matched_label: 'Ghost Segment',
+      },
+      existing,
+    )
+    expect(seg.matchedLabel).toBeNull()
+    expect(seg.warnings.some((w) => w.includes('not in the form'))).toBe(true)
+  })
+
+  it('sums only NEW segments when enrichment rows are present', () => {
+    const suggestions = normalizeExtraction(
+      {
+        token_name: null,
+        token_ticker: null,
+        supply_basis: 'max',
+        base_supply: null,
+        segments: [
+          {
+            ...baseSeg,
+            label: 'Team',
+            percentage: 19.7,
+            matched_label: 'Team & Advisors',
+          },
+          {
+            ...baseSeg,
+            label: 'Liquidity',
+            percentage: 5,
+            matched_label: null,
+          },
+        ],
+        warnings: [],
+      },
+      existing,
+    )
+    // 5% of new segments is partial and flagged; the 19.7 enrichment is not counted.
+    expect(suggestions.warnings.some((w) => w.includes('sum to 5%'))).toBe(true)
   })
 })

@@ -30,6 +30,12 @@ export const extractedSegmentSchema = z.object({
   token_amount: z.number().nullable(),
   data_unavailable: z.boolean(),
   confidence: z.enum(['high', 'medium', 'low']),
+  /**
+   * When existing segment labels were provided with the request, the EXACT
+   * existing label this round corresponds to (closed list, so the model can
+   * only point at a real segment), else null. Enrichment mode hangs on this.
+   */
+  matched_label: z.string().nullable(),
   vesting: extractedVestingSchema.nullable(),
   notes: z.string().nullable(),
 })
@@ -59,6 +65,16 @@ export const extractRequestSchema = z
       })
       .optional(),
     source_url: z.string().url().optional(),
+    /** Segments already in the form (label + held %), for enrichment matching. */
+    existing_segments: z
+      .array(
+        z.object({
+          label: z.string().min(1).max(120),
+          percentage: z.number().nullable(),
+        }),
+      )
+      .max(60)
+      .optional(),
   })
   .refine((body) => Boolean(body.text?.trim()) || Boolean(body.image), {
     message: 'Provide pasted text or an image',
@@ -85,6 +101,8 @@ export interface SuggestedSegment {
   token_amount: string
   confidence: 'high' | 'medium' | 'low'
   dataUnavailable: boolean
+  /** Existing segment this row enriches (validated against the form), or null for a new segment. */
+  matchedLabel: string | null
   vesting: SuggestedVesting | null
   warnings: string[]
 }

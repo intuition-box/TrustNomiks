@@ -107,9 +107,42 @@ export function normalizeVesting(
   }
 }
 
-export function normalizeSegment(raw: ExtractedSegment): SuggestedSegment {
+export interface ExistingSegmentRef {
+  label: string
+  percentage: number | null
+}
+
+export function normalizeSegment(
+  raw: ExtractedSegment,
+  existing: ExistingSegmentRef[] = [],
+): SuggestedSegment {
   const warnings: string[] = []
   let vesting: SuggestedVesting | null = null
+
+  // Enrichment guard: the model may only point at a label that is really in
+  // the form (closed list). Anything else downgrades to a new segment.
+  let matchedLabel: string | null = null
+  if (raw.matched_label != null) {
+    const target = existing.find((e) => e.label === raw.matched_label)
+    if (target) {
+      matchedLabel = target.label
+      // Float tolerance (R2/rounding): percentages from two sources rarely
+      // agree to the decimal. The existing allocation stays authoritative;
+      // a large gap is surfaced, never silently reconciled.
+      if (raw.percentage != null && target.percentage != null) {
+        const delta = Math.abs(raw.percentage - target.percentage)
+        if (delta > 0.75) {
+          warnings.push(
+            `${raw.label}: this source states ${formatFormNumber(raw.percentage)}% but the segment "${target.label}" holds ${formatFormNumber(target.percentage)}%; your allocation figure is kept.`,
+          )
+        }
+      }
+    } else {
+      warnings.push(
+        `${raw.label}: the extractor pointed at "${raw.matched_label}", which is not in the form; treated as a new segment.`,
+      )
+    }
+  }
 
   if (raw.data_unavailable) {
     warnings.push(
@@ -134,18 +167,24 @@ export function normalizeSegment(raw: ExtractedSegment): SuggestedSegment {
       raw.token_amount != null ? formatFormNumber(raw.token_amount) : '',
     confidence: raw.confidence,
     dataUnavailable: raw.data_unavailable,
+    matchedLabel,
     vesting,
     warnings,
   }
 }
 
-export function normalizeExtraction(raw: ExtractionResult): ImportSuggestions {
+export function normalizeExtraction(
+  raw: ExtractionResult,
+  existing: ExistingSegmentRef[] = [],
+): ImportSuggestions {
   const warnings = [...raw.warnings]
-  const segments = raw.segments.map(normalizeSegment)
+  const segments = raw.segments.map((s) => normalizeSegment(s, existing))
 
-  // R4/soft gate: the sum is informative, never blocking.
-  const total = raw.segments.reduce((sum, s) => sum + (s.percentage ?? 0), 0)
-  if (raw.segments.some((s) => s.percentage != null)) {
+  // R4/soft gate: the sum is informative, never blocking. Only NEW segments
+  // count: enrichment rows re-describe allocations already in the form.
+  const newRaw = raw.segments.filter((s, i) => segments[i].matchedLabel == null)
+  const total = newRaw.reduce((sum, s) => sum + (s.percentage ?? 0), 0)
+  if (newRaw.some((s) => s.percentage != null)) {
     const rounded = Math.round(total * 100) / 100
     if (Math.abs(rounded - 100) > 0.5) {
       warnings.push(

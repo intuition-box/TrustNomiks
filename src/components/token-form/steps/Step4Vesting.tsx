@@ -30,6 +30,7 @@ import { VESTING_FREQUENCY_OPTIONS, formatSegmentTypeLabel } from '@/types/form'
 import { formatTokenAmount } from '../form-helpers'
 import { useTokenForm } from '../token-form-context'
 import { SectionHeader, NotReadySection } from '../section-chrome'
+import { ImportFromDocument } from '../import/import-dialog'
 
 /** Section 4: Vesting — per-allocation schedules (cliff, duration, frequency, TGE unlock). */
 export function Step4Vesting() {
@@ -352,6 +353,10 @@ export function Step4Vesting() {
                   })}
                 </Accordion>
                 {/* eslint-enable @typescript-eslint/no-explicit-any */}
+
+                {/* Vesting rides with imports: a source pasted here attaches
+                    schedules to the existing segments (matched by round). */}
+                <ImportFromDocument triggerLabel="Import vesting from a document" />
               </form>
             </Form>
           )}
