@@ -40,8 +40,11 @@ insert into public.factory_vesting_schedules
   (allocation_id, cliff_months, duration_months, frequency, tge_percentage, cliff_unlock_percentage)
 values ('00000000-0000-0000-0000-0000000000b1', 12, 36, 'monthly', 5, 10);
 
-insert into public.factory_emission_models (project_id, type, has_burn)
-values ('00000000-0000-0000-0000-0000000000f1', 'fixed_cap', true);
+-- Deliberately a PURE fixed cap (no burn, no buyback): the type alone must
+-- complete the emission cluster (20260726), or a BTC-style design can never
+-- clear the gate.
+insert into public.factory_emission_models (project_id, type)
+values ('00000000-0000-0000-0000-0000000000f1', 'fixed_cap');
 
 -- P2: an INCOMPLETE design (2 allocations, no vesting, no emission).
 insert into public.factory_projects (id, name, ticker, category, sector, status, created_by)
@@ -55,6 +58,30 @@ insert into public.factory_allocation_segments (project_id, segment_type, label,
 values
   ('00000000-0000-0000-0000-0000000000f2', 'team-founders', 'Team', 60),
   ('00000000-0000-0000-0000-0000000000f2', 'treasury', 'Treasury', 40);
+
+-- P3: complete EXCEPT emission (inflationary with no declared mechanic):
+-- the fixed_cap exemption must NOT leak to other types.
+insert into public.factory_projects (id, name, ticker, category, sector, status, created_by)
+values ('00000000-0000-0000-0000-0000000000f3', 'Bare Inflation', 'BRI',
+        'financial', 'cex', 'draft', '00000000-0000-0000-0000-000000000031');
+
+insert into public.factory_supply_metrics (project_id, max_supply)
+values ('00000000-0000-0000-0000-0000000000f3', 800000000);
+
+insert into public.factory_allocation_segments (id, project_id, segment_type, label, percentage)
+values
+  ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000f3',
+   'team-founders', 'Team', 40),
+  ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000f3',
+   'treasury', 'Treasury', 35),
+  ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000f3',
+   'liquidity', 'Liquidity', 25);
+
+insert into public.factory_vesting_schedules (allocation_id, cliff_months, duration_months, frequency)
+values ('00000000-0000-0000-0000-0000000000c1', 6, 24, 'monthly');
+
+insert into public.factory_emission_models (project_id, type)
+values ('00000000-0000-0000-0000-0000000000f3', 'inflationary');
 
 set local role authenticated;
 
@@ -85,6 +112,16 @@ select tst.throws(
         where id='00000000-0000-0000-0000-0000000000f2'), null, null) $$,
   'INCOMPLETE',
   'promote: incomplete design -> INCOMPLETE');
+
+-- Emission gate: inflationary WITHOUT a declared mechanic stays incomplete
+-- (the fixed_cap exemption is type-scoped).
+select tst.throws(
+  $$ select promote_factory_project_tx(
+       '00000000-0000-0000-0000-0000000000f3',
+       (select updated_at from factory_projects
+        where id='00000000-0000-0000-0000-0000000000f3'), null, null) $$,
+  'INCOMPLETE',
+  'promote: bare inflationary emission -> INCOMPLETE');
 
 -- The owner promotes the complete design.
 select tst.lives(
@@ -136,10 +173,10 @@ select tst.eq(
   1::bigint,
   'promote: vesting schedule follows its allocation');
 select tst.ok(
-  (select type='fixed_cap' and has_burn from emission_models where token_id =
+  (select type='fixed_cap' and not has_burn from emission_models where token_id =
     (select promoted_token_id from factory_projects
      where id='00000000-0000-0000-0000-0000000000f1')),
-  'promote: emission model copied');
+  'promote: emission model copied (pure fixed cap)');
 
 -- Promoting again is rejected: the design is read-only now.
 select tst.throws(

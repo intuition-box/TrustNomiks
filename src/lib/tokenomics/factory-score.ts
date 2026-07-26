@@ -104,10 +104,15 @@ export function computeFactoryScore(data: {
   // Vesting (max 20)
   if (data.vestingCount > 0) clusters.vesting += 20
 
-  // Emission (max 10)
+  // Emission (max 10). A fixed cap IS the whole emission decision: there is
+  // no rate, burn or buyback left to declare, so the type alone completes the
+  // cluster (otherwise a pure BTC-style design would cap at 94 and never
+  // clear the promote gate). Every other type earns the second half by
+  // declaring at least one mechanic.
   if (data.emission?.type) {
     clusters.emission += 5
     if (
+      data.emission.type === 'fixed_cap' ||
       data.emission.annual_inflation_rate ||
       data.emission.has_burn ||
       data.emission.has_buyback
