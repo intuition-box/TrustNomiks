@@ -12,6 +12,10 @@ import {
 } from '@/lib/import/schemas'
 import { createClient } from '@/lib/supabase/server'
 
+// A vision extraction with adaptive thinking can run well past the default
+// serverless ceiling; give it room.
+export const maxDuration = 60
+
 const EXTRACT_MODEL = process.env.IMPORT_EXTRACT_MODEL ?? 'claude-opus-4-8'
 
 export async function POST(request: Request) {
