@@ -51,7 +51,34 @@ interface PendingImport {
   sourceIndex: number | null
 }
 
-const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const
+/**
+ * Normalize any pasted or picked image to PNG through a canvas. This kills a
+ * whole class of clipboard quirks at once: Safari pasting TIFF from "Copy
+ * Image", Finder file copies, and formats the API would reject. Very large
+ * captures are downscaled (retina screenshots) to stay well under the
+ * request-size cap without hurting table legibility.
+ */
+async function fileToPngBase64(file: File): Promise<PastedImage | null> {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const MAX_EDGE = 2400
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const dataUrl = canvas.toDataURL('image/png')
+    return {
+      media_type: 'image/png',
+      data: dataUrl.slice(dataUrl.indexOf(',') + 1),
+    }
+  } catch {
+    return null
+  }
+}
 
 function guessSourceType(url: string): string {
   const lower = url.toLowerCase()
@@ -236,31 +263,31 @@ export function ImportFromDocument() {
     })()
   }, [allocations, step4Form, step6Form, enqueueSave, saveSectionRef])
 
-  const handlePaste = useCallback((event: React.ClipboardEvent) => {
-    for (const item of event.clipboardData.items) {
-      if (
-        ACCEPTED_IMAGE_TYPES.includes(
-          item.type as (typeof ACCEPTED_IMAGE_TYPES)[number],
-        )
-      ) {
-        const file = item.getAsFile()
-        if (!file) continue
-        event.preventDefault()
-        const reader = new FileReader()
-        reader.onload = () => {
-          const dataUrl = String(reader.result)
-          const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
-          setImage({
-            media_type: item.type as PastedImage['media_type'],
-            data: base64,
-          })
-          setError(null)
-        }
-        reader.readAsDataURL(file)
-        return
-      }
+  const attachImageFile = useCallback(async (file: File) => {
+    const png = await fileToPngBase64(file)
+    if (png) {
+      setImage(png)
+      setError(null)
+    } else {
+      setError('Could not read this image; save it as PNG and try again')
     }
   }, [])
+
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent) => {
+      // DataTransferItems are only valid DURING the event: extract the File
+      // synchronously and never touch `item` again afterwards (Safari empties
+      // the list, item.type reads back as '').
+      const item = Array.from(event.clipboardData.items).find(
+        (i) => i.kind === 'file' && i.type.startsWith('image/'),
+      )
+      const file = item?.getAsFile()
+      if (!file) return
+      event.preventDefault()
+      void attachImageFile(file)
+    },
+    [attachImageFile],
+  )
 
   const resetInputs = useCallback(() => {
     setText('')
@@ -399,26 +426,43 @@ export function ImportFromDocument() {
                 placeholder="Paste copied text here, or paste a screenshot (Cmd+V) of an allocation table, vesting schedule, or pie chart."
                 className="min-h-[140px]"
               />
-              {image && (
+              {image ? (
                 <div className="flex items-center justify-between rounded-md border bg-surface-2 px-3 py-2 text-sm">
                   <span className="inline-flex items-center gap-2">
                     <ImageIcon
                       className="h-4 w-4 text-data-source"
                       aria-hidden
                     />
-                    Screenshot attached (
-                    {image.media_type.replace('image/', '')})
+                    Image attached
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setImage(null)}
-                    aria-label="Remove the pasted screenshot"
+                    aria-label="Remove the attached image"
                   >
                     <X className="h-4 w-4" aria-hidden />
                   </Button>
                 </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No screenshot yet:{' '}
+                  <label className="cursor-pointer underline underline-offset-2 hover:text-foreground">
+                    choose an image file
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) void attachImageFile(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>{' '}
+                  or paste one above.
+                </p>
               )}
             </div>
 
