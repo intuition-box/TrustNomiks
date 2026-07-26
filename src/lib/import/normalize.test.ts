@@ -34,7 +34,8 @@ describe('formatFormNumber', () => {
 describe('normalizeVesting', () => {
   it('derives duration from a monthly rate (Jito core contributors)', () => {
     // 1y cliff, 33.3% at cliff, then 2.78%/month: (100-33.3)/2.78 = 24 months
-    // of linear vesting after the cliff -> 36 months total from TGE.
+    // of vesting after the cliff. duration_months is the post-cliff span
+    // (the canonical engine computes end = cliff + duration).
     const { vesting, warnings } = normalizeVesting(
       {
         ...emptyVesting,
@@ -46,7 +47,7 @@ describe('normalizeVesting', () => {
       },
       'Core Contributors',
     )
-    expect(vesting.duration_months).toBe('36')
+    expect(vesting.duration_months).toBe('24')
     expect(vesting.frequency).toBe('monthly')
     expect(vesting.cliff_unlock_percentage).toBe('33.3')
     expect(warnings).toHaveLength(0)
@@ -83,7 +84,7 @@ describe('normalizeVesting', () => {
       'TFH Reserve',
     )
     expect(vesting.cliff_months).toBe('24')
-    expect(vesting.duration_months).toBe('48')
+    expect(vesting.duration_months).toBe('36')
     expect(vesting.notes).toContain('after TGE')
   })
 
@@ -102,19 +103,29 @@ describe('normalizeVesting', () => {
     expect(warnings.some((w) => w.includes('disagrees'))).toBe(true)
   })
 
-  it('warns when cliff exceeds duration and when unlocks exceed 100%', () => {
+  it('accepts a cliff longer than the vesting tail (Worldcoin year 10)', () => {
+    const { vesting, warnings } = normalizeVesting(
+      {
+        ...emptyVesting,
+        cliff_months: 108,
+        duration_months: 72,
+        frequency: 'daily',
+      },
+      'Community Year 10',
+    )
+    expect(vesting.cliff_months).toBe('108')
+    expect(vesting.duration_months).toBe('72')
+    expect(warnings).toHaveLength(0)
+  })
+
+  it('warns when unlocks exceed 100%', () => {
     const { warnings } = normalizeVesting(
       {
         ...emptyVesting,
         tge_percentage: 60,
         cliff_unlock_percentage: 50,
-        cliff_months: 24,
-        duration_months: 12,
       },
       'Broken',
-    )
-    expect(warnings.some((w) => w.includes('exceeds total duration'))).toBe(
-      true,
     )
     expect(warnings.some((w) => w.includes('exceeds 100%'))).toBe(true)
   })

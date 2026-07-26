@@ -195,25 +195,20 @@ describe('vestingSchedulesSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('rejects cliff_months > duration_months with error on cliff_months', () => {
+  it('accepts a cliff longer than the post-cliff vesting period', () => {
+    // duration_months is the vesting period AFTER the cliff (the canonical
+    // engine computes end = cliff + duration), so a long lockup with a
+    // shorter tail is legitimate data: Worldcoin's community year-10 round
+    // is a 108-month cliff followed by 72 months of daily vesting.
     const result = vestingSchedulesSchema.safeParse({
       schedules: {
         alloc1: {
-          cliff_months: '15',
-          duration_months: '12',
+          cliff_months: '108',
+          duration_months: '72',
         },
       },
     })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const issue = findIssue(result.error, [
-        'schedules',
-        'alloc1',
-        'cliff_months',
-      ])
-      expect(issue).toBeDefined()
-      expect(issue!.message).toMatch(/cliff/i)
-    }
+    expect(result.success).toBe(true)
   })
 
   it('accepts tge_percentage + cliff_unlock_percentage <= 100', () => {

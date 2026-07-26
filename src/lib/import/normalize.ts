@@ -45,7 +45,6 @@ export function normalizeVesting(
   // cliff so the timeline stays truthful from the TGE reference point.
   if (raw.start_offset_months && raw.start_offset_months > 0) {
     cliff = (cliff ?? 0) + raw.start_offset_months
-    if (duration != null) duration += raw.start_offset_months
     noteParts.push(
       `Vesting starts ${formatFormNumber(raw.start_offset_months)} months after TGE; folded into the cliff.`,
     )
@@ -61,7 +60,8 @@ export function normalizeVesting(
         : raw.rate_period === 'year'
           ? periods * 12
           : periods
-    const derived = Math.round((cliff ?? 0) + monthsOfLinear)
+    // duration_months is the post-cliff span (canonical engine semantics).
+    const derived = Math.round(monthsOfLinear)
 
     if (duration == null) {
       duration = derived
@@ -80,13 +80,8 @@ export function normalizeVesting(
     }
   }
 
-  // Constraint guards mirroring the form's superRefine rules: flag, never
+  // Constraint guard mirroring the form's superRefine rule: flag, never
   // silently rewrite user-visible numbers.
-  if (cliff != null && duration != null && cliff > duration) {
-    warnings.push(
-      `${segmentLabel}: cliff (${formatFormNumber(cliff)} months) exceeds total duration (${formatFormNumber(duration)} months); check the source.`,
-    )
-  }
   if ((tge ?? 0) + (cliffUnlock ?? 0) > 100) {
     warnings.push(
       `${segmentLabel}: TGE unlock plus cliff unlock exceeds 100%; check the source.`,
