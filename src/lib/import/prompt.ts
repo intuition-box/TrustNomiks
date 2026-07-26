@@ -9,7 +9,7 @@ Transcribe what the source states. Never infer, average, or invent a number that
 
 Rules:
 - One segment per allocation round or bucket, in source order. Do not merge rows that the source keeps separate, even when their names are similar (e.g. several "Community" tranches).
-- If a chart shows a sub-split inside a slice (e.g. 20% split into 7.41% + 12.59%), emit the sub-parts as separate segments so the total still sums correctly, and say so in the segment notes.
+- If a chart shows a sub-split inside one slice (e.g. a 20% slice split into 7.41% + 12.59%), emit ONLY the two sub-parts as separate segments and do NOT also emit the 20% parent slice. Emitting both double-counts and breaks the 100% total. Record the parent grouping in each sub-part's notes.
 - Labels: reconstruct truncated labels (an on-screen "Community (Launc..." becomes "Community (Launch)") and set confidence to "low" for any label you had to reconstruct or guess.
 - If the source explicitly marks a bucket as untracked or unavailable, set data_unavailable to true and do NOT fill its vesting.
 - Percentages: report them exactly as stated. Set supply_basis to "max" when the source states a hard max/total cap the percentages refer to, "genesis" when they refer to an initial/genesis supply of an inflationary token, "unknown" otherwise. base_supply is that reference supply if stated.
