@@ -36,6 +36,14 @@ describe('buildPromotedTokenScore', () => {
     expect(totalScore).toBe(65)
   })
 
+  it('scores a pure fixed cap identically (the type completes emission)', () => {
+    const { totalScore } = buildPromotedTokenScore({
+      ...fullDesign,
+      emission: { type: 'fixed_cap' },
+    })
+    expect(totalScore).toBe(65)
+  })
+
   it('drops the +5 launch-figure point without a derived TGE unlock', () => {
     const { totalScore } = buildPromotedTokenScore({
       ...fullDesign,

@@ -741,7 +741,7 @@ export function useTokenFormState() {
     (Math.abs(_lw3total - 100) < 0.01 ? 10 : 0)
   const liveVestingScore = completedSteps.includes(4) ? 20 : 0
   const liveEmissionScore = _lw5type
-    ? 5 + (_lw5infl || _lw5burn || _lw5buy ? 5 : 0)
+    ? 5 + (_lw5type === 'fixed_cap' || _lw5infl || _lw5burn || _lw5buy ? 5 : 0)
     : 0
   const liveSourcesScore = _lw6srcs.length >= 1 ? 10 : 0
   const liveTotalScore = Math.min(

@@ -29,3 +29,4 @@
 20260720_add_factory_simulation_snapshots.sql
 20260725_add_factory_promote.sql
 20260726_fixed_cap_completes_emission.sql
+20260727_backfill_fixed_cap_emission_scores.sql

@@ -105,11 +105,16 @@ export function computeScores(data: {
   // Vesting (max 20)
   if (data.vestingCount > 0) clusters.vesting += 20
 
-  // Non-cluster extras
+  // Non-cluster extras. A fixed cap IS the whole emission decision: there is
+  // no rate, burn or buyback left to declare, so the type alone earns the
+  // full emission extra (same rule as the Factory scorer; a pure BTC-style
+  // token otherwise caps below 100 forever). Every other type earns the
+  // second half by declaring at least one mechanic.
   let extras = 0
   if (data.emission?.type) {
     extras += 5
     if (
+      data.emission.type === 'fixed_cap' ||
       data.emission.annual_inflation_rate ||
       data.emission.has_burn ||
       data.emission.has_buyback
