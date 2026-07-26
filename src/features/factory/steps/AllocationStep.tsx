@@ -191,7 +191,7 @@ export function AllocationStep() {
                         </Button>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 @lg/form:grid-cols-2 gap-4">
                         {/* Segment Type */}
                         <FormField
                           control={step3Form.control}
@@ -335,7 +335,7 @@ export function AllocationStep() {
                           control={step3Form.control}
                           name={`segments.${index}.wallet_address`}
                           render={({ field }) => (
-                            <FormItem className="md:col-span-2">
+                            <FormItem className="@lg/form:col-span-2">
                               <FormLabel>Wallet Address (optional)</FormLabel>
                               <FormControl>
                                 <Input

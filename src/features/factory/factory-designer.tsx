@@ -222,7 +222,7 @@ export function FactoryDesigner() {
   }
 
   return (
-    <div className="mx-auto max-w-screen-2xl pb-16">
+    <div className="@container/studio mx-auto max-w-screen-2xl pb-16">
       {/* ── Page header ──────────────────────────────────────────────────────── */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div className="space-y-2">
@@ -273,7 +273,7 @@ export function FactoryDesigner() {
         </div>
 
         {/* Mobile score (compact) */}
-        <div className="flex-shrink-0 rounded-xl border bg-surface-1 px-4 py-2.5 text-center lg:hidden">
+        <div className="flex-shrink-0 rounded-xl border bg-surface-1 px-4 py-2.5 text-center @4xl/studio:hidden">
           <div className="relative inline-block">
             <span className="tabular text-xl font-semibold">
               {liveTotalScore}
@@ -314,7 +314,7 @@ export function FactoryDesigner() {
       )}
 
       {/* Mobile section rail */}
-      <div className="mb-4 lg:hidden">
+      <div className="mb-4 @4xl/studio:hidden">
         <StudioSpine
           orientation="horizontal"
           sections={spineSections}
@@ -327,7 +327,7 @@ export function FactoryDesigner() {
       {/* ── Studio layout: spine · active section · living graph ─────────────── */}
       <div className="flex items-start gap-6">
         {/* Spine (desktop) */}
-        <aside className="sticky top-20 hidden w-60 shrink-0 lg:block">
+        <aside className="sticky top-20 hidden w-60 shrink-0 @4xl/studio:block">
           <StudioSpine
             sections={spineSections}
             active={activeSection}
@@ -338,7 +338,7 @@ export function FactoryDesigner() {
         </aside>
 
         {/* ── Active section ──────────────────────────────────────────────────── */}
-        <div className="action-bar-clearance min-w-0 flex-1 space-y-5">
+        <div className="@container/form action-bar-clearance min-w-0 flex-1 space-y-5">
           {/* display:contents keeps the section spacing; disabled propagates
               to every form control of every step when the design is promoted */}
           <fieldset disabled={isPromoted} className="contents">
@@ -439,7 +439,7 @@ export function FactoryDesigner() {
         <aside
           className={cn(
             'sticky top-20 hidden w-72 shrink-0 space-y-4',
-            activeSection !== 'projections' && 'xl:block',
+            activeSection !== 'projections' && '@[68rem]/studio:block',
           )}
         >
           {!isPromoted && <BenchmarkPanel />}
