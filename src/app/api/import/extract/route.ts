@@ -42,16 +42,6 @@ export async function POST(request: Request) {
     )
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      {
-        error:
-          'Extraction is not configured on this deployment (missing ANTHROPIC_API_KEY)',
-      },
-      { status: 503 },
-    )
-  }
-
   const { allowed, retryAfterSeconds } = checkImportRateLimit(user.id)
   if (!allowed) {
     return NextResponse.json(
@@ -112,6 +102,17 @@ export async function POST(request: Request) {
       suggestions: normalizeExtraction(response.parsed_output),
     })
   } catch (err) {
+    // Credential resolution is the SDK's job (env key, auth token, or an
+    // `ant auth login` profile); only its failure means "not configured".
+    if (err instanceof Anthropic.AuthenticationError) {
+      return NextResponse.json(
+        {
+          error:
+            'Extraction is not configured on this deployment (no Anthropic credential)',
+        },
+        { status: 503 },
+      )
+    }
     if (err instanceof Anthropic.RateLimitError) {
       return NextResponse.json(
         { error: 'Extraction service is busy, retry in a minute' },
